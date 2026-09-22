@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#04070d" />
+    <title>Chat — AI Sight</title>
+    <link rel="stylesheet" href="../css/main.css?v=17" />
+    <link rel="stylesheet" href="../css/accessibility.css?v=6" />
+    <link rel="stylesheet" href="../css/responsive.css?v=8" />
+  </head>
+  <body class="page-panel has-dock chat-page">
+    <main class="app-shell chat-shell">
+      <header class="brand contacts-head">
+        <div class="brand-copy">
+          <p class="brand-kicker">Chat</p>
+          <h1 id="chat-title">Messages</h1>
+        </div>
+      </header>
+      <p id="chat-status" class="status-bar" role="status" aria-live="polite"></p>
+      <section id="chat-thread" class="chat-thread" aria-label="Messages"></section>
+      <form id="chat-form" class="chat-composer">
+        <div class="chat-bar">
+          <button class="btn icon-btn chat-tool" id="chat-photo" type="button" aria-label="Send a picture">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="8" cy="11" r="1.5"/><path d="M21 16l-5-5-7 7"/></svg>
+          </button>
+          <button class="btn icon-btn chat-tool" id="chat-voice" type="button" aria-label="Record a voice note">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg>
+          </button>
+          <button class="btn icon-btn chat-tool" id="chat-location" type="button" aria-label="Send location">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-7 7-12a7 7 0 10-14 0c0 5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
+          </button>
+          <label class="sr-only" for="chat-input">Message</label>
+          <input id="chat-input" name="body" type="text" placeholder="Message" autocomplete="off" />
+          <button class="chat-send" id="chat-send" type="submit" aria-label="Send">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l18-9-7 18-2-7-9-2z"/></svg>
+          </button>
+        </div>
+        <input id="chat-file" class="sr-only" type="file" accept="image/*" capture="environment" />
+      </form>
+    </main>
+    <nav class="dock" aria-label="Main">
+      <a class="dock-btn" href="./home.html" aria-label="Live camera"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/></svg></a>
+      <a class="dock-btn" href="./navigation.html" aria-label="Navigation"><svg viewBox="0 0 24 24"><path d="M12 3l7 18-7-3-7 3z"/></svg></a>
+      <a class="dock-btn is-active" href="./contacts.html" aria-label="Contacts"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c1.5-4 12.5-4 14 0"/></svg></a>
+      <a class="dock-btn" href="./contacts.html" aria-label="Video call"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="11" height="10" rx="2"/><path d="M14 10l7-3v10l-7-3z"/></svg></a>
+      <a class="dock-btn" href="./settings.html" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg></a>
+    </nav>
+    <script type="module" src="../js/chatPage.js?v=5"></script>
+  </body>
+</html>

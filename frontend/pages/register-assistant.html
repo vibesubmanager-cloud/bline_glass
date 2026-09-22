@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#04070d" />
+    <title>Assistant account — AI Sight</title>
+    <link rel="stylesheet" href="../css/main.css?v=16" />
+    <link rel="stylesheet" href="../css/accessibility.css?v=6" />
+    <link rel="stylesheet" href="../css/responsive.css?v=8" />
+  </head>
+  <body class="page-panel">
+    <a class="skip-link" href="#register-form">Skip to registration form</a>
+    <main class="app-shell">
+      <header class="brand">
+        <p class="brand-kicker">Assistant</p>
+        <h1>Create your account</h1>
+        <p>Link to a blind person with their system ID or QR code.</p>
+      </header>
+      <p id="form-status" class="status-bar" role="status" aria-live="polite"></p>
+      <form id="register-form" class="form-card">
+        <div class="field-row">
+          <label>First name <input type="text" name="first_name" autocomplete="given-name" required minlength="2" /></label>
+          <label>Surname <input type="text" name="last_name" autocomplete="family-name" required minlength="1" /></label>
+        </div>
+        <label>Username <input type="text" name="username" autocomplete="username" required minlength="3" maxlength="32" /></label>
+        <label>Email <input type="email" name="email" autocomplete="email" required /></label>
+        <label>Phone number <input type="tel" name="phone" autocomplete="tel" /></label>
+        <label>Password <input type="password" name="password" autocomplete="new-password" required minlength="8" /></label>
+        <article class="card">
+          <strong>Blind person system ID</strong>
+          <p>Type it, or scan their QR code from Settings.</p>
+          <label>System ID <input id="system-id" name="system_id" type="text" required placeholder="AIS-XXXXXX" /></label>
+          <div class="auth-actions">
+            <button class="btn" id="lookup-btn" type="button">Find person</button>
+            <button class="btn" id="scan-btn" type="button">Scan QR</button>
+            <label class="btn wide">Use QR photo <input id="qr-file" class="sr-only" type="file" accept="image/*" capture="environment" /></label>
+          </div>
+          <video id="scan-video" class="scan-video hidden" playsinline muted></video>
+          <button class="btn hidden" id="stop-scan" type="button">Stop camera</button>
+          <button class="btn lookup-result lookup-person hidden" id="lookup-card" type="button"></button>
+        </article>
+        <fieldset class="choice-grid">
+          <legend>Who are you to this person?</legend>
+          <label class="choice-chip"><input type="radio" name="relationship" value="son" required /><span>Son</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="daughter" /><span>Daughter</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="brother" /><span>Brother</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="sister" /><span>Sister</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="mother" /><span>Mother</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="father" /><span>Father</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="family" /><span>Family</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="friend" /><span>Friend</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="caregiver" /><span>Caregiver</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="other" /><span>Other</span></label>
+        </fieldset>
+        <button class="btn primary" type="submit">Create assistant account</button>
+      </form>
+      <p class="auth-footer">
+        <a class="text-link" href="./login.html?role=assistant">I already have an account</a>
+      </p>
+    </main>
+    <script type="module">
+      import { api, ApiError } from "../js/api.js?v=12";
+      import { afterAuth } from "../js/auth.js?v=12";
+      import { extractSystemId, startQrScan, readQrFromFile } from "../js/qr.js?v=11";
+      import { voice } from "../js/voice.js?v=11";
+
+      const form = document.getElementById("register-form");
+      const status = document.getElementById("form-status");
+      const systemInput = document.getElementById("system-id");
+      const card = document.getElementById("lookup-card");
+      const video = document.getElementById("scan-video");
+      const stopScan = document.getElementById("stop-scan");
+      let scanner = null;
+      let confirmedId = "";
+
+      function showStatus(message) {
+        status.textContent = message;
+        voice.speak(message);
+      }
+
+      async function lookup(id) {
+        const systemId = extractSystemId(id) || String(id || "").trim().toUpperCase();
+        if (!systemId) {
+          showStatus("Enter a system ID first.");
+          return;
+        }
+        systemInput.value = systemId;
+        try {
+          const data = await api(`/api/auth/lookup-id?system_id=${encodeURIComponent(systemId)}`);
+          const profile = data.profile;
+          confirmedId = profile.system_id;
+          card.classList.remove("hidden");
+          card.innerHTML = `<strong>${profile.name}</strong><small>Tap to confirm this is the person you help.</small>`;
+          showStatus(`I found ${profile.name}. Tap the name to confirm.`);
+        } catch (error) {
+          confirmedId = "";
+          card.classList.add("hidden");
+          showStatus(error instanceof ApiError ? error.message : "I could not find that person.");
+        }
+      }
+
+      document.getElementById("lookup-btn").addEventListener("click", () => lookup(systemInput.value));
+      card.addEventListener("click", () => {
+        if (!confirmedId) return;
+        systemInput.value = confirmedId;
+        const name = card.querySelector("strong")?.textContent || "This person";
+        showStatus(`${name} is confirmed.`);
+      });
+
+      async function beginScan() {
+        try {
+          video.classList.remove("hidden");
+          stopScan.classList.remove("hidden");
+          scanner = await startQrScan(video, (value) => {
+            systemInput.value = value;
+            video.classList.add("hidden");
+            stopScan.classList.add("hidden");
+            lookup(value);
+          });
+          if (!scanner.supported) {
+            showStatus("This browser cannot scan QR codes live. Type the ID or use a photo.");
+          }
+        } catch (error) {
+          showStatus(error.message);
+        }
+      }
+
+      document.getElementById("scan-btn").addEventListener("click", beginScan);
+      stopScan.addEventListener("click", () => {
+        scanner?.stop();
+        video.classList.add("hidden");
+        stopScan.classList.add("hidden");
+      });
+      document.getElementById("qr-file").addEventListener("change", async (event) => {
+        const file = event.target.files?.[0];
+        try {
+          const value = await readQrFromFile(file);
+          if (!value) {
+            showStatus("I could not read a system ID from that photo.");
+            return;
+          }
+          systemInput.value = value;
+          lookup(value);
+        } catch (error) {
+          showStatus(error.message);
+        }
+      });
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const submit = form.querySelector("button[type='submit']");
+        submit.disabled = true;
+        const data = Object.fromEntries(new FormData(form).entries());
+        data.role = "assistant";
+        data.system_id = confirmedId || extractSystemId(data.system_id) || data.system_id;
+        try {
+          status.textContent = "Creating account…";
+          const result = await api("/api/auth/register", { method: "POST", body: data });
+          afterAuth(result);
+        } catch (error) {
+          submit.disabled = false;
+          showStatus(error instanceof ApiError ? error.message : "I couldn't complete that request.");
+        }
+      });
+    </script>
+  </body>
+</html>

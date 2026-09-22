@@ -1,0 +1,12 @@
+# Vibe Eye backend
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+api-trace.log
+*.db
+*.pt
+*.onnx
+.pytest_cache/
+instance/message_media/

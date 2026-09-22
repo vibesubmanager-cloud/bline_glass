@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#04070d" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="AI Sight" />
+    <title>AI Sight</title>
+    <link rel="stylesheet" href="../css/main.css?v=21" />
+    <link rel="stylesheet" href="../css/accessibility.css?v=6" />
+    <link rel="stylesheet" href="../css/responsive.css?v=8" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="manifest" href="../manifest.json" />
+  </head>
+  <body>
+    <a class="skip-link" href="#interaction-zone">Skip to camera</a>
+    <div class="stage">
+      <video id="camera-preview" class="stage-video" playsinline muted autoplay aria-hidden="true"></video>
+      <canvas id="detect-canvas" class="stage-canvas" aria-hidden="true"></canvas>
+      <button
+        id="interaction-zone"
+        class="stage-hit"
+        type="button"
+        aria-label="Hold to speak. Double tap to start or stop object detection."
+      ></button>
+
+      <header class="hud-top">
+        <div class="brand-mark">
+          <strong>AI Sight</strong>
+          <span>See more. Live better.</span>
+        </div>
+        <div class="hud-pills">
+          <span id="live-pill" class="pill"><span class="dot"></span>LIVE</span>
+          <span id="gps-pill" class="pill"><span class="dot"></span>GPS</span>
+          <span id="mic-pill" class="pill"><span class="dot"></span>MIC</span>
+          <span id="net-pill" class="pill is-on"><span class="dot"></span>NET</span>
+        </div>
+      </header>
+
+      <p id="live-status" class="sr-only" aria-live="assertive"></p>
+      <p id="status-text" class="hud-status" role="status"></p>
+      <div id="location-banner" class="location-banner hidden" role="dialog" aria-label="Location access">
+        <p>Allow location so walking directions can start. Use Safari, then Add to Home Screen from the https page.</p>
+        <button id="location-allow" class="btn primary" type="button">Allow location</button>
+        <p id="location-denied" class="hidden">On iPhone home screen: Settings → AI Sight → Location → While Using. Also turn on Settings → Privacy & Security → Location Services.</p>
+      </div>
+
+      <div id="listen-overlay" class="listen-overlay hidden" aria-hidden="true">
+        <div class="mic-glow"></div>
+        Listening...
+        <div class="wave" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+      </div>
+      <div id="ai-overlay" class="ai-overlay hidden" role="status"></div>
+
+      <section id="nav-panel" class="nav-panel hidden" aria-label="Navigation">
+        <button id="nav-close" class="nav-close" type="button" aria-label="Close map">×</button>
+        <div id="nav-map" class="nav-map" role="img" aria-label="Live route map"></div>
+        <canvas id="route-canvas" class="hidden" aria-hidden="true"></canvas>
+        <div class="nav-copy">
+          <strong id="nav-instruction">Follow the route.</strong>
+          <span id="nav-meta"></span>
+        </div>
+      </section>
+
+      <section id="call-overlay" class="call-overlay hidden" aria-label="Call">
+        <p id="call-status-text">Calling</p>
+        <video id="remote-video" autoplay playsinline muted></video>
+        <video id="local-video" class="local-video hidden" autoplay playsinline muted></video>
+        <div class="call-controls">
+          <button id="call-answer" class="ok hidden" type="button" aria-label="Answer call">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12l4 4 8-8"/></svg>
+          </button>
+          <button id="call-decline" class="danger hidden" type="button" aria-label="Decline call">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+          <button id="call-mute" type="button" aria-label="Mute microphone">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+          </button>
+          <button id="call-camera" type="button" aria-label="Toggle camera">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="11" height="10" rx="2"/><path d="M14 10l7-3v10l-7-3z"/></svg>
+          </button>
+          <button id="call-end" class="danger" type="button" aria-label="End call">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15c4-4 8-4 12 0"/><path d="M8 18l-2-3 3-1M16 18l2-3-3-1"/></svg>
+          </button>
+        </div>
+      </section>
+
+      <section id="dest-sheet" class="sheet hidden" aria-label="Start navigation">
+        <form id="dest-form" class="form-stack">
+          <label for="dest-input">Destination</label>
+          <input id="dest-input" name="destination" required placeholder="Jagat Market" autocomplete="off" />
+          <button class="btn primary" type="submit">Start navigation</button>
+          <button class="btn" id="dest-close" type="button">Cancel</button>
+        </form>
+      </section>
+
+      <form id="fallback-form" class="form-stack hidden-command hidden">
+        <label class="sr-only" for="fallback-input">Type a command</label>
+        <input id="fallback-input" type="text" autocomplete="off" placeholder="Type a command" />
+      </form>
+
+      <div id="call-banner" class="call-banner" role="status"></div>
+      <audio id="remote-audio" autoplay></audio>
+      <audio id="tts-player" playsinline webkit-playsinline hidden></audio>
+
+      <nav class="dock" aria-label="Main">
+        <a class="dock-btn is-active" href="./home.html" aria-label="Live camera">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/></svg>
+        </a>
+        <button class="dock-btn" id="dock-nav" type="button" aria-label="Navigation">
+          <svg viewBox="0 0 24 24"><path d="M12 3l7 18-7-3-7 3z"/></svg>
+        </button>
+        <a class="dock-btn" href="./contacts.html" aria-label="Contacts">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c1.5-4 12.5-4 14 0"/></svg>
+        </a>
+        <button class="dock-btn" id="dock-call" type="button" aria-label="Video call">
+          <svg viewBox="0 0 24 24"><rect x="3" y="7" width="11" height="10" rx="2"/><path d="M14 10l7-3v10l-7-3z"/></svg>
+        </button>
+        <a class="dock-btn" href="./settings.html" aria-label="Settings">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/></svg>
+        </a>
+      </nav>
+    </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module" src="../js/app.js?v=51"></script>
+  </body>
+</html>

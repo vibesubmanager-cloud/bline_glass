@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin — AI Sight</title>
+    <link rel="stylesheet" href="../css/admin.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="sidebar">
+        <h1>AI Sight Admin</h1>
+        <button class="nav-btn active" data-section="users" type="button">Users</button>
+        <button class="nav-btn" data-section="keys" type="button">API keys</button>
+        <button class="nav-btn" data-section="test" type="button">Test</button>
+        <button class="sign-out" id="sign-out" type="button">Sign out</button>
+      </aside>
+      <main class="content">
+        <p id="status" class="status" role="status"></p>
+
+        <section id="section-users">
+          <div id="users-home">
+            <h2>Users</h2>
+            <p class="muted">Blind people and the assistants they talk with.</p>
+            <div class="toolbar">
+              <label>Search <input id="user-search" placeholder="Name, username, email, phone, ID" /></label>
+              <label>Role
+                <select id="user-role">
+                  <option value="">All</option>
+                  <option value="blind">Blind person</option>
+                  <option value="assistant">Assistant</option>
+                </select>
+              </label>
+              <button class="btn ghost" id="refresh-users" type="button">Refresh</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>System ID</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="users-table"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="user-detail" class="hidden">
+            <button class="back" id="back-users" type="button">← All users</button>
+            <h2 id="detail-title">User</h2>
+            <div class="grid-2">
+              <form class="card" id="user-form">
+                <h3>Account</h3>
+                <label>First name <input name="first_name" /></label>
+                <label>Last name <input name="last_name" /></label>
+                <label>Username <input name="username" required /></label>
+                <label>Email <input name="email" type="email" required /></label>
+                <label>Phone <input name="phone" /></label>
+                <label>New password <input name="password" type="password" placeholder="Leave blank to keep" /></label>
+                <label>Health notes <textarea name="health_notes"></textarea></label>
+                <label>Other notes <textarea name="other_notes"></textarea></label>
+                <label><input name="is_active" type="checkbox" /> Account is active</label>
+                <button class="btn primary" type="submit">Save account</button>
+              </form>
+              <div class="card">
+                <h3>Who they communicate with</h3>
+                <div id="people-box"></div>
+              </div>
+            </div>
+            <div class="grid-2" style="margin-top: 16px">
+              <div class="card">
+                <h3>Messages</h3>
+                <div id="threads-box"></div>
+                <div id="thread-box" class="msg-list" style="margin-top: 12px"></div>
+              </div>
+              <div class="card">
+                <h3>What they use</h3>
+                <div id="usage-box"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-keys" class="hidden">
+          <h2>API keys</h2>
+          <p class="muted">Add up to 20 Gemini keys and 20 Groq keys. If one fails, the app tries the next working key.</p>
+          <div class="grid-2">
+            <div class="card" data-provider="gemini">
+              <h3>Gemini vision keys</h3>
+              <form class="key-form">
+                <label>Label <input name="label" placeholder="Vision key 1" /></label>
+                <label>API key <input name="key" required autocomplete="off" /></label>
+                <button class="btn primary" type="submit">Add Gemini key</button>
+              </form>
+              <div class="key-list"></div>
+              <p class="muted">Use the Test section to try a photo with a Gemini key.</p>
+            </div>
+            <div class="card" data-provider="groq">
+              <h3>Groq keys</h3>
+              <form class="key-form">
+                <label>Label <input name="label" placeholder="Talk key 1" /></label>
+                <label>API key <input name="key" required autocomplete="off" /></label>
+                <button class="btn primary" type="submit">Add Groq key</button>
+              </form>
+              <div class="key-list"></div>
+              <p class="muted">Use the Test section to send “hi” and see if it replies.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-test" class="hidden">
+          <h2>Test</h2>
+          <p class="muted">Try a key here first. Upload a photo for Gemini, or type hi for a text reply.</p>
+          <div class="grid-2">
+            <form class="card" id="gemini-test-form">
+              <h3>Test Gemini with a photo</h3>
+              <label>Gemini key
+                <select id="gemini-test-key" name="key_id" required>
+                  <option value="">Save a Gemini key first</option>
+                </select>
+              </label>
+              <label>Photo <input id="gemini-test-image" name="image" type="file" accept="image/jpeg,image/png,image/webp,image/jpg" required /></label>
+              <img id="gemini-test-preview" class="preview-img hidden" alt="Photo to test" />
+              <label>Optional question <input name="text" placeholder="Leave blank to describe the photo" /></label>
+              <button class="btn primary" type="submit">Test photo</button>
+              <pre id="gemini-test-reply" class="reply-box"></pre>
+            </form>
+            <form class="card" id="text-test-form">
+              <h3>Test a text reply</h3>
+              <label>Groq key
+                <select id="text-test-key" name="key_id" required>
+                  <option value="">Save a Groq key first</option>
+                </select>
+              </label>
+              <label>Text <input name="text" value="hi" required /></label>
+              <button class="btn primary" type="submit">Test reply</button>
+              <pre id="text-test-reply" class="reply-box"></pre>
+            </form>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="../js/admin.js"></script>
+  </body>
+</html>

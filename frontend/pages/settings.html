@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Cache-Control" content="no-store" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit-cover" />
+    <title>Settings — AI Sight</title>
+    <link rel="stylesheet" href="../css/main.css?v=17" />
+    <link rel="stylesheet" href="../css/accessibility.css?v=6" />
+    <link rel="stylesheet" href="../css/responsive.css?v=8" />
+  </head>
+  <body class="page-panel has-dock">
+    <main class="app-shell">
+      <header class="brand">
+        <h1>Settings</h1>
+        <p>Voice, camera, and privacy.</p>
+      </header>
+      <p id="settings-status" class="status-bar" role="status" aria-live="polite"></p>
+      <article class="card iphone-help" aria-label="iPhone">
+        <strong>iPhone</strong>
+        <p>Use Safari. Tap to speak. Hold for a command. Double tap to start or stop object detection.</p>
+        <p>
+          If Safari still blocks the camera or microphone, install
+          <a href="/ios-cert.cer">this certificate</a>, then enable
+          <strong>Vibe Eye Local</strong> in Settings → General → About → Certificate Trust Settings.
+        </p>
+        <p id="iphone-https-help" class="hidden"></p>
+      </article>
+      <article class="card iphone-help" aria-label="Location">
+        <strong>Location and map</strong>
+        <p>Use Safari on the https page, tap Allow location, then Add to Home Screen. A home-screen app has its own GPS switch: Settings → AI Sight → Location → While Using the App.</p>
+        <p>Also turn on Settings → Privacy & Security → Location Services. Chrome on iPhone is less reliable; Safari is the one to save to the home screen.</p>
+        <p>For App Store and Play Store later, wrap this same app as a native shell. Then the phone GPS is used automatically.</p>
+        <button class="btn primary" id="allow-location" type="button">Allow location</button>
+      </article>
+      <form id="settings-form" class="form-stack">
+        <article class="settings-row">
+          <strong>Connection</strong>
+        </article>
+        <label>API server <input id="api-url" type="url" placeholder="https://your-app.onrender.com" autocomplete="off" /></label>
+        <button class="btn" id="save-api" type="button">Save API address</button>
+        <article class="settings-row">
+          <strong>Voice</strong>
+        </article>
+        <label>Speech rate <input name="speech_rate" type="number" min="0.5" max="2" step="0.1" value="1" /></label>
+        <label>
+          Speech language
+          <select name="language">
+            <option value="en-US">English (US)</option>
+            <option value="en-IN">English (India)</option>
+            <option value="en-GB">English (UK)</option>
+            <option value="hi-IN">Hindi</option>
+          </select>
+        </label>
+        <article class="settings-row">
+          <strong>Accessibility</strong>
+        </article>
+        <label><input name="high_contrast" type="checkbox" /> High contrast</label>
+        <label><input name="share_location_in_emergency" type="checkbox" checked /> Share location during emergency</label>
+        <label><input name="walking_directions" type="checkbox" /> Walking directions (experimental)</label>
+        <button class="btn primary" type="submit">Save settings</button>
+      </form>
+      <article class="card" id="system-id-card" aria-label="System ID">
+        <strong>Your system ID</strong>
+        <p>Give this code or QR to an assistant so they can link to you.</p>
+        <p id="system-id-text" class="system-id"></p>
+        <canvas id="system-qr" width="240" height="240" aria-label="System ID QR code"></canvas>
+      </article>
+      <article class="card" aria-label="Test API keys">
+        <strong>Test API keys</strong>
+        <p>Groq is the Q one (chat). Gemini is photos. Each test shows Working or Failed and the time in milliseconds.</p>
+        <p id="api-key-status" class="status-bar" role="status"></p>
+        <label>Groq chat (Q)
+          <input id="groq-test-text" type="text" value="How are you doing?" />
+        </label>
+        <button class="btn primary" id="test-groq" type="button">Test Groq</button>
+        <p id="groq-test-result" class="api-test-result" aria-live="polite"></p>
+        <label>Gemini photo
+          <input id="gemini-test-file" type="file" accept="image/*" />
+        </label>
+        <button class="btn primary" id="test-gemini" type="button">Test Gemini</button>
+        <p id="gemini-test-result" class="api-test-result" aria-live="polite"></p>
+      </article>
+      <article class="card" aria-label="About">
+        <strong>AI Sight</strong>
+        <p>See more. Live better. Assistive vision for blind and visually impaired users.</p>
+      </article>
+      <button class="btn danger" id="logout" type="button">Sign out</button>
+    </main>
+    <nav class="dock" aria-label="Main">
+      <a class="dock-btn" href="./home.html" aria-label="Live camera"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/></svg></a>
+      <a class="dock-btn" href="./navigation.html" aria-label="Navigation"><svg viewBox="0 0 24 24"><path d="M12 3l7 18-7-3-7 3z"/></svg></a>
+      <a class="dock-btn" href="./contacts.html" aria-label="Contacts"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c1.5-4 12.5-4 14 0"/></svg></a>
+      <a class="dock-btn" href="./contacts.html" aria-label="Video call"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="11" height="10" rx="2"/><path d="M14 10l7-3v10l-7-3z"/></svg></a>
+      <a class="dock-btn is-active" href="./settings.html" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg></a>
+    </nav>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+    <script type="module">
+      import { api } from "../js/api.js?v=33";
+      import { bindApiField } from "../js/auth.js?v=33";
+      import { clearSession, getSettings, setSession, getUser, getToken, pages } from "../js/config.js?v=33";
+      import { voice } from "../js/voice.js?v=32";
+      import { requestLocationAccess } from "../js/navigation.js";
+      import { drawSystemQr } from "../js/qr.js";
+      if (!getToken()) location.href = pages().welcome;
+      bindApiField();
+      const settings = getSettings();
+      document.body.classList.toggle("high-contrast", Boolean(settings.high_contrast));
+      const form = document.getElementById("settings-form");
+      form.speech_rate.value = settings.speech_rate || 1;
+      form.language.value = settings.language || "en-US";
+      form.high_contrast.checked = Boolean(settings.high_contrast);
+      form.share_location_in_emergency.checked = settings.share_location_in_emergency !== false;
+      form.walking_directions.checked = settings.walking_directions === true;
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const payload = {
+          speech_rate: Number(form.speech_rate.value),
+          language: form.language.value,
+          high_contrast: form.high_contrast.checked,
+          share_location_in_emergency: form.share_location_in_emergency.checked,
+          walking_directions: form.walking_directions.checked,
+        };
+        const data = await api("/api/auth/settings", { method: "PUT", body: payload });
+        setSession(getToken(), getUser(), data.settings);
+        document.body.classList.toggle("high-contrast", Boolean(data.settings.high_contrast));
+        document.getElementById("settings-status").textContent = "Settings saved.";
+        const spoken = data.settings.walking_directions
+          ? "Settings saved. Walking directions are on."
+          : "Settings saved. Walking directions are off. I can send your location to a family member instead.";
+        await voice.speak(spoken);
+      });
+      const httpsHelp = document.getElementById("iphone-https-help");
+      if (httpsHelp && !window.isSecureContext) {
+        const host = location.hostname;
+        const httpsUrl = `https://${host}:5443/pages/home.html`;
+        httpsHelp.classList.remove("hidden");
+        httpsHelp.innerHTML = `iPhone blocks camera and microphone on http. Open this in Safari: <a href="${httpsUrl}">${httpsUrl}</a>. Tap Show Details → Visit this website.`;
+      }
+      document.getElementById("allow-location")?.addEventListener("click", async () => {
+        const status = document.getElementById("settings-status");
+        try {
+          const pos = await requestLocationAccess();
+          status.textContent = `Location is on. ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+          await voice.speak("Location is on. You can say take me to a place.");
+        } catch (error) {
+          status.textContent = error.message;
+          await voice.speak(error.message);
+        }
+      });
+      document.getElementById("logout").addEventListener("click", async () => {
+        try {
+          await api("/api/auth/logout", { method: "POST", body: {} });
+        } catch {
+          /* still clear local session */
+        }
+        clearSession();
+        location.href = pages().welcome;
+      });
+      const meUser = getUser() || {};
+      const systemCard = document.getElementById("system-id-card");
+      if (meUser.role === "assistant") {
+        systemCard?.classList.add("hidden");
+      } else if (meUser.system_id) {
+        const text = document.getElementById("system-id-text");
+        if (text) text.textContent = meUser.system_id;
+        drawSystemQr(document.getElementById("system-qr"), meUser.system_id);
+      } else {
+        api("/api/auth/me").then((data) => {
+          setSession(getToken(), data.user, data.settings, data.linked_blind);
+          if (data.user?.system_id) {
+            const text = document.getElementById("system-id-text");
+            if (text) text.textContent = data.user.system_id;
+            drawSystemQr(document.getElementById("system-qr"), data.user.system_id);
+          }
+        }).catch(() => {});
+      }
+
+      function showTest(id, result) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const ms = result.ms != null ? `${result.ms} ms` : "";
+        const state = result.ok ? "Working" : "Failed";
+        el.textContent = `${state}${ms ? ` · ${ms}` : ""}. ${result.reply || ""}`;
+      }
+      api("/api/health").then((data) => {
+        const groq = data.groq_configured ? "Groq key is set" : "Groq key is missing";
+        const gemini = data.gemini_configured ? "Gemini key is set" : "Gemini key is missing";
+        document.getElementById("api-key-status").textContent = `${groq}. ${gemini}.`;
+      }).catch(() => {});
+      document.getElementById("test-groq")?.addEventListener("click", async () => {
+        const out = document.getElementById("groq-test-result");
+        out.textContent = `Testing Groq at ${location.origin}…`;
+        const started = performance.now();
+        try {
+          const result = await api("/api/health/groq", {
+            method: "POST",
+            body: { text: document.getElementById("groq-test-text").value || "How are you doing?" },
+            timeout: 8000,
+          });
+          showTest("groq-test-result", result);
+        } catch (error) {
+          showTest("groq-test-result", {
+            ok: false,
+            ms: Math.round(performance.now() - started),
+            reply: error.message,
+          });
+        }
+      });
+      document.getElementById("test-gemini")?.addEventListener("click", async () => {
+        const file = document.getElementById("gemini-test-file").files?.[0];
+        const out = document.getElementById("gemini-test-result");
+        if (!file) {
+          out.textContent = "Choose a photo first.";
+          return;
+        }
+        out.textContent = `Testing Gemini at ${location.origin}…`;
+        const started = performance.now();
+        try {
+          const form = new FormData();
+          form.append("image", file, file.name || "test.jpg");
+          const result = await api("/api/health/gemini", { method: "POST", body: form, isForm: true, timeout: 25000 });
+          showTest("gemini-test-result", result);
+        } catch (error) {
+          showTest("gemini-test-result", {
+            ok: false,
+            ms: Math.round(performance.now() - started),
+            reply: error.message,
+          });
+        }
+      });
+    </script>
+  </body>
+</html>

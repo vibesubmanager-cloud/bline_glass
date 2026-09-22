@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#04070d" />
+    <title>Create account — AI Sight</title>
+    <link rel="stylesheet" href="../css/main.css?v=16" />
+    <link rel="stylesheet" href="../css/accessibility.css?v=6" />
+    <link rel="stylesheet" href="../css/responsive.css?v=8" />
+  </head>
+  <body class="page-panel">
+    <a class="skip-link" href="#register-form">Skip to registration form</a>
+    <main class="app-shell">
+      <header class="brand">
+        <p class="brand-kicker">Blind person</p>
+        <h1>Create your account</h1>
+        <p>Your name, emergency people, and health notes stay on your profile.</p>
+      </header>
+      <p id="form-status" class="status-bar" role="status" aria-live="polite"></p>
+      <form id="register-form" class="form-card">
+        <div class="field-row">
+          <label>First name <input type="text" name="first_name" autocomplete="given-name" required minlength="2" /></label>
+          <label>Surname <input type="text" name="last_name" autocomplete="family-name" required minlength="1" /></label>
+        </div>
+        <label>Username <input type="text" name="username" autocomplete="username" required minlength="3" maxlength="32" /></label>
+        <label>Email <input type="email" name="email" autocomplete="email" required /></label>
+        <label>Phone number <input type="tel" name="phone" autocomplete="tel" required /></label>
+        <label>Password <input type="password" name="password" autocomplete="new-password" required minlength="8" /></label>
+        <label>Sickness or health problems <textarea name="health_notes" rows="3" placeholder="Diabetes, low vision, heart condition…"></textarea></label>
+        <label>Other information <textarea name="other_notes" rows="3"></textarea></label>
+        <article class="card">
+          <strong>Emergency people</strong>
+          <p>Add people who can be called or receive your location.</p>
+          <div id="emergency-list" class="form-stack"></div>
+          <button class="btn" id="add-emergency" type="button">Add another person</button>
+        </article>
+        <button class="btn primary" type="submit">Create account</button>
+      </form>
+      <p class="auth-footer">
+        <a class="text-link" href="./login.html?role=blind">I already have an account</a>
+      </p>
+    </main>
+    <script type="module">
+      import { bindBlindRegisterForm } from "../js/auth.js?v=12";
+
+      const list = document.getElementById("emergency-list");
+      function addRow() {
+        const row = document.createElement("div");
+        row.className = "emergency-row";
+        row.setAttribute("data-emergency-row", "true");
+        row.innerHTML = `
+          <div class="field-row">
+            <label>Name <input name="emergency_name" type="text" /></label>
+            <label>Phone <input name="emergency_phone" type="tel" /></label>
+          </div>
+          <label>
+            Relationship
+            <select name="emergency_relationship">
+              <option value="family">Family</option>
+              <option value="friend">Friend</option>
+              <option value="son">Son</option>
+              <option value="daughter">Daughter</option>
+              <option value="brother">Brother</option>
+              <option value="sister">Sister</option>
+              <option value="mother">Mother</option>
+              <option value="father">Father</option>
+              <option value="caregiver">Caregiver</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+        `;
+        list.appendChild(row);
+      }
+      addRow();
+      document.getElementById("add-emergency").addEventListener("click", addRow);
+      bindBlindRegisterForm(document.getElementById("register-form"));
+    </script>
+  </body>
+</html>

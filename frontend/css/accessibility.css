@@ -1,0 +1,32 @@
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+body.high-contrast {
+  --bg: #000;
+  --bg-2: #000;
+  --fg: #fff;
+  --muted: #e6eef8;
+  --cyan: #8ef6ff;
+  --violet: #c5b8ff;
+  --stroke: rgba(255, 255, 255, 0.45);
+  --glass: rgba(0, 0, 0, 0.72);
+}

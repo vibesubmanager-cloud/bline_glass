@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="AI Sight" />
+    <meta name="theme-color" content="#04070d" />
+    <title>Sign in — AI Sight</title>
+    <link rel="stylesheet" href="../css/main.css?v=16" />
+    <link rel="stylesheet" href="../css/accessibility.css?v=6" />
+    <link rel="stylesheet" href="../css/responsive.css?v=8" />
+    <link rel="manifest" href="../manifest.json" />
+  </head>
+  <body class="page-panel">
+    <a class="skip-link" href="#login-form">Skip to sign in form</a>
+    <main class="app-shell">
+      <header class="brand">
+        <p class="brand-kicker">AI Sight</p>
+        <h1 id="login-title">Sign in</h1>
+        <p id="login-lede">Use your username and password.</p>
+      </header>
+      <p id="form-status" class="status-bar" role="status" aria-live="polite"></p>
+      <form id="login-form" class="form-card">
+        <label>Username <input type="text" name="username" autocomplete="username" required minlength="3" /></label>
+        <label>Password <input type="password" name="password" autocomplete="current-password" required minlength="8" /></label>
+        <button class="btn primary" type="submit">Sign in</button>
+      </form>
+      <p class="auth-footer">
+        <a class="text-link" id="register-link" href="./register.html">Create an account</a>
+      </p>
+    </main>
+    <script type="module">
+      import { bindAuthForm, redirectIfAuthed, currentRole } from "../js/auth.js?v=12";
+      redirectIfAuthed();
+      const role = currentRole();
+      const title = document.getElementById("login-title");
+      const lede = document.getElementById("login-lede");
+      const register = document.getElementById("register-link");
+      if (role === "assistant") {
+        title.textContent = "Assistant sign in";
+        lede.textContent = "Use your username and password.";
+        register.href = "./register-assistant.html";
+        register.textContent = "Create an assistant account";
+      } else {
+        title.textContent = "Sign in";
+        lede.textContent = "Use your username and password.";
+        register.href = "./register.html";
+        register.textContent = "Create a blind person account";
+      }
+      bindAuthForm(document.getElementById("login-form"), "login");
+    </script>
+  </body>
+</html>

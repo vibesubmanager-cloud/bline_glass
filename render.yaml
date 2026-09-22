@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: vibe-eye-api
+    runtime: python
+    plan: starter
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -w 1 --threads 8 --timeout 120 --bind 0.0.0.0:$PORT run:app
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_ORIGINS
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: MAPS_PROVIDER
+        value: osm
+      - key: MAPS_API_KEY
+        sync: false
+      - key: YOLO_MODEL
+        value: yolov8n.pt

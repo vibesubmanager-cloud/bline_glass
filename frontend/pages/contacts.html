@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Contacts — AI Sight</title>
+    <link rel="stylesheet" href="../css/main.css?v=21" />
+    <link rel="stylesheet" href="../css/accessibility.css?v=6" />
+    <link rel="stylesheet" href="../css/responsive.css?v=8" />
+  </head>
+  <body class="page-panel has-dock">
+    <main class="app-shell">
+      <header class="brand contacts-head">
+        <div class="brand-copy">
+          <h1 id="contacts-title">Contacts</h1>
+          <p id="contacts-lede">Tap a person to open chat. Voice-call or video-call from the buttons.</p>
+        </div>
+        <button class="btn icon-btn primary add-toggle" id="toggle-add" type="button" aria-label="Add a person" aria-expanded="false">+</button>
+      </header>
+      <article id="linked-card" class="card hidden" aria-label="Linked person"></article>
+      <p id="contact-status" class="status-bar" role="status" aria-live="polite"></p>
+      <form id="contact-form" class="form-card hidden">
+        <p>This person can sign in as an assistant with this username and password.</p>
+        <div class="field-row">
+          <label>First name <input type="text" name="first_name" autocomplete="given-name" required minlength="2" /></label>
+          <label>Surname <input type="text" name="last_name" autocomplete="family-name" required minlength="1" /></label>
+        </div>
+        <label>Username <input type="text" name="username" autocomplete="off" required minlength="3" maxlength="32" /></label>
+        <label>Email <input type="email" name="email" autocomplete="off" required /></label>
+        <label>Phone number <input type="tel" name="phone" autocomplete="tel" required /></label>
+        <label>Password <input type="password" name="password" autocomplete="new-password" required minlength="8" /></label>
+        <fieldset class="choice-grid">
+          <legend>Who is this person to you?</legend>
+          <label class="choice-chip"><input type="radio" name="relationship" value="son" required /><span>Son</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="daughter" /><span>Daughter</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="brother" /><span>Brother</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="sister" /><span>Sister</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="mother" /><span>Mother</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="father" /><span>Father</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="family" /><span>Family</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="friend" /><span>Friend</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="caregiver" /><span>Caregiver</span></label>
+          <label class="choice-chip"><input type="radio" name="relationship" value="other" /><span>Other</span></label>
+        </fieldset>
+        <button class="btn primary" type="submit">Create assistant</button>
+      </form>
+      <section class="contact-list" id="contact-list" aria-label="Saved contacts"></section>
+      <div id="confirm-sheet" class="sheet confirm-sheet hidden" role="alertdialog" aria-labelledby="confirm-text" aria-modal="true">
+        <p id="confirm-text"></p>
+        <div class="auth-actions">
+          <button class="btn danger" id="confirm-yes" type="button">Yes, delete</button>
+          <button class="btn" id="confirm-no" type="button">Cancel</button>
+        </div>
+      </div>
+      <section id="call-overlay" class="call-overlay hidden" aria-label="Call">
+        <p id="call-status-text">Calling</p>
+        <video id="remote-video" autoplay playsinline muted></video>
+        <video id="local-video" class="local-video hidden" autoplay playsinline muted></video>
+        <div class="call-controls">
+          <button id="call-answer" class="ok hidden" type="button" aria-label="Answer call">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12l4 4 8-8"/></svg>
+          </button>
+          <button id="call-decline" class="danger hidden" type="button" aria-label="Decline call">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+          <button id="call-mute" type="button" aria-label="Mute microphone">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+          </button>
+          <button id="call-camera" type="button" aria-label="Toggle camera">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="11" height="10" rx="2"/><path d="M14 10l7-3v10l-7-3z"/></svg>
+          </button>
+          <button id="call-end" class="danger" type="button" aria-label="End call">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15c4-4 8-4 12 0"/><path d="M8 18l-2-3 3-1M16 18l2-3-3-1"/></svg>
+          </button>
+        </div>
+      </section>
+      <audio id="remote-audio" autoplay></audio>
+    </main>
+    <nav class="dock" aria-label="Main">
+      <a class="dock-btn" href="./home.html" aria-label="Live camera"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/></svg></a>
+      <a class="dock-btn" href="./navigation.html" aria-label="Navigation"><svg viewBox="0 0 24 24"><path d="M12 3l7 18-7-3-7 3z"/></svg></a>
+      <a class="dock-btn is-active" href="./contacts.html" aria-label="Contacts"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c1.5-4 12.5-4 14 0"/></svg></a>
+      <a class="dock-btn" href="./contacts.html" aria-label="Video call"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="11" height="10" rx="2"/><path d="M14 10l7-3v10l-7-3z"/></svg></a>
+      <a class="dock-btn" href="./settings.html" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg></a>
+    </nav>
+    <script type="module">
+      import { api } from "../js/api.js";
+      import { calls } from "../js/calls.js";
+      import { voice } from "../js/voice.js";
+      import { getToken, getUser, getLinkedBlind, pages } from "../js/config.js";
+      if (!getToken()) location.href = pages().welcome;
+      const list = document.getElementById("contact-list");
+      const status = document.getElementById("contact-status");
+      const form = document.getElementById("contact-form");
+      const toggleAdd = document.getElementById("toggle-add");
+      const user = getUser() || {};
+      const isAssistant = user.role === "assistant";
+      if (isAssistant) {
+        document.getElementById("contacts-title").textContent = "The person you help";
+        document.getElementById("contacts-lede").textContent = "Tap the person to open chat, or use the call buttons.";
+        form.classList.add("hidden");
+        toggleAdd.classList.add("hidden");
+        const linked = getLinkedBlind();
+        const linkedCard = document.getElementById("linked-card");
+        const showLinked = (person) => {
+          if (!person) return;
+          linkedCard.classList.remove("hidden");
+          linkedCard.dataset.chat = person.id;
+          linkedCard.innerHTML = `<strong>${person.name}</strong><p>Tap to open chat. System ID ${person.system_id || ""} ${person.phone || ""}</p>`;
+        };
+        showLinked(linked);
+        if (!linked) {
+          api("/api/auth/me").then((data) => {
+            showLinked(data.linked_blind);
+          }).catch(() => {});
+        }
+      }
+
+      function setFormOpen(open) {
+        form.classList.toggle("hidden", !open);
+        toggleAdd.textContent = open ? "×" : "+";
+        toggleAdd.setAttribute("aria-expanded", String(open));
+        toggleAdd.setAttribute("aria-label", open ? "Close add person form" : "Add a person");
+      }
+
+      toggleAdd.addEventListener("click", async () => {
+        const open = form.classList.contains("hidden");
+        setFormOpen(open);
+        if (open) {
+          status.textContent = "";
+          form.querySelector("input")?.focus();
+          await voice.speak("Add a person. Fill their name, email, phone, username, and password so they can sign in as your assistant.");
+        }
+      });
+
+      async function refresh() {
+        const data = await api("/api/contacts");
+        list.innerHTML = "";
+        data.contacts.forEach((contact) => {
+          const card = document.createElement("article");
+          card.className = `contact-item${contact.is_emergency_contact ? " emergency" : ""}`;
+          const initial = (contact.name || "?").trim().charAt(0).toUpperCase();
+          const canDelete = !isAssistant && !contact.readonly && !contact.linked_account && !String(contact.id || "").startsWith("linked-");
+          const safeName = String(contact.name || "").replace(/"/g, "&quot;");
+          if (contact.linked_user_id) card.dataset.chat = contact.linked_user_id;
+          card.innerHTML = `
+            <div class="avatar" aria-hidden="true">${initial}</div>
+            <div>
+              <strong>${contact.name}</strong>
+              <p>${contact.relationship || ""} ${contact.phone || ""}</p>
+            </div>
+            <button class="btn icon-btn primary" data-call="${safeName}" aria-label="Voice call ${safeName}">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15c4-4 8-4 12 0"/></svg>
+            </button>
+            ${
+              contact.can_video || contact.linked_user_id
+                ? `<button class="btn icon-btn" data-video="${safeName}" aria-label="Video call ${safeName}">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="11" height="10" rx="2"/><path d="M14 10l7-3v10l-7-3z"/></svg>
+            </button>`
+                : `<button class="btn icon-btn" data-novideo="${safeName}" aria-label="Video call unavailable for ${safeName}">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="11" height="10" rx="2"/><path d="M14 10l7-3v10l-7-3z"/></svg>
+            </button>`
+            }
+            ${canDelete ? `<button class="btn icon-btn danger" data-del="${contact.id}" data-name="${safeName}" aria-label="Delete ${safeName}">&#10005;</button>` : `<span></span>`}
+          `;
+          list.appendChild(card);
+        });
+        if (isAssistant && data.contacts[0]) {
+          status.textContent = `${data.contacts[0].name} is ready to call.`;
+        }
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const submit = form.querySelector("button[type='submit']");
+        submit.disabled = true;
+        const raw = Object.fromEntries(new FormData(form).entries());
+        try {
+          const result = await api("/api/contacts/assistants", { method: "POST", body: raw });
+          form.reset();
+          setFormOpen(false);
+          const name = result.assistant?.name || raw.first_name;
+          status.textContent = `${name} can now sign in as an assistant.`;
+          await voice.speak(`${name} is added. They can sign in as an assistant with their username and password.`);
+          await refresh();
+        } catch (error) {
+          status.textContent = error.message;
+          await voice.speak(error.message);
+        } finally {
+          submit.disabled = false;
+        }
+      });
+
+      const confirmSheet = document.getElementById("confirm-sheet");
+      const confirmText = document.getElementById("confirm-text");
+      let pendingDelete = null;
+
+      function closeConfirm() {
+        pendingDelete = null;
+        confirmSheet.classList.add("hidden");
+      }
+
+      async function askDelete(id, name) {
+        pendingDelete = { id, name };
+        confirmText.textContent = `Delete ${name}? This cannot be undone.`;
+        confirmSheet.classList.remove("hidden");
+        await voice.speak(`Do you want to delete ${name}?`);
+      }
+
+      document.getElementById("confirm-yes").addEventListener("click", async () => {
+        if (!pendingDelete) return;
+        const { id, name } = pendingDelete;
+        closeConfirm();
+        try {
+          await api(`/api/contacts/${id}`, { method: "DELETE" });
+          status.textContent = `${name} deleted.`;
+          await voice.speak(`${name} deleted.`);
+          await refresh();
+        } catch (error) {
+          status.textContent = error.message;
+          await voice.speak(error.message);
+          await refresh();
+        }
+      });
+      document.getElementById("confirm-no").addEventListener("click", async () => {
+        const name = pendingDelete?.name;
+        closeConfirm();
+        if (name) {
+          status.textContent = `${name} was not deleted.`;
+          await voice.speak(`${name} was not deleted.`);
+        }
+      });
+
+      document.getElementById("linked-card").addEventListener("click", () => {
+        const id = document.getElementById("linked-card").dataset.chat;
+        if (id) location.href = `${pages().chat}?with=${encodeURIComponent(id)}`;
+      });
+
+      list.addEventListener("click", async (event) => {
+        const button = event.target.closest("button");
+        if (!button) {
+          const card = event.target.closest("[data-chat]");
+          if (card?.dataset.chat) {
+            location.href = `${pages().chat}?with=${encodeURIComponent(card.dataset.chat)}`;
+          } else if (event.target.closest(".contact-item")) {
+            status.textContent = "That person does not have an AI Sight account yet, so chat is not available.";
+            await voice.speak("That person does not have an AI Sight account yet. Add them as an assistant first.");
+          }
+          return;
+        }
+        const callName = button.getAttribute("data-call");
+        const videoName = button.getAttribute("data-video");
+        const noVideo = button.getAttribute("data-novideo");
+        const delId = button.getAttribute("data-del");
+        if (callName) {
+          const spoken = await calls.start(callName);
+          await voice.speak(spoken);
+        }
+        if (videoName) {
+          try {
+            const spoken = await calls.start(videoName, { video: true });
+            await voice.speak(spoken);
+          } catch (error) {
+            status.textContent = error.message;
+            await voice.speak(error.message || "I could not start that video call.");
+          }
+        }
+        if (noVideo) {
+          const message = `${noVideo} cannot video call yet. Add them as an assistant so they can sign in.`;
+          status.textContent = message;
+          await voice.speak(message);
+        }
+        if (delId) {
+          await askDelete(delId, button.getAttribute("data-name") || "this contact");
+        }
+      });
+
+      document.getElementById("call-answer")?.addEventListener("click", () => calls.acceptIncoming());
+      document.getElementById("call-decline")?.addEventListener("click", () => calls.rejectIncoming());
+      document.getElementById("call-end")?.addEventListener("click", () => calls.end(true));
+      document.getElementById("call-mute")?.addEventListener("click", () => {
+        const muted = calls.toggleMute();
+        voice.speak(muted ? "Muted." : "Microphone on.");
+      });
+      document.getElementById("call-camera")?.addEventListener("click", () => {
+        const enabled = calls.toggleCamera();
+        voice.speak(enabled ? "Camera on." : "Camera off.");
+      });
+      calls.startPolling();
+
+      refresh().catch((error) => {
+        status.textContent = error.message;
+      });
+    </script>
+  </body>
+</html>

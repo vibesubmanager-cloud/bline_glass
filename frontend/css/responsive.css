@@ -1,0 +1,29 @@
+@media (min-width: 900px) {
+  .stage {
+    max-width: 480px;
+    margin: 0 auto;
+    border-radius: 28px;
+    overflow: hidden;
+    height: 100svh;
+  }
+
+  .page-panel.has-dock .app-shell {
+    max-width: 560px;
+  }
+}
+
+@media (max-width: 420px) {
+  html {
+    font-size: 16px;
+  }
+
+  .dock-btn {
+    width: 48px;
+    height: 48px;
+  }
+
+  .field-row,
+  .auth-actions {
+    grid-template-columns: 1fr;
+  }
+}

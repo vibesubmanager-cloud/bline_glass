@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Navigation — AI Sight</title>
+    <link rel="stylesheet" href="../css/main.css?v=16" />
+    <link rel="stylesheet" href="../css/accessibility.css?v=6" />
+    <link rel="stylesheet" href="../css/responsive.css?v=8" />
+  </head>
+  <body class="page-panel has-dock">
+    <main class="app-shell">
+      <header class="brand">
+        <h1>Navigation</h1>
+        <p>Type a place, or say it from the camera screen.</p>
+      </header>
+      <p id="nav-status" class="status-bar" role="status" aria-live="polite">Ready to navigate.</p>
+      <form id="nav-form" class="form-stack">
+        <label>Destination <input id="destination" name="destination" required placeholder="Jagat Market" /></label>
+        <button class="btn primary" type="submit">Start navigation</button>
+        <button class="btn" id="stop-nav" type="button">Stop</button>
+        <button class="btn" id="repeat-nav" type="button">Repeat</button>
+      </form>
+    </main>
+    <nav class="dock" aria-label="Main">
+      <a class="dock-btn" href="./home.html" aria-label="Live camera"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/></svg></a>
+      <a class="dock-btn is-active" href="./navigation.html" aria-label="Navigation"><svg viewBox="0 0 24 24"><path d="M12 3l7 18-7-3-7 3z"/></svg></a>
+      <a class="dock-btn" href="./contacts.html" aria-label="Contacts"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c1.5-4 12.5-4 14 0"/></svg></a>
+      <a class="dock-btn" href="./contacts.html" aria-label="Video call"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="11" height="10" rx="2"/><path d="M14 10l7-3v10l-7-3z"/></svg></a>
+      <a class="dock-btn" href="./settings.html" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg></a>
+    </nav>
+    <script type="module">
+      import { navigation } from "../js/navigation.js";
+      import { voice } from "../js/voice.js";
+      import { getToken, pages } from "../js/config.js";
+      if (!getToken()) location.href = pages().welcome;
+      const status = document.getElementById("nav-status");
+      document.getElementById("nav-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const destination = document.getElementById("destination").value.trim();
+        try {
+          sessionStorage.setItem("AI_SIGHT_NAV_DEST", destination);
+          location.href = pages().home;
+        } catch (error) {
+          status.textContent = error.message;
+          await voice.speak(error.message);
+        }
+      });
+      document.getElementById("stop-nav").addEventListener("click", () => navigation.stop(true));
+      document.getElementById("repeat-nav").addEventListener("click", () => voice.speak(navigation.nextInstruction()));
+    </script>
+  </body>
+</html>

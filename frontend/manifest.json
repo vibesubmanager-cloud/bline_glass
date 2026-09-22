@@ -1,0 +1,20 @@
+{
+  "name": "AI Sight",
+  "short_name": "AI Sight",
+  "description": "See more. Live better. Assistive vision for blind and visually impaired users.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#04070d",
+  "theme_color": "#04070d",
+  "icons": [
+    {
+      "src": "./assets/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

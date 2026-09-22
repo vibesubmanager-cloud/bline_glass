@@ -1,0 +1,13 @@
+{
+  "appId": "app.aisight.mobile",
+  "appName": "AI Sight",
+  "webDir": "frontend",
+  "ios": {
+    "contentInset": "automatic"
+  },
+  "plugins": {
+    "Geolocation": {
+      "permissions": ["location"]
+    }
+  }
+}

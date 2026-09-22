@@ -1,0 +1,53 @@
+# Secrets
+.env
+.env.local
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+ENV/
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# YOLO / ML weights (downloaded at runtime)
+*.pt
+*.onnx
+*.engine
+runs/
+ultralytics/
+
+# Databases
+backend/certs/
+*.sqlite3
+*.db
+vibe_eye.db
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+logs/
+
+# Node (if used later)
+node_modules/
+
+# Frontend local config override
+frontend/js/config.local.js

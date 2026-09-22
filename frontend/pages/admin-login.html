@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin sign in — AI Sight</title>
+    <link rel="stylesheet" href="../css/admin.css" />
+  </head>
+  <body class="admin-login">
+    <main class="login-card">
+      <p class="kicker">AI Sight</p>
+      <h1>Admin</h1>
+      <p class="lede">This website is for staff on a computer. It is not the phone app.</p>
+      <p id="status" class="status" role="status"></p>
+      <form id="login-form">
+        <label>Username <input name="username" autocomplete="username" required /></label>
+        <label>Password <input name="password" type="password" autocomplete="current-password" required /></label>
+        <button class="btn primary" type="submit">Sign in</button>
+      </form>
+    </main>
+    <script type="module" src="../js/admin.js"></script>
+  </body>
+</html>
