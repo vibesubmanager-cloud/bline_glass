@@ -128,7 +128,7 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
             return fail("SERVER_ERROR", str(error) or "I couldn't complete that request. Please try again.", 500)
         raise error
 
-    with flask_app.app_context():
+    def _boot_database():
         db.create_all()
         _ensure_settings_columns()
         _ensure_user_columns()
@@ -144,19 +144,27 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
     def _warmup():
         with flask_app.app_context():
             try:
+                _boot_database()
+            except Exception as extra:
+                log_event("DB_BOOT_ERROR", error=str(extra)[:220])
+            try:
                 from app.services.tts_service import warmup_tts
 
                 warmup_tts()
-            except Exception as exc:
-                log_event("TTS_WARMUP_ERROR", error=str(exc)[:180])
+            except Exception as extra:
+                log_event("TTS_WARMUP_ERROR", error=str(extra)[:180])
             try:
                 from app.services.yolo_service import get_yolo_service
 
                 get_yolo_service().warmup()
-            except Exception as exc:
-                log_event("YOLO_WARMUP_ERROR", error=str(exc)[:180])
+            except Exception as extra:
+                log_event("YOLO_WARMUP_ERROR", error=str(extra)[:180])
 
-    threading.Thread(target=_warmup, name="aisight-warmup", daemon=True).start()
+    if flask_app.config.get("TESTING"):
+        with flask_app.app_context():
+            _boot_database()
+    else:
+        threading.Thread(target=_warmup, name="aisight-warmup", daemon=True).start()
 
     return flask_app
 

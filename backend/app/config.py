@@ -25,6 +25,10 @@ class Config:
     raw_db = os.getenv("DATABASE_URL", "sqlite:///vibe_eye.db")
     if raw_db.startswith("postgres://"):
         raw_db = raw_db.replace("postgres://", "postgresql://", 1)
+    raw_db = raw_db.replace("&channel_binding=require", "").replace("channel_binding=require&", "")
+    raw_db = raw_db.replace("channel_binding=require", "")
+    if raw_db.endswith("?") or raw_db.endswith("&"):
+        raw_db = raw_db[:-1]
     if raw_db.startswith("postgresql") and "sslmode=" not in raw_db:
         joiner = "&" if "?" in raw_db else "?"
         raw_db = f"{raw_db}{joiner}sslmode=require"
@@ -33,7 +37,10 @@ class Config:
     SQLALCHEMY_ENGINE_OPTIONS = {
         "pool_pre_ping": True,
         "pool_recycle": 280,
+        "pool_timeout": 30,
     }
+    if SQLALCHEMY_DATABASE_URI.startswith("postgresql"):
+        SQLALCHEMY_ENGINE_OPTIONS["connect_args"] = {"connect_timeout": 15, "sslmode": "require"}
 
     FRONTEND_ORIGINS = _split_origins(
         os.getenv(
