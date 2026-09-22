@@ -2,7 +2,6 @@ from flask import Blueprint, current_app, g, request
 
 from app.services.response_engine import speak_detections, speak_error
 from app.services.usage_service import record_usage
-from app.services.yolo_service import get_yolo_service
 from app.utils.logging import log_event
 from app.utils.responses import fail, ok
 from app.utils.security import login_required
@@ -25,6 +24,8 @@ def detect():
             image = load_image_from_base64(data.get("image"))
             query_object = (data.get("object") or "").strip() or None
         confidence = float(current_app.config.get("YOLO_CONFIDENCE", 0.35))
+        from app.services.yolo_service import get_yolo_service
+
         detections = get_yolo_service().detect(image, confidence=confidence)
     except ValidationError as exc:
         return fail(exc.code, exc.message, 400)

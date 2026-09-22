@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 import threading
 
 from dotenv import load_dotenv
@@ -153,12 +154,13 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
                 warmup_tts()
             except Exception as extra:
                 log_event("TTS_WARMUP_ERROR", error=str(extra)[:180])
-            try:
-                from app.services.yolo_service import get_yolo_service
+            if str(flask_app.config.get("YOLO_WARMUP") or os.getenv("YOLO_WARMUP") or "0") == "1":
+                try:
+                    from app.services.yolo_service import get_yolo_service
 
-                get_yolo_service().warmup()
-            except Exception as extra:
-                log_event("YOLO_WARMUP_ERROR", error=str(extra)[:180])
+                    get_yolo_service().warmup()
+                except Exception as extra:
+                    log_event("YOLO_WARMUP_ERROR", error=str(extra)[:180])
 
     if flask_app.config.get("TESTING"):
         with flask_app.app_context():

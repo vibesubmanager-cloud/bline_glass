@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: starter
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cpu && pip install -r requirements.txt
     startCommand: gunicorn -w 1 --threads 8 --timeout 120 --bind 0.0.0.0:$PORT run:app
     healthCheckPath: /api/health
     envVars:
@@ -38,3 +38,5 @@ services:
         sync: false
       - key: YOLO_MODEL
         value: yolov8n.pt
+      - key: YOLO_WARMUP
+        value: "0"
