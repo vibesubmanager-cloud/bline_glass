@@ -21,7 +21,7 @@ async function parseBody(response) {
       data: null,
       error: {
         code: "SERVER_ERROR",
-        message: "The chat server had a problem. Stop run.py, start it again, then refresh this page.",
+        message: "The app could not reach the server. Open Settings, save the Render API address, then refresh.",
       },
     };
   }

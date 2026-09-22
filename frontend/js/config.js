@@ -5,7 +5,11 @@ export function getApiBase() {
   if (stored) return stored;
   const baked = String(DEFAULT_API_BASE || "").replace(/\/$/, "");
   if (baked) return baked;
-  return String(window.location.origin || "").replace(/\/$/, "");
+  const origin = String(window.location.origin || "").replace(/\/$/, "");
+  if (/\.github\.io$/i.test(window.location.hostname || "")) {
+    return baked;
+  }
+  return origin;
 }
 
 export function setApiBase(url) {
