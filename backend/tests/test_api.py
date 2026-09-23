@@ -182,6 +182,16 @@ def test_call_daily_signaling_without_exposing_key(client, monkeypatch):
     assert "Bearer" not in blob
     assert "api_key" not in blob.lower()
 
+    client.post(
+        "/api/calls/signal",
+        json={
+            "target_user_id": user_b,
+            "call_id": call["id"],
+            "signal_type": "ring",
+            "media": "video",
+        },
+    )
+
     client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token_b}"
     polled = client.get("/api/calls/poll")
     signals = polled.get_json()["data"]["signals"]

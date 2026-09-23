@@ -144,16 +144,6 @@ def start_call(caller: User, contact: Contact, media: str = "audio") -> dict:
             session.ended_at = datetime.now(timezone.utc)
             db.session.commit()
             raise CallingServiceError(str(exc), exc.code) from exc
-        post_signal(
-            callee.id,
-            {
-                "from_user_id": caller.id,
-                "from_name": caller.name,
-                "call_id": session.id,
-                "signal_type": "ring",
-                "media": "video" if video else "audio",
-            },
-        )
 
     log_event("CALL_STARTED", call_id=session.id, call_type=call_type)
     return {

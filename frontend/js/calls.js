@@ -6,17 +6,21 @@ import { camera } from "./camera.js";
 
 function loadDaily() {
   if (window.DailyIframe) return Promise.resolve(window.DailyIframe);
-  return new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = "https://unpkg.com/@daily-co/daily-js";
-    script.async = true;
-    script.onload = () => {
-      if (window.DailyIframe) resolve(window.DailyIframe);
-      else reject(new Error("Unable to start the call. Please try again."));
-    };
-    script.onerror = () => reject(new Error("Unable to start the call. Please try again."));
-    document.head.appendChild(script);
-  });
+  const load = (src) =>
+    new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = true;
+      script.onload = () => {
+        if (window.DailyIframe) resolve(window.DailyIframe);
+        else reject(new Error("Unable to start the call. Please try again."));
+      };
+      script.onerror = () => reject(new Error("Unable to start the call. Please try again."));
+      document.head.appendChild(script);
+    });
+  return load("https://unpkg.com/@daily-co/daily-js@0.80.0/dist/daily-iframe.js").catch(() =>
+    load("https://cdn.jsdelivr.net/npm/@daily-co/daily-js@0.80.0/dist/daily-iframe.js")
+  );
 }
 
 class CallController {
@@ -38,6 +42,7 @@ class CallController {
 
   startPolling() {
     this._connectSocket();
+    loadDaily().catch(() => undefined);
     if (this.pollTimer) return;
     this.pollTimer = setInterval(() => this.poll().catch(() => undefined), 400);
   }
@@ -122,8 +127,10 @@ class CallController {
       return;
     }
     if (type === "end") {
+      const wasLive = Boolean(this.currentCall || this._incoming || this._joined);
       await this.end(false);
-      await voice.speak("The call has ended.");
+      if (wasLive) await voice.speak("The call has ended.");
+      return;
     }
     if (type === "reject") {
       await this.end(false);
@@ -193,6 +200,7 @@ class CallController {
       }
     });
     callObject.on("participant-left", (event) => {
+      if (!this._joined || this._ending) return;
       if (event.participant?.local) return;
       this.end(true).then(() => voice.speak("The call has ended."));
     });
@@ -201,14 +209,11 @@ class CallController {
       this.updateBanner("Reconnecting…");
     });
     callObject.on("left-meeting", () => {
-      if (!this._ending) this.end(false);
+      if (!this._ending && this._joined) this.end(false);
     });
   }
 
-  async _joinDaily(daily, video) {
-    if (!daily?.url || !daily?.token) {
-      throw new Error("Unable to start the call. Please try again.");
-    }
+  async _captureLocal(video) {
     if (video) {
       try {
         camera.stop();
@@ -217,6 +222,31 @@ class CallController {
       }
       const preview = document.getElementById("camera-preview");
       if (preview) preview.srcObject = null;
+    }
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: video ? { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } : false,
+      });
+    } catch {
+      if (video) {
+        try {
+          return await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        } catch {
+          /* fall through */
+        }
+      }
+      throw new Error(
+        video
+          ? "Camera permission is required for a video call."
+          : "Microphone permission is required for a voice call."
+      );
+    }
+  }
+
+  async _joinDaily(daily, video, preStream) {
+    if (!daily?.url || !daily?.token) {
+      throw new Error("Calling is not set up yet. Add the Daily API key in Admin.");
     }
     this._primePlayback();
     const Daily = await loadDaily();
@@ -229,10 +259,12 @@ class CallController {
       }
       this._callObject = null;
     }
+    const audioTrack = preStream?.getAudioTracks?.()[0] || true;
+    const videoTrack = video ? preStream?.getVideoTracks?.()[0] || true : false;
     this._callObject = Daily.createCallObject({
       subscribeToTracksAutomatically: true,
-      audioSource: true,
-      videoSource: Boolean(video),
+      audioSource: audioTrack,
+      videoSource: videoTrack,
     });
     this._bindDaily(this._callObject);
     try {
@@ -255,13 +287,12 @@ class CallController {
     }
     this._joined = true;
     this._spokeConnected = false;
-    if (video) {
-      try {
-        const local = this._callObject.participants()?.local;
-        const videoTrack = local?.tracks?.video?.persistentTrack || local?.tracks?.video?.track;
-        if (videoTrack) this._attachTrack(videoTrack, true);
-      } catch {
-        /* wait for track-started */
+    if (video && preStream) {
+      const localVideo = document.getElementById("local-video");
+      if (localVideo) {
+        localVideo.srcObject = preStream;
+        localVideo.classList.remove("hidden");
+        localVideo.play()?.catch(() => undefined);
       }
     }
   }
@@ -291,28 +322,47 @@ class CallController {
 
   async start(target, { video = false } = {}) {
     this.startPolling();
-    await this._connectSocket();
     this._primePlayback();
-    await voice.speak(video ? "Connecting video call." : "Connecting voice call.");
-    const data = await api("/api/calls/start", {
-      method: "POST",
-      body: { target, media: video ? "video" : "audio" },
-    });
+    const localStream = await this._captureLocal(video);
+    voice.speak(video ? "Connecting video call." : "Connecting voice call.");
+    await this._connectSocket();
+    let data;
+    try {
+      data = await api("/api/calls/start", {
+        method: "POST",
+        body: { target, media: video ? "video" : "audio" },
+      });
+    } catch (error) {
+      localStream.getTracks().forEach((track) => track.stop());
+      throw error;
+    }
     this.currentCall = { ...data.call, peer_id: data.call?.callee_id };
     this.videoMode = data.call?.call_type === "video" || video;
     if (data.tel_url) {
+      localStream.getTracks().forEach((track) => track.stop());
       location.href = data.tel_url;
       return data.spoken;
     }
     if (!data.call.callee_id) {
+      localStream.getTracks().forEach((track) => track.stop());
       return data.spoken;
     }
     appState.set(STATES.CALLING);
     this.updateBanner(this.videoMode ? `Video calling ${data.contact.name}` : `Voice calling ${data.contact.name}`);
     try {
-      await this._joinDaily(data.daily, this.videoMode);
+      await this._joinDaily(data.daily, this.videoMode, localStream);
+      await this._sendSignal({
+        target_user_id: data.call.callee_id,
+        call_id: data.call.id,
+        signal_type: "ring",
+        media: this.videoMode ? "video" : "audio",
+      });
     } catch (error) {
-      await this.end(true);
+      localStream.getTracks().forEach((track) => track.stop());
+      await this.end(false);
+      if (data.call?.id) {
+        api("/api/calls/end", { method: "POST", body: { call_id: data.call.id } }).catch(() => undefined);
+      }
       throw error;
     }
     return data.spoken;
@@ -326,14 +376,22 @@ class CallController {
     }
     this.videoMode = this._isVideoSignal(incoming);
     this._primePlayback();
+    let localStream;
+    try {
+      localStream = await this._captureLocal(this.videoMode);
+    } catch (error) {
+      await voice.speak(error.message);
+      return;
+    }
     appState.set(STATES.CALLING);
     this.updateBanner("Connecting…");
-    const data = await api("/api/calls/accept", { method: "POST", body: { call_id: incoming.call_id } });
-    this.currentCall = { id: incoming.call_id, caller_id: incoming.from_user_id, peer_id: incoming.from_user_id };
-    this._incoming = null;
     try {
-      await this._joinDaily(data.daily, this.videoMode);
+      const data = await api("/api/calls/accept", { method: "POST", body: { call_id: incoming.call_id } });
+      this.currentCall = { id: incoming.call_id, caller_id: incoming.from_user_id, peer_id: incoming.from_user_id };
+      this._incoming = null;
+      await this._joinDaily(data.daily, this.videoMode, localStream);
     } catch (error) {
+      localStream.getTracks().forEach((track) => track.stop());
       await this.end(true);
       await voice.speak(error.message || "Unable to start the call. Please try again.");
     }
@@ -381,9 +439,11 @@ class CallController {
     const peerId = this._peerId();
     const callId = this.currentCall?.id;
     await this._leaveDaily();
-    if (notify && peerId && callId) {
+    if (notify && this._joined && peerId && callId) {
       api("/api/calls/end", { method: "POST", body: { call_id: callId } }).catch(() => undefined);
       this._sendSignal({ target_user_id: peerId, call_id: callId, signal_type: "end" });
+    } else if (callId && !this._joined) {
+      api("/api/calls/end", { method: "POST", body: { call_id: callId } }).catch(() => undefined);
     }
     this.currentCall = null;
     this._incoming = null;

@@ -79,6 +79,13 @@ def create_room(call_id: str) -> dict:
         mark_error(row, "Daily room request failed")
         log_event("DAILY_ROOM_ERROR", error=type(exc).__name__)
         raise DailyServiceError("Unable to start the call. Please try again.") from exc
+    if response.status_code in {401, 403}:
+        mark_error(row, "Daily key rejected")
+        log_event("DAILY_ROOM_HTTP", status=response.status_code)
+        raise DailyServiceError(
+            "Calling is not set up yet. Add the Daily API key in Admin.",
+            "CALL_NOT_CONFIGURED",
+        )
     if response.status_code >= 400:
         mark_error(row, "Daily room create failed")
         log_event("DAILY_ROOM_HTTP", status=response.status_code)
@@ -122,6 +129,13 @@ def meeting_token(room_name: str, user, *, video: bool) -> str:
         mark_error(row, "Daily token request failed")
         log_event("DAILY_TOKEN_ERROR", error=type(exc).__name__)
         raise DailyServiceError("Unable to start the call. Please try again.") from exc
+    if response.status_code in {401, 403}:
+        mark_error(row, "Daily key rejected")
+        log_event("DAILY_TOKEN_HTTP", status=response.status_code)
+        raise DailyServiceError(
+            "Calling is not set up yet. Add the Daily API key in Admin.",
+            "CALL_NOT_CONFIGURED",
+        )
     if response.status_code >= 400:
         mark_error(row, "Daily token create failed")
         log_event("DAILY_TOKEN_HTTP", status=response.status_code)

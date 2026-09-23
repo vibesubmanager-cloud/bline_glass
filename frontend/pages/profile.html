@@ -30,7 +30,7 @@
     <script type="module">
       import { api } from "../js/api.js?v=34";
       import { getToken, pages } from "../js/config.js?v=35";
-      import { calls } from "../js/calls.js?v=8";
+      import { calls } from "../js/calls.js?v=9";
       if (!getToken()) location.href = pages().welcome;
       calls.startPolling();
       const status = document.getElementById("profile-status");
