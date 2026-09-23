@@ -249,6 +249,7 @@ class CallController {
       throw new Error("Calling is not set up yet. Add the Daily API key in Admin.");
     }
     this._primePlayback();
+    preStream?.getTracks?.().forEach((track) => track.stop());
     const Daily = await loadDaily();
     if (this._callObject) {
       try {
@@ -259,12 +260,10 @@ class CallController {
       }
       this._callObject = null;
     }
-    const audioTrack = preStream?.getAudioTracks?.()[0] || true;
-    const videoTrack = video ? preStream?.getVideoTracks?.()[0] || true : false;
     this._callObject = Daily.createCallObject({
       subscribeToTracksAutomatically: true,
-      audioSource: audioTrack,
-      videoSource: videoTrack,
+      audioSource: true,
+      videoSource: Boolean(video),
     });
     this._bindDaily(this._callObject);
     try {
@@ -275,26 +274,23 @@ class CallController {
         startAudioOff: false,
       });
     } catch (error) {
-      const message = String(error?.errorMsg || error?.message || "");
-      if (/permission|notallowed|denied/i.test(message)) {
+      const raw = [error?.errorMsg, error?.error?.msg, error?.error, error?.message]
+        .filter(Boolean)
+        .join(" ");
+      if (/permission|notallowed|denied/i.test(raw)) {
         throw new Error(
           video
             ? "Camera permission is required for a video call."
             : "Microphone permission is required for a voice call."
         );
       }
+      if (/token|api key|unauthorized|not configured/i.test(raw)) {
+        throw new Error("Calling is not set up yet. Add the Daily API key in Admin.");
+      }
       throw new Error("Unable to start the call. Please try again.");
     }
     this._joined = true;
     this._spokeConnected = false;
-    if (video && preStream) {
-      const localVideo = document.getElementById("local-video");
-      if (localVideo) {
-        localVideo.srcObject = preStream;
-        localVideo.classList.remove("hidden");
-        localVideo.play()?.catch(() => undefined);
-      }
-    }
   }
 
   async _leaveDaily() {
