@@ -1,3 +1,5 @@
+import { getApiBase } from "./config.js";
+
 const TOKEN_KEY = "AISIGHT_ADMIN_TOKEN";
 
 function isLoginPage() {
@@ -28,11 +30,17 @@ async function adminApi(path, { method = "GET", body, isForm = false } = {}) {
   const headers = {};
   if (token()) headers.Authorization = `Bearer ${token()}`;
   if (!isForm && body !== undefined) headers["Content-Type"] = "application/json";
-  const response = await fetch(path, {
-    method,
-    headers,
-    body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
-  });
+  const url = `${getApiBase()}${path}`;
+  let response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers,
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
+    });
+  } catch {
+    throw new Error("Could not reach the API. Wait a few seconds if Render is waking, then try again.");
+  }
   const payload = await response.json().catch(() => null);
   if (response.status === 401) {
     setToken("");
