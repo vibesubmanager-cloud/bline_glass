@@ -14,7 +14,12 @@ def _user_from_token(token: str):
     payload = decode_token(token or "")
     if not payload:
         return None
-    return db.session.get(User, payload.get("sub"))
+    try:
+        return db.session.get(User, payload.get("sub"))
+    except Exception as exc:
+        db.session.rollback()
+        log_event("SOCKET_AUTH_DB_ERROR", error=type(exc).__name__)
+        return None
 
 
 @socketio.on("connect")
@@ -52,6 +57,10 @@ def on_signal(data):
     }
     if (data or {}).get("signal_type") not in {"ring", "end", "reject"}:
         return
-    persist_signal(target_id, payload)
-    emit("call-signal", payload, room=f"user:{target_id}")
-    log_event("CALL_SIGNAL", from_user=user.id, to_user=target_id, kind=data.get("signal_type"))
+    try:
+        persist_signal(target_id, payload)
+        emit("call-signal", payload, room=f"user:{target_id}")
+        log_event("CALL_SIGNAL", from_user=user.id, to_user=target_id, kind=data.get("signal_type"))
+    except Exception as exc:
+        db.session.rollback()
+        log_event("SOCKET_SIGNAL_ERROR", error=type(exc).__name__)

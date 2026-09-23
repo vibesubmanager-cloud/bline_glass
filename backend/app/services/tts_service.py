@@ -16,6 +16,7 @@ from app.utils.logging import log_error, log_event
 
 _CACHE = Path(tempfile.gettempdir()) / "aisight-tts"
 _LOCK = threading.Lock()
+_EDGE_BLOCKED = False
 SAFT_22KHZ_16BIT_MONO = 22
 WARM_PHRASES = (
     "Object detection started. I will say what I see.",
@@ -123,7 +124,10 @@ def _synthesize_windows(text: str, path: Path) -> bool:
 
 
 def _synthesize_edge(text: str, path: Path) -> bool:
-    """Microsoft online voices. Works on Linux phones/Render, returns MP3."""
+    """Microsoft online voices. Cloud hosts are often blocked with HTTP 403."""
+    global _EDGE_BLOCKED
+    if _EDGE_BLOCKED:
+        return False
     try:
         import asyncio
         import edge_tts
@@ -156,8 +160,25 @@ def _synthesize_edge(text: str, path: Path) -> bool:
             if error:
                 raise error[0]
         return path.exists() and path.stat().st_size > 500
-    except Exception as exc:
-        log_error("TTS_EDGE_ERROR", exc)
+    except Exception as ext:
+        if "403" in str(ext):
+            _EDGE_BLOCKED = True
+            log_event("TTS_EDGE_DISABLED", reason="microsoft_blocked")
+        else:
+            log_error("TTS_EDGE_ERROR", ext)
+        return False
+
+
+def _synthesize_gtts(text: str, path: Path) -> bool:
+    try:
+        from gtts import gTTS
+    except ImportError:
+        return False
+    try:
+        gTTS(text=text, lang="en", slow=False).save(str(path))
+        return path.exists() and path.stat().st_size > 500
+    except Exception as ext:
+        log_event("TTS_GTTS_ERROR", error=type(ext).__name__)
         return False
 
 
@@ -168,6 +189,8 @@ def _synthesize_one(text: str, wav_path: Path, mp3_path: Path) -> str | None:
         return "audio/mpeg"
     if _synthesize_sapi(text, wav_path) or _synthesize_windows(text, wav_path):
         return "audio/wav"
+    if _synthesize_gtts(text, mp3_path):
+        return "audio/mpeg"
     if _synthesize_edge(text, mp3_path):
         return "audio/mpeg"
     return None
@@ -210,8 +233,7 @@ def synthesize_wav(text: str) -> bytes | None:
 
 
 def warmup_tts() -> None:
-    for phrase in WARM_PHRASES:
-        try:
-            synthesize_audio(phrase)
-        except Exception as exc:
-            log_error("TTS_WARMUP_ERROR", exc)
+    try:
+        synthesize_audio(WARM_PHRASES[0])
+    except Exception as exc:
+        log_error("TTS_WARMUP_ERROR", exc)
