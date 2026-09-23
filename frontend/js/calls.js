@@ -25,11 +25,13 @@ class CallController {
     this._remoteReady = false;
     this._ending = false;
     this._lastOfferId = "";
+    this.remoteStream = null;
+    this._iceRestarts = 0;
   }
 
   startPolling() {
     if (this.pollTimer) return;
-    this.pollTimer = setInterval(() => this.poll().catch(() => undefined), 700);
+    this.pollTimer = setInterval(() => this.poll().catch(() => undefined), 400);
   }
 
   stopPolling() {
@@ -58,6 +60,7 @@ class CallController {
     if (!this.pc || !this._remoteReady) return;
     const queued = this._earlyIce.splice(0, this._earlyIce.length);
     for (const candidate of queued) {
+      if (!candidate?.candidate) continue;
       try {
         await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
       } catch {
@@ -82,12 +85,14 @@ class CallController {
       return;
     }
     if (type === "ice" && signal.payload) {
+      const payload = signal.payload;
+      if (!payload.candidate) return;
       if (!this.pc || !this._remoteReady) {
-        this._earlyIce.push(signal.payload);
+        this._earlyIce.push(payload);
         return;
       }
       try {
-        await this.pc.addIceCandidate(new RTCIceCandidate(signal.payload));
+        await this.pc.addIceCandidate(new RTCIceCandidate(payload));
       } catch {
         /* ignore */
       }
@@ -151,24 +156,39 @@ class CallController {
   }
 
   _attachRemote(stream) {
+    if (!stream) return;
     const remoteAudio = document.getElementById("remote-audio");
     const remoteVideo = document.getElementById("remote-video");
+    const hasVideo = stream.getVideoTracks().length > 0;
     if (this.videoMode && remoteVideo) {
       remoteVideo.srcObject = stream;
-      remoteVideo.muted = false;
-      remoteVideo.volume = 1;
+      remoteVideo.playsInline = true;
+      remoteVideo.muted = true;
       const playVideo = remoteVideo.play();
       if (playVideo && typeof playVideo.catch === "function") playVideo.catch(() => {});
-      if (remoteAudio) remoteAudio.srcObject = null;
-      return;
     }
     if (remoteAudio) {
-      remoteAudio.srcObject = stream;
+      const audioOnly = new MediaStream(stream.getAudioTracks());
+      remoteAudio.srcObject = hasVideo ? audioOnly : stream;
       remoteAudio.muted = false;
       remoteAudio.volume = 1;
       const playAudio = remoteAudio.play();
       if (playAudio && typeof playAudio.catch === "function") playAudio.catch(() => {});
     }
+  }
+
+  _addRemoteTrack(track, inboundStream) {
+    if (!this.remoteStream) this.remoteStream = new MediaStream();
+    const already = this.remoteStream.getTracks().some((item) => item.id === track.id);
+    if (!already) this.remoteStream.addTrack(track);
+    if (inboundStream) {
+      inboundStream.getTracks().forEach((item) => {
+        if (!this.remoteStream.getTracks().some((existing) => existing.id === item.id)) {
+          this.remoteStream.addTrack(item);
+        }
+      });
+    }
+    this._attachRemote(this.remoteStream);
   }
 
   async createPeer(iceServers, targetUserId, callId, video = false) {
@@ -181,19 +201,20 @@ class CallController {
     this.localStream = await this._getLocalMedia(video);
     this.localStream.getTracks().forEach((track) => this.pc.addTrack(track, this.localStream));
     this._attachLocalPreview();
+    this.remoteStream = new MediaStream();
+    this._iceRestarts = 0;
     this.pc.ontrack = (event) => {
-      const stream = event.streams[0] || new MediaStream([event.track]);
-      this._attachRemote(stream);
+      this._addRemoteTrack(event.track, event.streams?.[0]);
     };
     this.pc.onicecandidate = (event) => {
-      if (!event.candidate || !targetUserId) return;
+      if (!targetUserId) return;
       api("/api/calls/signal", {
         method: "POST",
         body: {
           target_user_id: targetUserId,
           call_id: callId,
           signal_type: "ice",
-          payload: signalPayload(event.candidate),
+          payload: event.candidate ? signalPayload(event.candidate) : { candidate: "" },
           media: this.videoMode ? "video" : "audio",
         },
       }).catch(() => undefined);
@@ -201,13 +222,36 @@ class CallController {
     this.pc.onconnectionstatechange = () => {
       const state = this.pc?.connectionState;
       if (state === "connected") {
+        this._iceRestarts = 0;
+        this._attachRemote(this.remoteStream);
         this.updateBanner(this.videoMode ? "Video call connected" : "Voice call connected");
       }
-      if (state === "failed" && !this._ending) {
-        voice.speak("The call connection failed.");
-        this.end(true).catch(() => undefined);
+      if (state === "failed") {
+        this._recoverIce();
       }
     };
+    this.pc.oniceconnectionstatechange = () => {
+      const ice = this.pc?.iceConnectionState;
+      if (ice === "connected" || ice === "completed") {
+        this._attachRemote(this.remoteStream);
+      }
+      if (ice === "failed") this._recoverIce();
+    };
+  }
+
+  _recoverIce() {
+    if (!this.pc || this._ending) return;
+    if (this._iceRestarts >= 2) {
+      this.updateBanner("Still trying to connect. Keep the call open.");
+      return;
+    }
+    this._iceRestarts += 1;
+    this.updateBanner("Reconnecting the call…");
+    try {
+      this.pc.restartIce();
+    } catch {
+      /* older browsers */
+    }
   }
 
   async start(target, { video = false } = {}) {
@@ -273,6 +317,7 @@ class CallController {
     this._incoming = null;
     this.pendingOffer = null;
     this.updateBanner(this.videoMode ? "Video call connected" : "Voice call connected");
+    this._attachRemote(this.remoteStream);
     await voice.speak(this.videoMode ? "Video call connected." : "Voice call connected.");
   }
 
@@ -339,6 +384,8 @@ class CallController {
     this._remoteReady = false;
     this.videoMode = false;
     this._lastOfferId = "";
+    this.remoteStream = null;
+    this._iceRestarts = 0;
     const remote = document.getElementById("remote-audio");
     const remoteVideo = document.getElementById("remote-video");
     const localVideo = document.getElementById("local-video");

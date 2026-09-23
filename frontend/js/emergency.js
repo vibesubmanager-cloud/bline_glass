@@ -1,7 +1,7 @@
 import { api } from "./api.js";
 import { getSettings } from "./config.js";
 import { navigation, getCurrentPosition } from "./navigation.js";
-import { calls } from "./calls.js?v=3";
+import { calls } from "./calls.js?v=4";
 import { voice } from "./voice.js?v=55";
 
 export async function activateEmergency() {

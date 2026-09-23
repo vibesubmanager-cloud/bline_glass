@@ -11,7 +11,7 @@ import { isYoloInstalled, onYoloProgress, holdDetectionAwake, releaseDetectionAw
 import { readScene, describeScene, askAboutScene } from "./vision.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { isStandaloneApp } from "./location.js";
-import { calls } from "./calls.js?v=3";
+import { calls } from "./calls.js?v=4";
 import { activateEmergency } from "./emergency.js";
 import { setListeningUI, setAiStatus, setLive, setGps, setOnline, setDetectHud, drawDetections, clearDetections, drawRoute, setNavPanel, setMapVisible } from "./overlay.js";
 import { walkingDirectionsOn } from "./shareLocation.js";

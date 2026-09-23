@@ -62,15 +62,30 @@ class CallingServiceError(RuntimeError):
 
 
 def ice_servers() -> list[dict]:
-    servers = [{"urls": ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"]}]
-    turn_url = current_app.config.get("TURN_URL") or ""
+    """STUN plus TURN. Phones on cellular cannot see each other with STUN alone."""
+    servers = [
+        {"urls": ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"]},
+        {"urls": "stun:stun.cloudflare.com:3478"},
+    ]
+    turn_url = (current_app.config.get("TURN_URL") or "").strip()
+    turn_user = current_app.config.get("TURN_USERNAME") or ""
+    turn_pass = current_app.config.get("TURN_PASSWORD") or ""
     if turn_url:
-        servers.append(
-            {
-                "urls": [turn_url],
-                "username": current_app.config.get("TURN_USERNAME") or "",
-                "credential": current_app.config.get("TURN_PASSWORD") or "",
-            }
+        servers.append({"urls": [turn_url], "username": turn_user, "credential": turn_pass})
+    else:
+        # Public relay so deployed iPhone/Android calls work without a private TURN box.
+        servers.extend(
+            [
+                {
+                    "urls": [
+                        "turn:openrelay.metered.ca:80",
+                        "turn:openrelay.metered.ca:443",
+                        "turn:openrelay.metered.ca:443?transport=tcp",
+                    ],
+                    "username": "openrelayproject",
+                    "credential": "openrelayproject",
+                }
+            ]
         )
     return servers
 
