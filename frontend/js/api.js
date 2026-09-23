@@ -1,4 +1,4 @@
-import { getApiBase, getToken, clearSession, pages } from "./config.js";
+import { getApiBase, getToken } from "./config.js";
 
 const REQUEST_TIMEOUT_MS = 30000;
 
@@ -47,11 +47,7 @@ export async function api(path, { method = "GET", body, signal, timeout = REQUES
     });
     const payload = await parseBody(response);
       if (response.status === 401) {
-        clearSession();
-        const path = location.pathname;
-        if (!path.includes("login") && !path.includes("welcome") && !path.includes("register")) {
-          location.href = pages().welcome;
-        }
+        throw new ApiError("Please sign in again.", "AUTH_REQUIRED", 401);
       }
     if (!payload) {
       throw new ApiError("The server returned an unexpected response.", "SERVER_ERROR", response.status);

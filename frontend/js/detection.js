@@ -1,6 +1,6 @@
 import { camera } from "./camera.js";
 import { speakOut } from "./speak-out.js";
-import { detectVideo, installYolo, isYoloReady } from "./yolo-on-device.js";
+import { detectVideo, installYolo, isYoloReady, ensureWorker } from "./yolo-on-device.js";
 
 export async function detectObjects({ objectName, quiet = false } = {}) {
   await camera.ensureStarted(document.getElementById("camera-preview"));
@@ -30,9 +30,13 @@ export async function detectObjects({ objectName, quiet = false } = {}) {
 }
 
 export async function ensureOnDeviceYolo() {
-  if (await isYoloReady()) return true;
   await installYolo();
-  return isYoloReady();
+  try {
+    await ensureWorker();
+    return true;
+  } catch {
+    return isYoloReady();
+  }
 }
 
 export async function runDetection(options = {}) {

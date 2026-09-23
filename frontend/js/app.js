@@ -422,7 +422,7 @@ function formatDistance(meters) {
 
 const HOLD_MS = 500;
 const DOUBLE_TAP_MS = 320;
-const DETECT_TICK_MS = 700;
+const DETECT_TICK_MS = 1200;
 const REPEAT_SPEECH_MS = 7000;
 let detectionMode = false;
 let detectionTimer = null;
@@ -878,13 +878,6 @@ async function boot() {
   });
   preloadYolo();
   setDetectHud(isYoloInstalled() ? "ready" : "loading");
-  ensureOnDeviceYolo()
-    .then((ok) => {
-      if (!detectionMode) setDetectHud(ok ? "ready" : "loading");
-    })
-    .catch(() => {
-      if (!detectionMode) setDetectHud("loading");
-    });
   applyAppearance();
   idleStatus();
   setOnline(navigator.onLine);

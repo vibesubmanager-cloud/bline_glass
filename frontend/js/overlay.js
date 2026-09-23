@@ -57,8 +57,8 @@ export function drawDetections(canvas, video, detections, sourceSize) {
   const ctx = canvas.getContext("2d");
   const width = video.clientWidth || 0;
   const height = video.clientHeight || 0;
-  canvas.width = width;
-  canvas.height = height;
+  if (canvas.width !== width) canvas.width = width;
+  if (canvas.height !== height) canvas.height = height;
   ctx.clearRect(0, 0, width, height);
   if (!detections?.length || !video.videoWidth) return;
   const srcW = sourceSize?.width || video.videoWidth;
