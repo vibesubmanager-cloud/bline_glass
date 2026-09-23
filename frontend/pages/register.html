@@ -45,6 +45,8 @@
     </main>
     <script type="module">
       import { bindBlindRegisterForm } from "../js/auth.js?v=12";
+      import { preloadYolo } from "../js/yolo-preload.js";
+      preloadYolo();
 
       const list = document.getElementById("emergency-list");
       function addRow() {

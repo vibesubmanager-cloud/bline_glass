@@ -4,6 +4,7 @@ import { appState, STATES } from "./state.js";
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent || "");
+const IS_ANDROID = /Android/i.test(navigator.userAgent || "");
 
 function quietWavUrl() {
   const sampleRate = 22050;
@@ -201,6 +202,14 @@ class VoiceService {
   }
 
   _ensureKeepAlive() {
+    if (IS_ANDROID) {
+      try {
+        this._audioContext()?.resume?.();
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
     const ctx = this._audioContext();
     if (!ctx) return;
     try {
@@ -245,6 +254,7 @@ class VoiceService {
   }
 
   _startKeepPlayer() {
+    if (IS_ANDROID) return;
     const player = this._ensurePlayer();
     if (player && !player.paused && player.currentSrc) return;
     player.loop = true;

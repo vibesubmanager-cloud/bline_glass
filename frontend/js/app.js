@@ -1,11 +1,13 @@
 import { getToken, pages, getSettings, getUser } from "./config.js";
 import { ApiError, isOnline, api } from "./api.js";
 import { appState, STATES } from "./state.js";
-import { voice } from "./voice.js?v=49";
+import { voice } from "./voice.js?v=50";
 import { camera } from "./camera.js";
 import { interpretCommand, isAffirmative, isNegative, HELP_TEXT, smallTalkReply } from "./intent.js?v=37";
 import { detectObjects, ensureOnDeviceYolo } from "./detection.js";
 import { speakOut } from "./speak-out.js";
+import { preloadYolo } from "./yolo-preload.js";
+import { isYoloInstalled } from "./yolo-on-device.js";
 import { readScene, describeScene, askAboutScene } from "./vision.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { isStandaloneApp } from "./location.js";
@@ -594,8 +596,10 @@ async function startDetection() {
     return;
   }
   try {
-    setStatus("Getting object detection ready on this phone...");
-    await speakOut("Getting object detection ready on this phone.");
+    if (!isYoloInstalled()) {
+      setStatus("Getting object detection ready on this phone...");
+      await speakOut("Getting object detection ready on this phone.");
+    }
     await ensureOnDeviceYolo();
   } catch (error) {
     if (!isOnline()) {
@@ -875,6 +879,7 @@ function closeDestSheet() {
 
 async function boot() {
   if (!requireAuth()) return;
+  preloadYolo();
   applyAppearance();
   idleStatus();
   setOnline(navigator.onLine);

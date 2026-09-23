@@ -33,7 +33,9 @@
     </main>
     <script type="module">
       import { bindAuthForm, redirectIfAuthed, currentRole } from "../js/auth.js?v=12";
+      import { preloadYolo } from "../js/yolo-preload.js";
       redirectIfAuthed();
+      preloadYolo();
       const role = currentRole();
       const title = document.getElementById("login-title");
       const lede = document.getElementById("login-lede");

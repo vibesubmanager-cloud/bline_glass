@@ -114,22 +114,16 @@ async function readProgress(response, onProgress) {
 }
 
 export async function installYolo({ onProgress } = {}) {
-  if (session || isYoloInstalled()) {
-    await getSession();
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(MODEL_KEY);
+  if (cached && cached.ok) {
+    localStorage.setItem(READY_KEY, "1");
     emitProgress({ state: "ready", pct: 100 });
     return true;
   }
   if (installPromise) return installPromise;
   installPromise = (async () => {
     emitProgress({ state: "downloading", pct: 0 });
-    const cache = await caches.open(CACHE_NAME);
-    const cached = await cache.match(MODEL_KEY);
-    if (cached && cached.ok) {
-      localStorage.setItem(READY_KEY, "1");
-      await getSession();
-      emitProgress({ state: "ready", pct: 100 });
-      return true;
-    }
     let lastError = null;
     for (const url of MODEL_URLS) {
       try {
@@ -142,7 +136,6 @@ export async function installYolo({ onProgress } = {}) {
           new Response(blob, { headers: { "Content-Type": "application/octet-stream", "Content-Length": String(blob.size) } })
         );
         localStorage.setItem(READY_KEY, "1");
-        await getSession();
         emitProgress({ state: "ready", pct: 100 });
         return true;
       } catch (error) {

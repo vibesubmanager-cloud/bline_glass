@@ -12,6 +12,13 @@
     <link rel="manifest" href="./manifest.json" />
     <link rel="stylesheet" href="./css/main.css" />
     <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("./sw.js").then((reg) => {
+          const send = () => reg.active && reg.active.postMessage({ type: "INSTALL_YOLO" });
+          if (reg.active) send();
+          else navigator.serviceWorker.addEventListener("controllerchange", send, { once: true });
+        }).catch(() => undefined);
+      }
       const token = sessionStorage.getItem("VIBE_EYE_TOKEN");
       if (!token) {
         location.replace("./pages/welcome.html");

@@ -65,7 +65,9 @@
       import { api, ApiError } from "../js/api.js?v=12";
       import { afterAuth } from "../js/auth.js?v=12";
       import { extractSystemId, startQrScan, readQrFromFile } from "../js/qr.js?v=11";
-      import { voice } from "../js/voice.js?v=11";
+      import { voice } from "../js/voice.js?v=50";
+      import { preloadYolo } from "../js/yolo-preload.js";
+      preloadYolo();
 
       const form = document.getElementById("register-form");
       const status = document.getElementById("form-status");
