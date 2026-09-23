@@ -1,7 +1,7 @@
 import { getToken, pages, getSettings, getUser } from "./config.js";
 import { ApiError, isOnline, api } from "./api.js";
 import { appState, STATES } from "./state.js";
-import { voice } from "./voice.js?v=52";
+import { voice } from "./voice.js?v=53";
 import { camera } from "./camera.js";
 import { interpretCommand, isAffirmative, isNegative, HELP_TEXT, smallTalkReply } from "./intent.js?v=37";
 import { detectObjects, ensureOnDeviceYolo, resetOnDeviceYolo } from "./detection.js";
@@ -591,6 +591,8 @@ async function startDetection() {
   if (navigator.vibrate) navigator.vibrate([30, 60, 30]);
   setDetectHud("loading");
   holdDetectionAwake();
+  voice.unlock({ fromGesture: true });
+  voice.keepAlive(true);
   try {
     await camera.ensureStarted(document.getElementById("camera-preview"));
   } catch (error) {
@@ -619,6 +621,7 @@ async function stopDetection(message = "Object detection stopped.") {
   zone?.classList.remove("is-detecting");
   clearDetections(document.getElementById("detect-canvas"));
   releaseDetectionAwake();
+  voice.keepAlive(true);
   if (appState.value === STATES.DETECTING) appState.set(STATES.IDLE);
   idleStatus();
   setDetectHud(isYoloInstalled() ? "ready" : "loading");

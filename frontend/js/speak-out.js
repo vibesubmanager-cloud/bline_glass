@@ -1,4 +1,4 @@
-import { voice } from "./voice.js?v=52";
+import { voice } from "./voice.js?v=53";
 
 /** Same speaking path as contacts: do not use a separate home-only synthesizer. */
 export function speakOut(text, opts = {}) {

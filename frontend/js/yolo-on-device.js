@@ -9,8 +9,6 @@ let model = null;
 let loading = null;
 let frameCanvas = null;
 let wakeLock = null;
-let keepCtx = null;
-let keepOsc = null;
 let progressHandlers = new Set();
 
 function emitProgress(payload) {
@@ -138,23 +136,6 @@ export async function holdDetectionAwake() {
   } catch {
     /* some browsers block wake lock */
   }
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    if (!keepCtx || keepCtx.state === "closed") keepCtx = new Ctx();
-    await keepCtx.resume();
-    if (!keepOsc) {
-      const osc = keepCtx.createOscillator();
-      const gain = keepCtx.createGain();
-      gain.gain.value = 0;
-      osc.connect(gain);
-      gain.connect(keepCtx.destination);
-      osc.start();
-      keepOsc = osc;
-    }
-  } catch {
-    /* ignore */
-  }
 }
 
 export function releaseDetectionAwake() {
@@ -164,14 +145,6 @@ export function releaseDetectionAwake() {
     /* ignore */
   }
   wakeLock = null;
-  if (keepOsc) {
-    try {
-      keepOsc.stop();
-    } catch {
-      /* ignore */
-    }
-    keepOsc = null;
-  }
 }
 
 function relativePosition(cx, cy, width, height) {

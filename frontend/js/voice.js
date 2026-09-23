@@ -596,6 +596,16 @@ class VoiceService {
   async _playWav(buffer, token, mime = "audio/wav") {
     if (token !== this._serverToken) return false;
     const waitMs = audioDurationMs(buffer);
+    try {
+      await this._audioContext()?.resume?.();
+    } catch {
+      /* ignore */
+    }
+    this._ensureKeepAlive();
+    if (IS_IOS || IS_ANDROID) {
+      const web = await this._playWebAudio(buffer, token, waitMs);
+      if (web) return true;
+    }
     const url = URL.createObjectURL(new Blob([buffer], { type: mime || "audio/wav" }));
     if (this._objectUrl) URL.revokeObjectURL(this._objectUrl);
     this._objectUrl = url;
@@ -638,10 +648,8 @@ class VoiceService {
       }
       return ended;
     } catch {
-      if (mime !== "audio/mpeg") {
-        const web = await this._playWebAudio(buffer, token, waitMs);
-        if (web) return true;
-      }
+      const web = await this._playWebAudio(buffer, token, waitMs);
+      if (web) return true;
       try {
         await player.play();
         this._notifyStart();
@@ -662,7 +670,8 @@ class VoiceService {
       try {
         decoded = pcmWavToBuffer(ctx, arrayBuffer);
       } catch {
-        decoded = await ctx.decodeAudioData(arrayBuffer.slice(0));
+        const copy = arrayBuffer.slice(0);
+        decoded = await ctx.decodeAudioData(copy);
       }
       if (token !== this._serverToken) return false;
       const source = ctx.createBufferSource();
