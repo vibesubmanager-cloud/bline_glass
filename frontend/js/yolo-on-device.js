@@ -7,6 +7,10 @@ const IRREGULAR = { person: "people", man: "men", woman: "women", child: "childr
 
 let model = null;
 let loading = null;
+let frameCanvas = null;
+let wakeLock = null;
+let keepCtx = null;
+let keepOsc = null;
 let progressHandlers = new Set();
 
 function emitProgress(payload) {
@@ -55,6 +59,25 @@ function loadScript(src) {
   });
 }
 
+async function pickBackend(tf) {
+  const order = ["webgl", "cpu"];
+  for (const name of order) {
+    try {
+      if (tf.findBackend && !tf.findBackend(name) && name === "webgl") {
+        /* register if needed */
+      }
+      const ok = await tf.setBackend(name);
+      if (!ok) continue;
+      await tf.ready();
+      if (tf.getBackend() === name) return name;
+    } catch {
+      /* try next */
+    }
+  }
+  await tf.ready();
+  return tf.getBackend();
+}
+
 async function loadModel() {
   if (model) return model;
   if (loading) return loading;
@@ -63,11 +86,7 @@ async function loadModel() {
     await loadScript(TF_SRC);
     const tf = window.tf;
     if (!tf) throw new Error("Object detection could not start on this device.");
-    await tf.setBackend("cpu");
-    await tf.ready();
-    if (tf.getBackend() !== "cpu") {
-      throw new Error("Object detection needs the CPU backend on this phone.");
-    }
+    await pickBackend(tf);
     emitProgress({ state: "loading", pct: 60 });
     await loadScript(COCO_SRC);
     if (!window.cocoSsd) throw new Error("Object detection could not start on this device.");
@@ -92,10 +111,67 @@ export async function ensureWorker() {
   return true;
 }
 
-export async function removeYolo() {
+export async function recoverDetector() {
+  try {
+    model?.dispose?.();
+  } catch {
+    /* ignore */
+  }
   model = null;
+  loading = null;
+}
+
+export async function removeYolo() {
+  await recoverDetector();
   localStorage.removeItem(READY_KEY);
   emitProgress({ state: "missing", pct: 0 });
+}
+
+export async function holdDetectionAwake() {
+  try {
+    if (navigator.wakeLock?.request) {
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener?.("release", () => {
+        if (document.visibilityState === "visible") holdDetectionAwake().catch(() => undefined);
+      });
+    }
+  } catch {
+    /* some browsers block wake lock */
+  }
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!keepCtx || keepCtx.state === "closed") keepCtx = new Ctx();
+    await keepCtx.resume();
+    if (!keepOsc) {
+      const osc = keepCtx.createOscillator();
+      const gain = keepCtx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain);
+      gain.connect(keepCtx.destination);
+      osc.start();
+      keepOsc = osc;
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+export function releaseDetectionAwake() {
+  try {
+    wakeLock?.release?.();
+  } catch {
+    /* ignore */
+  }
+  wakeLock = null;
+  if (keepOsc) {
+    try {
+      keepOsc.stop();
+    } catch {
+      /* ignore */
+    }
+    keepOsc = null;
+  }
 }
 
 function relativePosition(cx, cy, width, height) {
@@ -150,20 +226,44 @@ export function speakDetections(detections, queryObject) {
   return `You see ${joinEnglish(ranked)}.`;
 }
 
-export async function detectVideo(video, { objectName, confidence = 0.35 } = {}) {
+function grabFrame(video) {
+  const maxW = 320;
+  const scale = Math.min(1, maxW / (video.videoWidth || maxW));
+  const width = Math.max(1, Math.round((video.videoWidth || maxW) * scale));
+  const height = Math.max(1, Math.round((video.videoHeight || maxW) * scale));
+  if (!frameCanvas) frameCanvas = document.createElement("canvas");
+  if (frameCanvas.width !== width) frameCanvas.width = width;
+  if (frameCanvas.height !== height) frameCanvas.height = height;
+  const ctx = frameCanvas.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(video, 0, 0, width, height);
+  return { canvas: frameCanvas, mapX: (video.videoWidth || width) / width, mapY: (video.videoHeight || height) / height };
+}
+
+function withTimeout(promise, ms) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error("DETECT_TIMEOUT")), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+export async function detectVideo(video, { objectName, confidence = 0.32 } = {}) {
   if (!video || !video.videoWidth) {
     return { detections: [], spoken: "The camera is not ready yet.", sourceSize: null, onDevice: true };
   }
   const net = await loadModel();
-  const preds = await net.detect(video, 8, confidence);
+  const frame = grabFrame(video);
+  const preds = await withTimeout(net.detect(frame.canvas, 12, confidence), 2500);
   const vw = video.videoWidth;
   const vh = video.videoHeight;
   let detections = (preds || []).map((item) => {
     const [x, y, w, h] = item.bbox || [0, 0, 0, 0];
-    const x1 = x;
-    const y1 = y;
-    const x2 = x + w;
-    const y2 = y + h;
+    const x1 = x * frame.mapX;
+    const y1 = y * frame.mapY;
+    const x2 = (x + w) * frame.mapX;
+    const y2 = (y + h) * frame.mapY;
     return {
       label: item.class || "object",
       confidence: Math.round((item.score || 0) * 1000) / 1000,

@@ -1,42 +1,28 @@
 import { camera } from "./camera.js";
 import { speakOut } from "./speak-out.js";
-import { detectVideo, installYolo, isYoloReady, ensureWorker } from "./yolo-on-device.js";
+import { detectVideo, installYolo, isYoloReady, recoverDetector } from "./yolo-on-device.js";
 
-export async function detectObjects({ objectName, quiet = false } = {}) {
+export async function detectObjects({ objectName } = {}) {
   await camera.ensureStarted(document.getElementById("camera-preview"));
-  if (await isYoloReady()) {
-    const video = document.getElementById("camera-preview");
-    const data = await detectVideo(video, { objectName });
-    camera.lastCapture = data.sourceSize;
-    return data;
-  }
-  if (quiet) {
-    return { detections: [], spoken: "", loading: true, onDevice: true };
-  }
   await installYolo();
-  if (await isYoloReady()) {
-    const video = document.getElementById("camera-preview");
-    const data = await detectVideo(video, { objectName });
-    camera.lastCapture = data.sourceSize;
-    return data;
-  }
-  if (!quiet) await speakOut("Object detection is still loading on this phone.");
-  return {
-    detections: [],
-    spoken: "Object detection is still loading on this phone.",
-    loading: true,
-    onDevice: true,
-  };
+  const video = document.getElementById("camera-preview");
+  const data = await detectVideo(video, { objectName });
+  camera.lastCapture = data.sourceSize;
+  return data;
 }
 
 export async function ensureOnDeviceYolo() {
-  await installYolo();
   try {
-    await ensureWorker();
+    await installYolo();
     return true;
   } catch {
     return isYoloReady();
   }
+}
+
+export async function resetOnDeviceYolo() {
+  await recoverDetector();
+  return ensureOnDeviceYolo();
 }
 
 export async function runDetection(options = {}) {
