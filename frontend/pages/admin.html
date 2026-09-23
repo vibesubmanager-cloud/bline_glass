@@ -89,7 +89,7 @@
 
         <section id="section-keys" class="hidden">
           <h2>API keys</h2>
-          <p class="muted">Add up to 20 Gemini keys and 20 Groq keys. If one fails, the app tries the next working key.</p>
+          <p class="muted">Add Gemini, Groq, and Daily keys here. Keys are stored on the server. Phones never receive the Daily master key.</p>
           <div class="grid-2">
             <div class="card" data-provider="gemini">
               <h3>Gemini vision keys</h3>
@@ -110,6 +110,16 @@
               </form>
               <div class="key-list"></div>
               <p class="muted">Use the Test section to send “hi” and see if it replies.</p>
+            </div>
+            <div class="card" data-provider="daily">
+              <h3>Daily calling key</h3>
+              <form class="key-form">
+                <label>Label <input name="label" placeholder="Daily production" /></label>
+                <label>API key <input name="key" required autocomplete="off" /></label>
+                <button class="btn primary" type="submit">Add Daily key</button>
+              </form>
+              <div class="key-list"></div>
+              <p class="muted">This key stays on the server. Use Test on the key to confirm Daily accepts it.</p>
             </div>
           </div>
         </section>
@@ -146,6 +156,6 @@
         </section>
       </main>
     </div>
-    <script type="module" src="../js/admin.js?v=2"></script>
+    <script type="module" src="../js/admin.js?v=3"></script>
   </body>
 </html>

@@ -4,15 +4,13 @@ from app.extensions import limiter
 from app.models.contact import Contact
 from app.services.calling_service import (
     CallingServiceError,
+    accept_call,
     drain_signals,
-    ice_servers,
     post_signal,
-    put_call_media,
     require_call_party,
     resolve_contact_for_call,
     set_call_status,
     start_call,
-    take_call_media,
 )
 from app.services.usage_service import record_usage
 from app.utils.responses import fail, ok
@@ -40,6 +38,8 @@ def start():
         return fail(exc.code, exc.message, 400)
     except CallingServiceError as exc:
         code = 404 if exc.code in {"CONTACT_NOT_FOUND", "VIDEO_UNAVAILABLE"} else 400
+        if exc.code == "CALL_NOT_CONFIGURED":
+            code = 503
         return fail(exc.code, str(exc), code)
 
     record_usage("CALL_STARTED", g.current_user.id)
@@ -97,14 +97,16 @@ def signal():
             require_call_party(call_id, g.current_user.id)
         except CallingServiceError as exc:
             return fail(exc.code, str(exc), 404)
+    kind = str(data.get("signal_type") or "")
+    if kind not in {"ring", "end", "reject"}:
+        return fail("VALIDATION_ERROR", "That call signal is not allowed.", 400)
     post_signal(
         target,
         {
             "from_user_id": g.current_user.id,
             "from_name": g.current_user.name,
             "call_id": data.get("call_id"),
-            "signal_type": data.get("signal_type"),
-            "payload": data.get("payload"),
+            "signal_type": kind,
             "media": data.get("media") or "audio",
         },
     )
@@ -115,7 +117,7 @@ def signal():
 @login_required
 @limiter.exempt
 def poll():
-    return ok({"signals": drain_signals(g.current_user.id), "ice_servers": ice_servers()})
+    return ok({"signals": drain_signals(g.current_user.id)})
 
 
 @calls_bp.post("/accept")
@@ -124,45 +126,10 @@ def accept():
     try:
         data = require_json(request.get_json(silent=True))
         call_id = require_string(data, "call_id")
-        session = set_call_status(call_id, g.current_user.id, "active")
+        payload = accept_call(call_id, g.current_user)
     except ValidationError as exc:
         return fail(exc.code, exc.message, 400)
     except CallingServiceError as exc:
         return fail(exc.code, str(exc), 404)
-    return ok({"call": session.public_dict(), "spoken": "Call connected."})
-
-
-@calls_bp.post("/media")
-@login_required
-@limiter.exempt
-def upload_media():
-    data = request.get_json(silent=True) or {}
-    try:
-        call_id = require_string(data, "call_id")
-        require_call_party(call_id, g.current_user.id)
-    except ValidationError as exc:
-        return fail(exc.code, exc.message, 400)
-    except CallingServiceError as exc:
-        return fail(exc.code, str(exc), 404)
-    kind = "video" if str(data.get("kind") or "") == "video" else "audio"
-    payload = data.get("data") if isinstance(data.get("data"), str) else ""
-    if not payload:
-        return fail("VALIDATION_ERROR", "Media data is required.", 400)
-    if len(payload) > 400000:
-        return fail("VALIDATION_ERROR", "That media chunk is too large.", 400)
-    put_call_media(call_id, g.current_user.id, kind, payload)
-    return ok({"queued": True})
-
-
-@calls_bp.get("/media")
-@login_required
-@limiter.exempt
-def download_media():
-    call_id = (request.args.get("call_id") or "").strip()
-    if not call_id:
-        return fail("VALIDATION_ERROR", "call_id is required.", 400)
-    try:
-        require_call_party(call_id, g.current_user.id)
-    except CallingServiceError as exc:
-        return fail(exc.code, str(exc), 404)
-    return ok(take_call_media(call_id, g.current_user.id))
+    payload["spoken"] = "Call connected."
+    return ok(payload)

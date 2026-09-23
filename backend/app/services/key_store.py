@@ -9,9 +9,9 @@ from flask import current_app
 from app.extensions import db
 from app.models.api_key import ApiKey
 
-PROVIDERS = ("gemini", "groq")
+PROVIDERS = ("gemini", "groq", "daily")
 MAX_KEYS_PER_PROVIDER = 20
-_ENV_FIELDS = {"gemini": "GEMINI_API_KEY", "groq": "GROQ_API_KEY"}
+_ENV_FIELDS = {"gemini": "GEMINI_API_KEY", "groq": "GROQ_API_KEY", "daily": "DAILY_API_KEY"}
 
 
 class KeyStoreError(RuntimeError):
@@ -87,7 +87,7 @@ def mark_error(row: ApiKey | None, message: str) -> None:
 def add_key(provider: str, key_value: str, label: str | None = None) -> ApiKey:
     provider = (provider or "").strip().lower()
     if provider not in PROVIDERS:
-        raise KeyStoreError("Choose Gemini or Groq.")
+        raise KeyStoreError("Choose Gemini, Groq, or Daily.")
     secret = (key_value or "").strip()
     if len(secret) < 8:
         raise KeyStoreError("Paste a full API key.")

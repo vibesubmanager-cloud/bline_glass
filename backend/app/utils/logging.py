@@ -18,6 +18,7 @@ SENSITIVE_KEYS = {
     "maps_api_key",
     "cloudinary_api_secret",
     "groq_api_key",
+    "daily_api_key",
 }
 
 _TRACE_FILE = Path(__file__).resolve().parents[1] / "api-trace.log"

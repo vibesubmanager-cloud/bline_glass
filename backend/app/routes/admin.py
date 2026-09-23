@@ -223,6 +223,10 @@ def _run_key_test(row: ApiKey, *, text: str = "", image=None) -> dict:
         from app.services.groq_service import get_groq_service
 
         return get_groq_service().ping_chat(text or "hi", only_key=row.key_value, key_row=row)
+    if row.provider == "daily":
+        from app.services.daily_service import ping_daily
+
+        return ping_daily(row.key_value)
     return {"ok": False, "reply": "Unknown provider."}
 
 

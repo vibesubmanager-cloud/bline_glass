@@ -108,6 +108,22 @@ def test_admin_api_keys_are_masked(client):
     assert "key_value" not in keys[0]
 
 
+def test_admin_daily_key_is_masked(client):
+    _login_admin(client)
+    created = client.post(
+        "/api/admin/keys",
+        json={"provider": "daily", "label": "Daily 1", "key": "daily-test-secret-key-value-1234"},
+    )
+    assert created.status_code == 201
+    item = created.get_json()["data"]["key"]
+    assert item["hint"].endswith("1234")
+    assert "daily-test-secret" not in item["hint"]
+    listed = client.get("/api/admin/keys")
+    keys = listed.get_json()["data"]["keys"]["daily"]
+    assert keys[0]["label"] == "Daily 1"
+    assert "key_value" not in keys[0]
+
+
 def test_gemini_test_needs_photo(client):
     _login_admin(client)
     created = client.post(
@@ -127,4 +143,5 @@ def test_admin_test_section_is_on_page(client):
     html = page.get_data(as_text=True)
     assert "section-test" in html
     assert "gemini-test-form" in html
+    assert "Daily calling key" in html
     assert "text-test-form" in html

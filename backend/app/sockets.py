@@ -1,4 +1,4 @@
-"""WebRTC signaling over Socket.IO. Media never transits the server."""
+"""Application call notifications over Socket.IO. Daily carries live media."""
 
 from flask import request
 from flask_socketio import emit, join_room, leave_room
@@ -50,6 +50,8 @@ def on_signal(data):
         "payload": data.get("payload"),
         "media": data.get("media") or "audio",
     }
+    if (data or {}).get("signal_type") not in {"ring", "end", "reject"}:
+        return
     persist_signal(target_id, payload)
     emit("call-signal", payload, room=f"user:{target_id}")
     log_event("CALL_SIGNAL", from_user=user.id, to_user=target_id, kind=data.get("signal_type"))

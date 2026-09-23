@@ -136,6 +136,7 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
         _ensure_contact_columns()
         _ensure_message_table()
         _ensure_api_key_table()
+        _ensure_call_columns()
         from app.routes.admin import seed_admin_user
         from app.services.key_store import seed_env_keys
 
@@ -243,3 +244,17 @@ def _ensure_api_key_table() -> None:
     inspector = inspect(db.engine)
     if "api_keys" not in inspector.get_table_names():
         ApiKey.__table__.create(bind=db.engine, checkfirst=True)
+
+
+def _ensure_call_columns() -> None:
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(db.engine)
+    if "call_sessions" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("call_sessions")}
+    if "daily_room_name" not in columns:
+        db.session.execute(text("ALTER TABLE call_sessions ADD COLUMN daily_room_name VARCHAR(128)"))
+    if "daily_room_url" not in columns:
+        db.session.execute(text("ALTER TABLE call_sessions ADD COLUMN daily_room_url VARCHAR(255)"))
+    db.session.commit()

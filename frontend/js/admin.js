@@ -208,7 +208,7 @@ async function loadUsers() {
   });
 }
 
-let cachedKeys = { gemini: [], groq: [] };
+let cachedKeys = { gemini: [], groq: [], daily: [] };
 
 function fillKeySelect(selectId, rows, emptyLabel) {
   const select = document.getElementById(selectId);
@@ -282,6 +282,13 @@ async function handleKeyAction(button) {
   const id = button.dataset.id;
   const act = button.dataset.act;
   if (act === "test") {
+    if (button.dataset.provider === "daily") {
+      showStatus("Testing Daily key…");
+      const result = await adminApi(`/api/admin/keys/${id}/test`, { method: "POST", body: {} });
+      showStatus(result.ok ? "Daily key works." : result.reply || "That Daily key did not work.", result.ok);
+      await loadKeys();
+      return;
+    }
     await showSection("test");
     const selectId = button.dataset.provider === "groq" ? "text-test-key" : "gemini-test-key";
     const select = document.getElementById(selectId);

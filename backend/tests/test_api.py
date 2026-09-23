@@ -137,7 +137,17 @@ def test_call_unknown_contact(auth_client):
     assert response.status_code == 404
 
 
-def test_call_http_signaling_and_media_mailbox(client):
+def test_call_daily_signaling_without_exposing_key(client, monkeypatch):
+    monkeypatch.setattr(
+        "app.services.calling_service.create_room",
+        lambda call_id: {"name": f"ais-{call_id[:8]}", "url": "https://example.daily.co/room-test"},
+    )
+    monkeypatch.setattr(
+        "app.services.calling_service.meeting_token",
+        lambda room_name, user, video=False: f"meeting-token-for-{user.id}",
+    )
+    monkeypatch.setattr("app.services.calling_service.delete_room", lambda room_name: None)
+
     first = client.post(
         "/api/auth/register",
         json={"name": "Ada", "email": "ada-call@example.com", "password": "securepass", "phone": "+15551110001"},
@@ -148,6 +158,7 @@ def test_call_http_signaling_and_media_mailbox(client):
     )
     token_a = first.get_json()["data"]["token"]
     token_b = second.get_json()["data"]["token"]
+    user_a = first.get_json()["data"]["user"]["id"]
     user_b = second.get_json()["data"]["user"]["id"]
 
     client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token_a}"
@@ -159,49 +170,27 @@ def test_call_http_signaling_and_media_mailbox(client):
 
     started = client.post("/api/calls/start", json={"target": "Ben", "media": "video"})
     assert started.status_code == 200
-    call = started.get_json()["data"]["call"]
-    ice = started.get_json()["data"]["ice_servers"]
+    payload = started.get_json()["data"]
+    call = payload["call"]
+    daily = payload["daily"]
+    blob = str(payload)
     assert call["call_type"] == "video"
     assert call["callee_id"] == user_b
-    assert any(str(item.get("urls", "")).startswith("stun:") for item in ice)
-    assert not any("openrelay" in str(item.get("urls", "")).lower() for item in ice)
-
-    offer = client.post(
-        "/api/calls/signal",
-        json={
-            "target_user_id": user_b,
-            "call_id": call["id"],
-            "signal_type": "offer",
-            "media": "video",
-            "payload": {"type": "offer", "sdp": "v=0"},
-        },
-    )
-    assert offer.status_code == 200
+    assert daily["url"].startswith("https://example.daily.co/")
+    assert daily["token"].startswith("meeting-token-for-")
+    assert "5acad95e" not in blob
+    assert "Bearer" not in blob
+    assert "api_key" not in blob.lower()
 
     client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token_b}"
     polled = client.get("/api/calls/poll")
     signals = polled.get_json()["data"]["signals"]
-    assert any(item.get("signal_type") == "offer" for item in signals)
+    assert any(item.get("signal_type") == "ring" for item in signals)
+    assert all("token" not in (item or {}) for item in signals)
 
-    answer = client.post(
-        "/api/calls/signal",
-        json={
-            "target_user_id": first.get_json()["data"]["user"]["id"],
-            "call_id": call["id"],
-            "signal_type": "answer",
-            "media": "video",
-            "payload": {"type": "answer", "sdp": "v=0"},
-        },
-    )
-    assert answer.status_code == 200
-
-    client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token_a}"
-    caller_poll = client.get("/api/calls/poll")
-    assert any(item.get("signal_type") == "answer" for item in caller_poll.get_json()["data"]["signals"])
-
-    posted = client.post("/api/calls/media", json={"call_id": call["id"], "kind": "video", "data": "abc123"})
-    assert posted.status_code == 200
-    client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token_b}"
-    taken = client.get(f"/api/calls/media?call_id={call['id']}")
-    assert taken.get_json()["data"]["video"] == "abc123"
+    accepted = client.post("/api/calls/accept", json={"call_id": call["id"]})
+    assert accepted.status_code == 200
+    callee_daily = accepted.get_json()["data"]["daily"]
+    assert callee_daily["token"] == f"meeting-token-for-{user_b}"
+    assert callee_daily["url"] == daily["url"]
 
