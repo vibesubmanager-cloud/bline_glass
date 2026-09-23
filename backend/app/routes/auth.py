@@ -305,5 +305,7 @@ def update_settings():
         settings.share_location_in_emergency = bool(data["share_location_in_emergency"])
     if "walking_directions" in data:
         settings.walking_directions = bool(data["walking_directions"])
+    if "calling_configured" in data:
+        settings.calling_configured = bool(data["calling_configured"])
     db.session.commit()
     return ok({"settings": settings.public_dict()})

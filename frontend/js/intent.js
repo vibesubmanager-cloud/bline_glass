@@ -71,4 +71,4 @@ export function isNegative(text) {
 }
 
 export const HELP_TEXT =
-  "Hold the screen to speak. Double tap for object detection. Say send a message, send a photo, or send a map. Say what is in front of me, describe what is in front of me, or read this.";
+  "Hold the screen to speak. Double tap for object detection. Say send a message, send a photo, or send a map. Say what is in front of me, describe what is in front of me, or read this. Say open calling settings to set up voice and video calling once.";

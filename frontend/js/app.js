@@ -3,7 +3,7 @@ import { ApiError, isOnline, api } from "./api.js";
 import { appState, STATES } from "./state.js";
 import { voice } from "./voice.js?v=55";
 import { camera } from "./camera.js";
-import { interpretCommand, isAffirmative, isNegative, HELP_TEXT, smallTalkReply } from "./intent.js?v=37";
+import { interpretCommand, isAffirmative, isNegative, HELP_TEXT, smallTalkReply } from "./intent.js?v=38";
 import { detectObjects, ensureOnDeviceYolo, resetOnDeviceYolo } from "./detection.js";
 import { speakOut } from "./speak-out.js";
 import { preloadYolo } from "./yolo-preload.js";
@@ -11,7 +11,7 @@ import { isYoloInstalled, onYoloProgress, holdDetectionAwake, releaseDetectionAw
 import { readScene, describeScene, askAboutScene } from "./vision.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { isStandaloneApp } from "./location.js";
-import { calls } from "./calls.js?v=12";
+import { calls } from "./calls.js?v=13";
 import { activateEmergency } from "./emergency.js";
 import { setListeningUI, setAiStatus, setLive, setGps, setOnline, setDetectHud, drawDetections, clearDetections, drawRoute, setNavPanel, setMapVisible } from "./overlay.js";
 import { walkingDirectionsOn } from "./shareLocation.js";
@@ -143,6 +143,18 @@ async function executeCommand(parsed, text) {
   }
   if (parsed.intent === "HELP") {
     await voice.speak(HELP_TEXT);
+    return;
+  }
+  if (parsed.intent === "CALLING_SETTINGS") {
+    location.href = `${pages().settings}#calling`;
+    return;
+  }
+  if (parsed.intent === "CONFIGURE_CALLING") {
+    location.href = `${pages().settings}#calling`;
+    return;
+  }
+  if (parsed.intent === "TEST_CALLING") {
+    location.href = `${pages().settings}#calling`;
     return;
   }
   if (parsed.intent === "SETTINGS") {

@@ -5,7 +5,7 @@
     <meta http-equiv="Cache-Control" content="no-store" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit-cover" />
     <title>Settings — AI Sight</title>
-    <link rel="stylesheet" href="../css/main.css?v=18" />
+    <link rel="stylesheet" href="../css/main.css?v=28" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
   </head>
@@ -13,7 +13,7 @@
     <main class="app-shell">
       <header class="brand">
         <h1>Settings</h1>
-        <p>Voice, camera, and privacy.</p>
+        <p>Voice, camera, calling, and privacy.</p>
       </header>
       <p id="settings-status" class="status-bar" role="status" aria-live="polite"></p>
       <article class="card iphone-help" aria-label="Test speaker">
@@ -33,6 +33,29 @@
           <button class="btn" id="test-speak-call" type="button">Test calling</button>
         </div>
       </article>
+      <article class="card iphone-help" id="calling-setup" aria-label="Calling">
+        <strong>Calling</strong>
+        <p>
+          Configure voice and video calling once. After that, say call or video call a person.
+          You stay signed in to AI Sight. Calls do not open a Jitsi login page or ask for your email again.
+        </p>
+        <p id="calling-status" class="status-bar" role="status">Checking calling…</p>
+        <div class="auth-actions">
+          <button class="btn primary wide" id="calling-configure" type="button">Configure calling</button>
+          <button class="btn" id="calling-test" type="button">Test calling</button>
+          <button class="btn" id="calling-test-video" type="button">Test video calling</button>
+          <button class="btn danger" id="calling-remove" type="button">Remove calling configuration</button>
+        </div>
+      </article>
+      <section id="call-overlay" class="call-overlay hidden" aria-label="Call">
+        <p id="call-status-text">Calling</p>
+        <div id="jitsi-container" class="jitsi-container" aria-hidden="true"></div>
+        <div class="call-controls">
+          <button id="call-end" class="danger" type="button" aria-label="End call">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15c4-4 8-4 12 0"/><path d="M8 18l-2-3 3-1M16 18l2-3-3-1"/></svg>
+          </button>
+        </div>
+      </section>
       <article class="card iphone-help" aria-label="iPhone">
         <strong>iPhone</strong>
         <p>Use Safari. Tap to speak. Hold for a command. Double tap to start or stop object detection.</p>
@@ -128,6 +151,7 @@
       import { api } from "../js/api.js?v=34";
       import { bindApiField } from "../js/auth.js?v=34";
       import { clearSession, getSettings, setSession, getUser, getToken, pages } from "../js/config.js?v=34";
+      import { calls } from "../js/calls.js?v=13";
       import { voice } from "../js/voice.js?v=55";
       import { requestLocationAccess } from "../js/navigation.js";
       import { drawSystemQr } from "../js/qr.js";
@@ -135,6 +159,69 @@
       import { speakOut } from "../js/speak-out.js";
       if (!getToken()) location.href = pages().welcome;
       bindApiField();
+      function renderCallingStatus() {
+        const info = calls.callingStatus();
+        const el = document.getElementById("calling-status");
+        if (!el) return info;
+        if (info.configured) {
+          el.textContent = info.email
+            ? `Calling is ready. Account: ${info.email}.`
+            : "Calling is ready.";
+        } else {
+          el.textContent = info.email
+            ? `Calling is not configured. Your AI Sight account is ${info.email}. Tap Configure calling once.`
+            : "Calling is not configured. Tap Configure calling once.";
+        }
+        return info;
+      }
+      async function configureCallingFromSettings() {
+        const status = document.getElementById("settings-status");
+        try {
+          voice.unlock({ fromGesture: true });
+          status.textContent = "Setting up calling…";
+          await calls.configureCalling();
+          renderCallingStatus();
+          status.textContent = "Calling is ready.";
+          await voice.speak("Calling is ready. You can say call a person. You will not be asked to sign in again for calls.");
+        } catch (error) {
+          status.textContent = error.message;
+          await voice.speak(error.message || "Microphone permission is required for this call.");
+        }
+      }
+      async function testCallingFromSettings(video) {
+        const status = document.getElementById("settings-status");
+        try {
+          voice.unlock({ fromGesture: true });
+          status.textContent = video ? "Testing video calling…" : "Testing calling…";
+          await calls.testCalling({ video });
+          renderCallingStatus();
+          status.textContent = "Calling is ready.";
+          await voice.speak("Calling is ready. You will not be asked to sign in again for calls.");
+        } catch (error) {
+          status.textContent = error.message;
+          await voice.speak(error.message || "Unable to connect the call. Please try again.");
+        }
+      }
+      document.getElementById("calling-configure")?.addEventListener("click", () => configureCallingFromSettings());
+      document.getElementById("calling-test")?.addEventListener("click", () => testCallingFromSettings(false));
+      document.getElementById("calling-test-video")?.addEventListener("click", () => testCallingFromSettings(true));
+      document.getElementById("calling-remove")?.addEventListener("click", async () => {
+        await calls.removeCallingConfiguration();
+        renderCallingStatus();
+        document.getElementById("settings-status").textContent = "Calling configuration removed.";
+        await voice.speak("Calling configuration removed. Open calling settings when you want to set it up again.");
+      });
+      document.getElementById("call-end")?.addEventListener("click", () => calls.end(true));
+      renderCallingStatus();
+      if (location.hash === "#calling") {
+        document.getElementById("calling-setup")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        const info = calls.callingStatus();
+        voice.speak(
+          info.configured
+            ? "Calling settings. Calling is ready."
+            : "Calling settings. Tap configure calling once. After that, calls will not ask you to sign in."
+        );
+      }
       const SPEAKER_TESTS = [
         ["voice", "Voice. Hold the screen to speak. Double tap for object detection."],
         ["detect", "Detection. You see a chair and a person in front of you."],

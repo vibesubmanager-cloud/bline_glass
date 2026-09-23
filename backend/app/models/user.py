@@ -72,6 +72,7 @@ class UserSettings(db.Model):
     language = db.Column(db.String(16), default="en-US", nullable=False)
     share_location_in_emergency = db.Column(db.Boolean, default=True, nullable=False)
     walking_directions = db.Column(db.Boolean, default=False, nullable=False)
+    calling_configured = db.Column(db.Boolean, default=False, nullable=False)
     updated_at = db.Column(
         db.DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
     )
@@ -84,4 +85,5 @@ class UserSettings(db.Model):
             "language": self.language,
             "share_location_in_emergency": self.share_location_in_emergency,
             "walking_directions": bool(self.walking_directions),
+            "calling_configured": bool(self.calling_configured),
         }

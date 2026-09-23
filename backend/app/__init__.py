@@ -181,7 +181,9 @@ def _ensure_settings_columns() -> None:
     columns = {column["name"] for column in inspector.get_columns("user_settings")}
     if "walking_directions" not in columns:
         db.session.execute(text("ALTER TABLE user_settings ADD COLUMN walking_directions BOOLEAN DEFAULT 0"))
-        db.session.commit()
+    if "calling_configured" not in columns:
+        db.session.execute(text("ALTER TABLE user_settings ADD COLUMN calling_configured BOOLEAN DEFAULT 0"))
+    db.session.commit()
 
 
 def _ensure_user_columns() -> None:

@@ -1,5 +1,5 @@
 import { getApiBase, getSettings, getToken } from "./config.js";
-import { smallTalkReply } from "./intent.js?v=37";
+import { smallTalkReply } from "./intent.js?v=38";
 import { appState, STATES } from "./state.js";
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;

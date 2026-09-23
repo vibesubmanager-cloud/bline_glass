@@ -366,6 +366,33 @@ def build_default_registry() -> IntentRegistry:
         [r"^help$", r"\bwhat can you do\b", r"\bhow do i\b", r"\bcommands\b"],
         priority=90,
     )
+    registry.register(
+        "TEST_CALLING",
+        [
+            r"\btest (?:my )?(?:video |voice )?call(?:ing)?\b",
+            r"\btest (?:the )?calling\b",
+        ],
+        priority=92,
+    )
+    registry.register(
+        "CONFIGURE_CALLING",
+        [
+            r"\bconfigure (?:my )?(?:calling|video calling)(?: account)?\b",
+            r"\bset up (?:my )?calling\b",
+            r"\bsetup (?:my )?calling\b",
+        ],
+        priority=93,
+    )
+    registry.register(
+        "CALLING_SETTINGS",
+        [
+            r"\bopen calling settings\b",
+            r"\bcalling settings\b",
+            r"\bvoice and video call(?:ing)? setup\b",
+            r"\bvideo and voice call(?:ing)? setup\b",
+        ],
+        priority=94,
+    )
     registry.register("SETTINGS", [r"\bsettings\b", r"\bopen settings\b"], priority=95)
     return registry
 

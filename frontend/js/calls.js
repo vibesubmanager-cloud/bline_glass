@@ -1,10 +1,20 @@
 import { api } from "./api.js";
 import { voice } from "./voice.js?v=55";
 import { appState, STATES } from "./state.js";
-import { getToken, getUser } from "./config.js";
+import { getToken, getUser, getSettings, setSession } from "./config.js";
 import { camera } from "./camera.js";
 
 const IFRAME_ALLOW = "camera; microphone; display-capture; autoplay; clipboard-write; fullscreen";
+
+function callingIdentity() {
+  const user = getUser() || {};
+  const settings = getSettings() || {};
+  return {
+    displayName: String(user.name || "AI Sight").trim() || "AI Sight",
+    email: String(user.email || "").trim(),
+    configured: Boolean(settings.calling_configured),
+  };
+}
 
 function loadJitsi() {
   if (window.JitsiMeetExternalAPI) return Promise.resolve(window.JitsiMeetExternalAPI);
@@ -177,16 +187,22 @@ class CallController {
   }
 
   _jitsiOptions(room, parentNode, video) {
-    const displayName = getUser()?.name || "AI Sight";
+    const { displayName, email } = callingIdentity();
+    const userInfo = { displayName };
+    if (email) userInfo.email = email;
     return {
       roomName: room,
       parentNode,
       width: "100%",
       height: "100%",
-      userInfo: { displayName },
+      userInfo,
       configOverwrite: {
         prejoinPageEnabled: false,
-        prejoinConfig: { enabled: false },
+        prejoinConfig: {
+          enabled: false,
+          hideDisplayName: true,
+          hideExtraJoinButtons: ["no-audio", "by-phone"],
+        },
         startWithAudioMuted: false,
         startWithVideoMuted: !video,
         startAudioOnly: !video,
@@ -202,14 +218,22 @@ class CallController {
         enableWelcomePage: false,
         enableClosePage: false,
         requireDisplayName: false,
+        readOnlyName: true,
         disableProfile: true,
+        hideEmailInSettings: true,
         disableThirdPartyRequests: true,
         analytics: { disabled: true },
+        gravatar: { disabled: true },
+        authentication: { enabled: false },
+        enableUserRolesBasedOnToken: false,
+        enableFeaturesBasedOnToken: false,
+        defaultLocalDisplayName: displayName,
         notifications: [],
         toolbarButtons: ["microphone", "camera"],
         hideConferenceSubject: true,
         hideConferenceTimer: true,
         disableSelfViewSettings: true,
+        lobby: { autoKnock: false, enableChat: false },
       },
       interfaceConfigOverwrite: {
         TOOLBAR_BUTTONS: ["microphone", "camera"],
@@ -223,6 +247,7 @@ class CallController {
         DEFAULT_BACKGROUND: "#05070c",
         DISPLAY_WELCOME_PAGE_CONTENT: false,
         DISPLAY_WELCOME_FOOTER: false,
+        AUTHENTICATION_ENABLE: false,
       },
       onload: () => armIframe(parentNode),
     };
@@ -279,6 +304,19 @@ class CallController {
     const joinToken = ++this._joinToken;
     this._jitsi = new Jitsi(domain, this._jitsiOptions(room, parentNode, video));
     const api = this._jitsi;
+    const { displayName, email } = callingIdentity();
+    try {
+      api.executeCommand("displayName", displayName);
+    } catch {
+      /* ignore */
+    }
+    if (email) {
+      try {
+        api.executeCommand("email", email);
+      } catch {
+        /* ignore */
+      }
+    }
     armIframe(parentNode);
     const watcher = new MutationObserver(() => armIframe(parentNode));
     watcher.observe(parentNode, { childList: true, subtree: true });
@@ -492,6 +530,63 @@ class CallController {
     }
     if (appState.value === STATES.CALLING) appState.set(STATES.IDLE);
     this._ending = false;
+  }
+
+  callingStatus() {
+    return callingIdentity();
+  }
+
+  async configureCalling() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("Microphone permission is required for this call.");
+    }
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+    } catch {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch {
+        throw new Error("Microphone permission is required for this call.");
+      }
+    }
+    try {
+      stream.getTracks().forEach((track) => track.stop());
+    } catch {
+      /* ignore */
+    }
+    const data = await api("/api/auth/settings", { method: "PUT", body: { calling_configured: true } });
+    setSession(getToken(), getUser(), data.settings);
+    return callingIdentity();
+  }
+
+  async removeCallingConfiguration() {
+    const data = await api("/api/auth/settings", { method: "PUT", body: { calling_configured: false } });
+    setSession(getToken(), getUser(), data.settings);
+    return callingIdentity();
+  }
+
+  async testCalling({ video = false } = {}) {
+    if (this.currentCall || this._incoming) {
+      throw new Error("A call is already in progress.");
+    }
+    this.startPolling();
+    appState.set(STATES.CALLING);
+    this.videoMode = Boolean(video);
+    this.updateBanner(video ? "Testing video calling…" : "Testing calling…");
+    const room = `aidobot-call-test-${crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : String(Date.now())}`;
+    try {
+      await this._joinJitsi({ room, domain: "meet.jit.si" }, this.videoMode);
+      await this._leaveJitsi();
+      if (!getSettings().calling_configured) await this.configureCalling();
+      this.updateBanner("");
+      if (appState.value === STATES.CALLING) appState.set(STATES.IDLE);
+    } catch (error) {
+      await this._leaveJitsi();
+      this.updateBanner("");
+      if (appState.value === STATES.CALLING) appState.set(STATES.IDLE);
+      throw error;
+    }
   }
 
   updateBanner(text) {

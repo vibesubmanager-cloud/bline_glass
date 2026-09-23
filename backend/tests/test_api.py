@@ -74,6 +74,19 @@ def test_intent_parse_endpoint(auth_client):
     assert response.get_json()["data"]["intent"] == "READ"
 
 
+def test_intent_calling_settings(auth_client):
+    response = auth_client.post("/api/intent/parse", json={"text": "Open calling settings"})
+    assert response.get_json()["data"]["intent"] == "CALLING_SETTINGS"
+
+
+def test_calling_configured_setting(auth_client):
+    saved = auth_client.put("/api/auth/settings", json={"calling_configured": True})
+    assert saved.status_code == 200
+    assert saved.get_json()["data"]["settings"]["calling_configured"] is True
+    me = auth_client.get("/api/auth/me")
+    assert me.get_json()["data"]["settings"]["calling_configured"] is True
+
+
 def test_emergency_without_contacts(auth_client):
     response = auth_client.post("/api/emergency/activate", json={})
     assert response.status_code == 400
