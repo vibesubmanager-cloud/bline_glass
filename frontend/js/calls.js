@@ -4,19 +4,47 @@ import { appState, STATES } from "./state.js";
 import { getToken, getUser } from "./config.js";
 import { camera } from "./camera.js";
 
+const IFRAME_ALLOW = "camera; microphone; display-capture; autoplay; clipboard-write; fullscreen";
+
 function loadJitsi() {
   if (window.JitsiMeetExternalAPI) return Promise.resolve(window.JitsiMeetExternalAPI);
   return new Promise((resolve, reject) => {
+    const existing = document.querySelector("script[data-jitsi-api]");
+    if (existing) {
+      existing.addEventListener("load", () => {
+        if (window.JitsiMeetExternalAPI) resolve(window.JitsiMeetExternalAPI);
+        else reject(new Error("Unable to connect the call. Please try again."));
+      });
+      existing.addEventListener("error", () => reject(new Error("Unable to connect the call. Please try again.")));
+      return;
+    }
     const script = document.createElement("script");
     script.src = "https://meet.jit.si/external_api.js";
     script.async = true;
+    script.dataset.jitsiApi = "1";
+    const fail = setTimeout(() => reject(new Error("Unable to connect the call. Please try again.")), 15000);
     script.onload = () => {
+      clearTimeout(fail);
       if (window.JitsiMeetExternalAPI) resolve(window.JitsiMeetExternalAPI);
       else reject(new Error("Unable to connect the call. Please try again."));
     };
-    script.onerror = () => reject(new Error("Unable to connect the call. Please try again."));
+    script.onerror = () => {
+      clearTimeout(fail);
+      reject(new Error("Unable to connect the call. Please try again."));
+    };
     document.head.appendChild(script);
   });
+}
+
+function armIframe(parentNode) {
+  const iframe = parentNode?.querySelector("iframe");
+  if (!iframe) return;
+  iframe.setAttribute("allow", IFRAME_ALLOW);
+  iframe.setAttribute("allowfullscreen", "true");
+  iframe.setAttribute("referrerpolicy", "origin");
+  iframe.style.border = "0";
+  iframe.style.width = "100%";
+  iframe.style.height = "100%";
 }
 
 class CallController {
@@ -34,6 +62,7 @@ class CallController {
     this._jitsi = null;
     this._joined = false;
     this._spokeConnected = false;
+    this._joinToken = 0;
   }
 
   startPolling() {
@@ -147,6 +176,84 @@ class CallController {
     return node;
   }
 
+  _jitsiOptions(room, parentNode, video) {
+    const displayName = getUser()?.name || "AI Sight";
+    return {
+      roomName: room,
+      parentNode,
+      width: "100%",
+      height: "100%",
+      userInfo: { displayName },
+      configOverwrite: {
+        prejoinPageEnabled: false,
+        prejoinConfig: { enabled: false },
+        startWithAudioMuted: false,
+        startWithVideoMuted: !video,
+        startAudioOnly: !video,
+        disableDeepLinking: true,
+        deeplinking: {
+          disabled: true,
+          hideLogo: true,
+          desktop: { disabled: true },
+          android: { disabled: true },
+          ios: { disabled: true },
+        },
+        disableInviteFunctions: true,
+        enableWelcomePage: false,
+        enableClosePage: false,
+        requireDisplayName: false,
+        disableProfile: true,
+        disableThirdPartyRequests: true,
+        analytics: { disabled: true },
+        notifications: [],
+        toolbarButtons: ["microphone", "camera"],
+        hideConferenceSubject: true,
+        hideConferenceTimer: true,
+        disableSelfViewSettings: true,
+      },
+      interfaceConfigOverwrite: {
+        TOOLBAR_BUTTONS: ["microphone", "camera"],
+        SHOW_JITSI_WATERMARK: false,
+        SHOW_BRAND_WATERMARK: false,
+        SHOW_WATERMARK_FOR_GUESTS: false,
+        DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
+        MOBILE_APP_PROMO: false,
+        SHOW_CHROME_EXTENSION_BANNER: false,
+        DISABLE_FOCUS_INDICATOR: true,
+        DEFAULT_BACKGROUND: "#05070c",
+        DISPLAY_WELCOME_PAGE_CONTENT: false,
+        DISPLAY_WELCOME_FOOTER: false,
+      },
+      onload: () => armIframe(parentNode),
+    };
+  }
+
+  _bindJitsiLifecycle(api, joinToken) {
+    api.addListener("participantJoined", () => {
+      if (this._joinToken !== joinToken || this._ending) return;
+      this._joined = true;
+      this._announceConnected();
+    });
+    api.addListener("videoConferenceLeft", () => {
+      if (this._joinToken !== joinToken || this._ending) return;
+      this.end(true);
+    });
+    api.addListener("participantLeft", () => {
+      if (this._joinToken !== joinToken || this._ending || !this._joined) return;
+      let count = 1;
+      try {
+        count = api.getNumberOfParticipants();
+      } catch {
+        count = 1;
+      }
+      if (count <= 1) this.end(true);
+    });
+    api.addListener("readyToClose", () => {
+      if (this._joinToken !== joinToken || this._ending) return;
+      this.end(true);
+    });
+  }
+
   async _joinJitsi(jitsi, video) {
     const room = jitsi?.room;
     const domain = jitsi?.domain || "meet.jit.si";
@@ -163,91 +270,62 @@ class CallController {
       if (preview) preview.srcObject = null;
     }
     const Jitsi = await loadJitsi();
+    if (this._ending) return;
     await this._leaveJitsi();
     const parentNode = this._jitsiHost();
     if (!parentNode) {
       throw new Error("Unable to connect the call. Please try again.");
     }
-    const displayName = getUser()?.name || "AI Sight";
-    this._jitsi = new Jitsi(domain, {
-      roomName: room,
-      parentNode,
-      width: "100%",
-      height: "100%",
-      userInfo: { displayName },
-      configOverwrite: {
-        prejoinPageEnabled: false,
-        prejoinConfig: { enabled: false },
-        startWithAudioMuted: false,
-        startWithVideoMuted: !video,
-        startAudioOnly: !video,
-        disableDeepLinking: true,
-        disableInviteFunctions: true,
-        enableWelcomePage: false,
-        requireDisplayName: false,
-        notifications: [],
-      },
-      interfaceConfigOverwrite: {
-        TOOLBAR_BUTTONS: [],
-        SHOW_JITSI_WATERMARK: false,
-        SHOW_BRAND_WATERMARK: false,
-        SHOW_WATERMARK_FOR_GUESTS: false,
-        DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
-        MOBILE_APP_PROMO: false,
-        DEFAULT_BACKGROUND: "#05070c",
-      },
-      onload: () => {
-        const iframe = parentNode.querySelector("iframe");
-        if (!iframe) return;
-        iframe.setAttribute(
-          "allow",
-          "camera; microphone; display-capture; autoplay; clipboard-write; fullscreen"
-        );
-        iframe.setAttribute("allowfullscreen", "true");
-      },
-    });
+    const joinToken = ++this._joinToken;
+    this._jitsi = new Jitsi(domain, this._jitsiOptions(room, parentNode, video));
     const api = this._jitsi;
-    await new Promise((resolve, reject) => {
-      const fail = setTimeout(() => {
-        reject(new Error("Unable to connect the call. Please try again."));
-      }, 25000);
-      api.addListener("videoConferenceJoined", () => {
-        clearTimeout(fail);
-        this._joined = true;
-        try {
-          const others = typeof api.getNumberOfParticipants === "function" ? api.getNumberOfParticipants() : 1;
-          if (others > 1) this._announceConnected();
-        } catch {
-          /* ignore */
-        }
-        resolve();
-      });
-      api.addListener("conferenceFailed", () => {
-        clearTimeout(fail);
-        reject(new Error("Unable to connect the call. Please try again."));
-      });
-      api.addListener("errorOccurred", (event) => {
-        const raw = String(event?.error?.message || event?.error || "");
-        if (/permission|notallowed|denied/i.test(raw)) {
+    armIframe(parentNode);
+    const watcher = new MutationObserver(() => armIframe(parentNode));
+    watcher.observe(parentNode, { childList: true, subtree: true });
+    this._bindJitsiLifecycle(api, joinToken);
+    try {
+      await new Promise((resolve, reject) => {
+        const fail = setTimeout(() => {
+          reject(new Error("Unable to connect the call. Please try again."));
+        }, 35000);
+        const ok = () => {
+          if (this._joinToken !== joinToken || this._ending) {
+            clearTimeout(fail);
+            resolve();
+            return;
+          }
           clearTimeout(fail);
-          reject(
-            new Error(
-              video
-                ? "Camera permission is required for a video call."
-                : "Microphone permission is required for this call."
-            )
-          );
-        }
+          this._joined = true;
+          try {
+            const others = typeof api.getNumberOfParticipants === "function" ? api.getNumberOfParticipants() : 1;
+            if (others > 1) this._announceConnected();
+          } catch {
+            /* ignore */
+          }
+          resolve();
+        };
+        api.addListener("videoConferenceJoined", ok);
+        api.addListener("conferenceFailed", () => {
+          clearTimeout(fail);
+          reject(new Error("Unable to connect the call. Please try again."));
+        });
+        api.addListener("errorOccurred", (event) => {
+          const raw = String(event?.error?.message || event?.error || event?.name || "");
+          if (/permission|notallowed|denied/i.test(raw)) {
+            clearTimeout(fail);
+            reject(
+              new Error(
+                video
+                  ? "Camera permission is required for a video call."
+                  : "Microphone permission is required for this call."
+              )
+            );
+          }
+        });
       });
-    });
-    api.addListener("participantJoined", () => this._announceConnected());
-    api.addListener("participantLeft", () => {
-      if (!this._joined || this._ending) return;
-      this.end(true).then(() => voice.speak("The call has ended."));
-    });
-    api.addListener("readyToClose", () => {
-      if (!this._ending && this._joined) this.end(true);
-    });
+    } finally {
+      watcher.disconnect();
+    }
   }
 
   _announceConnected() {
@@ -258,6 +336,7 @@ class CallController {
   }
 
   async _leaveJitsi() {
+    this._joinToken += 1;
     const api = this._jitsi;
     this._jitsi = null;
     const wasJoined = this._joined;
@@ -304,20 +383,17 @@ class CallController {
     }
     appState.set(STATES.CALLING);
     this.updateBanner(this.videoMode ? `Video calling ${data.contact.name}` : `Voice calling ${data.contact.name}`);
+    await this._sendSignal({
+      target_user_id: data.call.callee_id,
+      call_id: data.call.id,
+      signal_type: "ring",
+      media: this.videoMode ? "video" : "audio",
+    });
     try {
       await this._joinJitsi(data.jitsi, this.videoMode);
       this.updateBanner(this.videoMode ? `Video calling ${data.contact.name}` : `Voice calling ${data.contact.name}`);
-      await this._sendSignal({
-        target_user_id: data.call.callee_id,
-        call_id: data.call.id,
-        signal_type: "ring",
-        media: this.videoMode ? "video" : "audio",
-      });
     } catch (error) {
-      await this.end(false);
-      if (data.call?.id) {
-        api("/api/calls/end", { method: "POST", body: { call_id: data.call.id } }).catch(() => undefined);
-      }
+      await this.end(true);
       throw error;
     }
     return data.spoken;
@@ -343,8 +419,8 @@ class CallController {
       const data = await api("/api/calls/accept", { method: "POST", body: { call_id: incoming.call_id } });
       this.currentCall = { id: incoming.call_id, caller_id: incoming.from_user_id, peer_id: incoming.from_user_id };
       this._incoming = null;
-      await this._joinJitsi(data.jitsi, this.videoMode);
       this.updateBanner(this.videoMode ? "Connecting video…" : "Connecting…");
+      await this._joinJitsi(data.jitsi, this.videoMode);
     } catch (error) {
       await this.end(true);
       await voice.speak(error.message || "Unable to connect the call. Please try again.");
@@ -391,15 +467,15 @@ class CallController {
     this._ending = true;
     const peerId = this._peerId();
     const callId = this.currentCall?.id;
-    const wasJoined = this._joined;
+    const wasLive = Boolean(this.currentCall || this._incoming || this._joined);
     await this._leaveJitsi();
-    if (notify && wasJoined) {
+    if (notify && wasLive) {
       voice.speak("Call ended.");
     }
-    if (notify && wasJoined && peerId && callId) {
+    if (notify && peerId && callId) {
       api("/api/calls/end", { method: "POST", body: { call_id: callId } }).catch(() => undefined);
       this._sendSignal({ target_user_id: peerId, call_id: callId, signal_type: "end" });
-    } else if (callId && !wasJoined) {
+    } else if (callId) {
       api("/api/calls/end", { method: "POST", body: { call_id: callId } }).catch(() => undefined);
     }
     this.currentCall = null;

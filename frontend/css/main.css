@@ -469,9 +469,24 @@ body.nav-active.map-closed .stage-canvas {
   border: 1px solid var(--stroke);
 }
 
+.jitsi-container {
+  width: 100%;
+  min-height: 220px;
+  flex: 1;
+  background: #05070c;
+  overflow: hidden;
+}
+
+.jitsi-container iframe {
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
+}
+
 .call-overlay.is-voice .jitsi-container {
   width: min(100%, 320px);
-  height: 180px;
+  min-height: 220px;
+  height: 220px;
   border-radius: 16px;
   overflow: hidden;
   background: #05070c;
