@@ -17,7 +17,7 @@ async function cacheYolo() {
   const cache = await caches.open(YOLO_CACHE);
   if (await cache.match(YOLO_KEY)) return;
   const url = new URL("./models/yolov8n.onnx", self.location.href).href;
-  const response = await fetch(url, { cache: "reload" });
+  const response = await fetch(url);
   if (!response.ok) return;
   await cache.put(YOLO_KEY, response);
 }
@@ -39,7 +39,6 @@ self.addEventListener("activate", (event) => {
       Promise.all(keys.filter((key) => key !== CACHE && key !== YOLO_CACHE).map((key) => caches.delete(key)))
     )
   );
-  self.clients.claim();
 });
 
 self.addEventListener("message", (event) => {

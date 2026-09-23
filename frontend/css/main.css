@@ -185,6 +185,37 @@ a {
   background: currentColor;
 }
 
+.detect-sun {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(232, 251, 255, 0.22);
+  border-top-color: #ffd36a;
+  box-shadow: 0 0 0 1px rgba(255, 211, 106, 0.12);
+}
+
+.pill.is-loading .detect-sun {
+  animation: detect-spin 0.75s linear infinite;
+}
+
+.pill.is-on .detect-sun,
+.pill.is-ready .detect-sun {
+  border-color: #ffd36a;
+  background: radial-gradient(circle at 35% 35%, #fff6c8, #ffd36a 55%, #e09100);
+  animation: none;
+  box-shadow: 0 0 10px rgba(255, 211, 106, 0.55);
+}
+
+.pill.is-loading {
+  color: #ffd36a;
+}
+
+@keyframes detect-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .listen-overlay,
 .ai-overlay {
   position: absolute;

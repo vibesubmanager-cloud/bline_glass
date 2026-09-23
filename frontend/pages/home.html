@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="AI Sight" />
     <title>AI Sight</title>
-    <link rel="stylesheet" href="../css/main.css?v=22" />
+    <link rel="stylesheet" href="../css/main.css?v=23" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -36,7 +36,10 @@
           <span id="live-pill" class="pill"><span class="dot"></span>LIVE</span>
           <span id="gps-pill" class="pill"><span class="dot"></span>GPS</span>
           <span id="mic-pill" class="pill"><span class="dot"></span>MIC</span>
-          <span id="net-pill" class="pill is-on"><span class="dot"></span>NET</span>
+          <span id="detect-pill" class="pill is-loading" aria-label="Object detection">
+            <span class="detect-sun" aria-hidden="true"></span>
+            <span id="detect-pill-label">LOAD</span>
+          </span>
         </div>
       </header>
 
@@ -125,6 +128,6 @@
       </nav>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script type="module" src="../js/app.js?v=53"></script>
+    <script type="module" src="../js/app.js?v=54"></script>
   </body>
 </html>

@@ -1,23 +1,20 @@
 import { installYolo } from "./yolo-on-device.js";
 
-function swUrl() {
-  return new URL("../sw.js", import.meta.url).href;
-}
-
-function pingServiceWorker() {
-  if (!("serviceWorker" in navigator)) return;
-  navigator.serviceWorker
-    .register(swUrl())
-    .then((reg) => {
-      const send = () => reg.active?.postMessage({ type: "INSTALL_YOLO" });
-      if (reg.active) send();
-      else navigator.serviceWorker.addEventListener("controllerchange", send, { once: true });
-    })
-    .catch(() => undefined);
-}
-
 /** Starts the on-phone YOLO download as soon as the app opens, including before sign-in. */
 export function preloadYolo() {
   pingServiceWorker();
   installYolo().catch(() => undefined);
+}
+
+function pingServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  const url = new URL("../sw.js", import.meta.url).href;
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    const hit = regs.find((reg) => (reg.active || reg.installing || reg.waiting)?.scriptURL?.includes("sw.js"));
+    if (hit) {
+      (hit.active || hit.waiting || hit.installing)?.postMessage({ type: "INSTALL_YOLO" });
+      return;
+    }
+    navigator.serviceWorker.register(url).catch(() => undefined);
+  }).catch(() => undefined);
 }

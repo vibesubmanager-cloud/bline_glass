@@ -34,8 +34,22 @@ export function setGps(on) {
   $("gps-pill")?.classList.toggle("is-on", on);
 }
 
-export function setOnline(on) {
-  $("net-pill")?.classList.toggle("is-on", on);
+export function setOnline(_on) {
+  /* NET pill was replaced by the object-detection HUD. */
+}
+
+export function setDetectHud(state) {
+  const pill = $("detect-pill");
+  const label = $("detect-pill-label");
+  if (!pill) return;
+  pill.classList.toggle("is-loading", state === "loading");
+  pill.classList.toggle("is-on", state === "live" || state === "ready");
+  pill.classList.toggle("is-ready", state === "ready");
+  if (label) {
+    if (state === "loading") label.textContent = "LOAD";
+    else if (state === "live") label.textContent = "DET";
+    else label.textContent = "DET";
+  }
 }
 
 export function drawDetections(canvas, video, detections, sourceSize) {

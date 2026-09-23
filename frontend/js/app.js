@@ -7,24 +7,13 @@ import { interpretCommand, isAffirmative, isNegative, HELP_TEXT, smallTalkReply 
 import { detectObjects, ensureOnDeviceYolo } from "./detection.js";
 import { speakOut } from "./speak-out.js";
 import { preloadYolo } from "./yolo-preload.js";
-import { isYoloInstalled } from "./yolo-on-device.js";
+import { isYoloInstalled, onYoloProgress } from "./yolo-on-device.js";
 import { readScene, describeScene, askAboutScene } from "./vision.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { isStandaloneApp } from "./location.js";
 import { calls } from "./calls.js";
 import { activateEmergency } from "./emergency.js";
-import {
-  setListeningUI,
-  setAiStatus,
-  setLive,
-  setGps,
-  setOnline,
-  drawDetections,
-  clearDetections,
-  drawRoute,
-  setNavPanel,
-  setMapVisible,
-} from "./overlay.js";
+import { setListeningUI, setAiStatus, setLive, setGps, setOnline, setDetectHud, drawDetections, clearDetections, drawRoute, setNavPanel, setMapVisible } from "./overlay.js";
 import { walkingDirectionsOn } from "./shareLocation.js";
 import { updateNavMap, clearNavMap, fitNavMap } from "./map.js";
 import { loadUnread, markMessagesRead, sendChatMessage, sendChatLocation } from "./messages.js";
@@ -433,7 +422,7 @@ function formatDistance(meters) {
 
 const HOLD_MS = 500;
 const DOUBLE_TAP_MS = 320;
-const DETECT_TICK_MS = 280;
+const DETECT_TICK_MS = 700;
 const REPEAT_SPEECH_MS = 7000;
 let detectionMode = false;
 let detectionTimer = null;
@@ -561,20 +550,26 @@ async function detectionTick() {
   try {
     const data = await detectObjects({ quiet: true, signal: detectionController.signal });
     if (!detectionMode) return;
-    drawDetections(
-      document.getElementById("detect-canvas"),
-      document.getElementById("camera-preview"),
-      data.detections || [],
-      camera.lastCapture || data.sourceSize
-    );
-    announceDetections(data.detections || [], data.spoken);
+    if (data.loading) {
+      setDetectHud("loading");
+      setStatus("Object detection is loading…");
+    } else if (!data.busy) {
+      setDetectHud("live");
+      drawDetections(
+        document.getElementById("detect-canvas"),
+        document.getElementById("camera-preview"),
+        data.detections || [],
+        camera.lastCapture || data.sourceSize
+      );
+      announceDetections(data.detections || [], data.spoken);
+    }
   } catch (error) {
     if (!detectionMode) return;
     if (error.name !== "AbortError" && error.code !== "TIMEOUT") {
       setStatus(error.message || "Detection is having trouble. Still trying.");
     }
   }
-  const wait = Math.max(80, DETECT_TICK_MS - (Date.now() - started));
+  const wait = Math.max(200, DETECT_TICK_MS - (Date.now() - started));
   if (detectionMode) detectionTimer = setTimeout(detectionTick, wait);
 }
 
@@ -586,7 +581,7 @@ async function startDetection() {
   appState.set(STATES.DETECTING);
   idleStatus();
   if (navigator.vibrate) navigator.vibrate([30, 60, 30]);
-  voice.unlock({ fromGesture: true });
+  setDetectHud("loading");
   try {
     await camera.ensureStarted(document.getElementById("camera-preview"));
   } catch (error) {
@@ -597,21 +592,14 @@ async function startDetection() {
   }
   try {
     if (!isYoloInstalled()) {
-      setStatus("Getting object detection ready on this phone...");
-      await speakOut("Getting object detection ready on this phone.");
+      setStatus("Object detection is loading…");
     }
     await ensureOnDeviceYolo();
   } catch (error) {
-    if (!isOnline()) {
-      detectionMode = false;
-      zone?.classList.remove("is-detecting");
-      await handleFailure(error);
-      return;
-    }
-    setStatus("Using the server until this phone finishes downloading YOLO.");
+    setStatus(error.message || "Object detection is still loading.");
   }
   if (!detectionMode) return;
-  await speakOut("Object detection started. I will say what I see.");
+  setDetectHud("live");
   detectionTick();
 }
 
@@ -625,12 +613,13 @@ async function stopDetection(message = "Object detection stopped.") {
   clearDetections(document.getElementById("detect-canvas"));
   if (appState.value === STATES.DETECTING) appState.set(STATES.IDLE);
   idleStatus();
-  await speakOut(message);
+  setDetectHud(isYoloInstalled() ? "ready" : "loading");
+  if (message) speakOut(message);
 }
 
 async function toggleDetection() {
   if (holdTalking || tapListening) return;
-  if (detectionMode) await stopDetection();
+  if (detectionMode) await stopDetection("");
   else await startDetection();
 }
 
@@ -718,6 +707,8 @@ function onZonePointerDown(event) {
     clearTimeout(holdTimer);
     clearTimeout(tapListenTimer);
     holdTimer = null;
+    const turningOn = !detectionMode;
+    speakOut(turningOn ? "Object detection started. I will say what I see." : "Object detection stopped.");
     toggleDetection();
     return;
   }
@@ -879,7 +870,21 @@ function closeDestSheet() {
 
 async function boot() {
   if (!requireAuth()) return;
+  onYoloProgress((info) => {
+    if (detectionMode) return;
+    if (info.state === "downloading" || info.state === "loading") setDetectHud("loading");
+    if (info.state === "ready") setDetectHud("ready");
+    if (info.state === "missing") setDetectHud("loading");
+  });
   preloadYolo();
+  setDetectHud(isYoloInstalled() ? "ready" : "loading");
+  ensureOnDeviceYolo()
+    .then((ok) => {
+      if (!detectionMode) setDetectHud(ok ? "ready" : "loading");
+    })
+    .catch(() => {
+      if (!detectionMode) setDetectHud("loading");
+    });
   applyAppearance();
   idleStatus();
   setOnline(navigator.onLine);

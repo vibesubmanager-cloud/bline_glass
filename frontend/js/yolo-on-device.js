@@ -31,6 +31,8 @@ let inputName = "images";
 let outputName = "output0";
 let inputSize = 640;
 let letterCanvas = null;
+let tensorData = null;
+let inferBusy = false;
 let installPromise = null;
 let progressHandlers = new Set();
 
@@ -162,6 +164,7 @@ export async function removeYolo() {
 
 async function getSession() {
   if (session) return session;
+  emitProgress({ state: "loading", pct: 90 });
   const ort = await loadOrt();
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(MODEL_KEY);
@@ -170,13 +173,17 @@ async function getSession() {
     throw new Error("Object detection is not on this phone yet.");
   }
   const buffer = await cached.arrayBuffer();
-  session = await ort.InferenceSession.create(buffer, { executionProviders: ["wasm"] });
+  session = await ort.InferenceSession.create(buffer, {
+    executionProviders: ["wasm"],
+    graphOptimizationLevel: "all",
+  });
   inputName = session.inputNames[0];
   outputName = session.outputNames[0];
   const meta = session.inputMetadata?.[inputName];
   const dims = meta?.dims || [];
   const hinted = Number(dims[2] || dims[3] || 0);
   inputSize = hinted > 0 ? hinted : 640;
+  emitProgress({ state: "ready", pct: 100 });
   return session;
 }
 
@@ -196,8 +203,9 @@ function letterbox(video, size) {
   ctx.fillRect(0, 0, size, size);
   ctx.drawImage(video, 0, 0, vw, vh, dx, dy, nw, nh);
   const pixels = ctx.getImageData(0, 0, size, size).data;
-  const data = new Float32Array(3 * size * size);
   const plane = size * size;
+  if (!tensorData || tensorData.length !== 3 * plane) tensorData = new Float32Array(3 * plane);
+  const data = tensorData;
   for (let i = 0; i < plane; i += 1) {
     const p = i * 4;
     data[i] = pixels[p] / 255;
@@ -364,23 +372,31 @@ export async function detectVideo(video, { objectName, confidence = 0.35 } = {})
   if (!video || !video.videoWidth) {
     return { detections: [], spoken: "The camera is not ready yet.", sourceSize: null, onDevice: true };
   }
-  const ort = await loadOrt();
-  const model = await getSession();
-  const prep = letterbox(video, inputSize);
-  const tensor = new ort.Tensor("float32", prep.data, [1, 3, prep.size, prep.size]);
-  const result = await model.run({ [inputName]: tensor });
-  const output = result[outputName] || result[model.outputNames[0]];
-  let detections = decodeOutput(output, prep, confidence);
-  if (objectName) {
-    const target = String(objectName).trim().toLowerCase();
-    detections = detections.filter((item) => String(item.label || "").toLowerCase().includes(target)).concat(
-      detections.filter((item) => !String(item.label || "").toLowerCase().includes(target))
-    );
+  if (inferBusy) {
+    return { detections: [], spoken: "", sourceSize: { width: video.videoWidth, height: video.videoHeight }, onDevice: true, busy: true };
   }
-  return {
-    detections,
-    spoken: speakDetections(detections, objectName),
-    sourceSize: { width: prep.vw, height: prep.vh },
-    onDevice: true,
-  };
+  inferBusy = true;
+  try {
+    const ort = await loadOrt();
+    const model = await getSession();
+    const prep = letterbox(video, inputSize);
+    const tensor = new ort.Tensor("float32", prep.data, [1, 3, prep.size, prep.size]);
+    const result = await model.run({ [inputName]: tensor });
+    const output = result[outputName] || result[model.outputNames[0]];
+    let detections = decodeOutput(output, prep, confidence);
+    if (objectName) {
+      const target = String(objectName).trim().toLowerCase();
+      detections = detections.filter((item) => String(item.label || "").toLowerCase().includes(target)).concat(
+        detections.filter((item) => !String(item.label || "").toLowerCase().includes(target))
+      );
+    }
+    return {
+      detections,
+      spoken: speakDetections(detections, objectName),
+      sourceSize: { width: prep.vw, height: prep.vh },
+      onDevice: true,
+    };
+  } finally {
+    inferBusy = false;
+  }
 }
