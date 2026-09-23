@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { camera } from "./camera.js";
-import { voice } from "./voice.js?v=53";
+import { voice } from "./voice.js?v=54";
 
 async function sendVision(path, extra = {}, signal) {
   voice.keepAlive(true);

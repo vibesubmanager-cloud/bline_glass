@@ -27,9 +27,6 @@ function quietWavUrl() {
   view.setUint16(34, 16, true);
   ascii(36, "data");
   view.setUint32(40, dataSize, true);
-  for (let i = 0; i < samples; i += 1) {
-    view.setInt16(44 + i * 2, ((i % 6) - 3) * 12, true);
-  }
   return URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
 }
 
@@ -236,11 +233,9 @@ class VoiceService {
     try {
       const frames = Math.max(1, Math.floor(ctx.sampleRate * 0.4));
       const buffer = ctx.createBuffer(1, frames, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < frames; i += 1) data[i] = ((i % 7) - 3) / 18000;
       const source = ctx.createBufferSource();
       const gain = ctx.createGain();
-      gain.gain.value = 0.02;
+      gain.gain.value = 0;
       source.buffer = buffer;
       source.loop = true;
       source.connect(gain);
