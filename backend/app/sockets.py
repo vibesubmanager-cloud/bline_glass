@@ -47,6 +47,7 @@ def on_signal(data):
         "call_id": data.get("call_id"),
         "signal_type": data.get("signal_type"),
         "payload": data.get("payload"),
+        "media": data.get("media") or "audio",
     }
     emit("call-signal", payload, room=f"user:{target_id}")
     log_event("CALL_SIGNAL", from_user=user.id, to_user=target_id, kind=data.get("signal_type"))

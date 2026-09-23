@@ -40,7 +40,7 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
     )
     # Threading mode keeps YOLO/PyTorch compatible on Render. One worker is required
     # for in-memory WebRTC signaling.
-    socketio.init_app(flask_app, cors_allowed_origins=config.FRONTEND_ORIGINS, async_mode="threading")
+    socketio.init_app(flask_app, cors_allowed_origins="*", async_mode="threading")
 
     from app.models import (  # noqa: F401
         ApiKey,

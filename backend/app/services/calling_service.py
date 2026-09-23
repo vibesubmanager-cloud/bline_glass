@@ -23,11 +23,16 @@ def post_signal(target_user_id: str, message: dict) -> None:
         row = CallSignal(target_user_id=target_user_id, payload=json.dumps(message))
         db.session.add(row)
         db.session.commit()
-        return
     except Exception:
         db.session.rollback()
         log_event("CALL_SIGNAL_STORE_FAILED", target_user_id=target_user_id)
-    _mailboxes[target_user_id].append(message)
+        _mailboxes[target_user_id].append(message)
+    try:
+        from app.extensions import socketio
+
+        socketio.emit("call-signal", message, room=f"user:{target_user_id}")
+    except Exception:
+        pass
 
 
 def drain_signals(user_id: str) -> list[dict]:
@@ -62,31 +67,32 @@ class CallingServiceError(RuntimeError):
 
 
 def ice_servers() -> list[dict]:
-    """STUN plus TURN. Phones on cellular cannot see each other with STUN alone."""
-    servers = [
-        {"urls": ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"]},
+    """One URL per entry. iPhone Safari is unreliable with urls arrays."""
+    servers: list[dict] = [
+        {"urls": "stun:stun.l.google.com:19302"},
+        {"urls": "stun:stun1.l.google.com:19302"},
         {"urls": "stun:stun.cloudflare.com:3478"},
+        {"urls": "stun:stun.relay.metered.ca:80"},
     ]
     turn_url = (current_app.config.get("TURN_URL") or "").strip()
     turn_user = current_app.config.get("TURN_USERNAME") or ""
     turn_pass = current_app.config.get("TURN_PASSWORD") or ""
     if turn_url:
-        servers.append({"urls": [turn_url], "username": turn_user, "credential": turn_pass})
-    else:
-        # Public relay so deployed iPhone/Android calls work without a private TURN box.
-        servers.extend(
-            [
-                {
-                    "urls": [
-                        "turn:openrelay.metered.ca:80",
-                        "turn:openrelay.metered.ca:443",
-                        "turn:openrelay.metered.ca:443?transport=tcp",
-                    ],
-                    "username": "openrelayproject",
-                    "credential": "openrelayproject",
-                }
-            ]
-        )
+        servers.append({"urls": turn_url, "username": turn_user, "credential": turn_pass})
+        return servers
+    for url in (
+        "turn:openrelay.metered.ca:80",
+        "turn:openrelay.metered.ca:443",
+        "turn:openrelay.metered.ca:443?transport=tcp",
+        "turn:global.relay.metered.ca:80",
+        "turn:global.relay.metered.ca:443?transport=tcp",
+        "turn:numb.viagenie.ca",
+        "turn:numb.viagenie.ca:3478?transport=tcp",
+    ):
+        if "viagenie" in url:
+            servers.append({"urls": url, "username": "webrtc@live.com", "credential": "muazkh"})
+        else:
+            servers.append({"urls": url, "username": "openrelayproject", "credential": "openrelayproject"})
     return servers
 
 

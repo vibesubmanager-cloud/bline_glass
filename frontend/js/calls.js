@@ -1,7 +1,7 @@
 import { api } from "./api.js";
 import { voice } from "./voice.js?v=55";
 import { appState, STATES } from "./state.js";
-import { getToken } from "./config.js";
+import { getApiBase, getToken } from "./config.js";
 import { camera } from "./camera.js";
 
 function signalPayload(value) {
@@ -9,6 +9,18 @@ function signalPayload(value) {
   if (typeof value.toJSON === "function") return value.toJSON();
   if (value.type && value.sdp) return { type: value.type, sdp: value.sdp };
   return value;
+}
+
+function loadSocketIo() {
+  if (window.io) return Promise.resolve(window.io);
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.socket.io/4.7.5/socket.io.min.js";
+    script.async = true;
+    script.onload = () => resolve(window.io || null);
+    script.onerror = () => resolve(null);
+    document.head.appendChild(script);
+  });
 }
 
 class CallController {
@@ -27,9 +39,13 @@ class CallController {
     this._lastOfferId = "";
     this.remoteStream = null;
     this._iceRestarts = 0;
+    this._iceServers = null;
+    this.socket = null;
+    this._seenSignals = new Set();
   }
 
   startPolling() {
+    this._connectSocket();
     if (this.pollTimer) return;
     this.pollTimer = setInterval(() => this.poll().catch(() => undefined), 400);
   }
@@ -39,9 +55,39 @@ class CallController {
     this.pollTimer = null;
   }
 
+  async _connectSocket() {
+    if (this.socket) return;
+    const io = await loadSocketIo();
+    if (!io || !getToken()) return;
+    try {
+      this.socket = io(getApiBase(), {
+        auth: { token: getToken() },
+        transports: ["polling", "websocket"],
+        withCredentials: false,
+      });
+      this.socket.on("call-signal", (signal) => {
+        this.onSignal(signal, this._iceServers).catch(() => undefined);
+      });
+    } catch {
+      this.socket = null;
+    }
+  }
+
+  _signalKey(signal) {
+    const payload = signal?.payload || {};
+    return [
+      signal?.signal_type,
+      signal?.call_id,
+      payload.type || "",
+      payload.candidate || "",
+      (payload.sdp || "").length,
+    ].join(":");
+  }
+
   async poll() {
     if (!getToken()) return;
     const data = await api("/api/calls/poll");
+    if (data.ice_servers) this._iceServers = data.ice_servers;
     for (const signal of data.signals || []) {
       await this.onSignal(signal, data.ice_servers);
     }
@@ -54,6 +100,30 @@ class CallController {
   _peerId() {
     const call = this.currentCall || {};
     return call.peer_id || call.callee_id || call.caller_id || this._incoming?.from_user_id || "";
+  }
+
+  async _sendSignal(body) {
+    const token = getToken();
+    if (this.socket?.connected) {
+      this.socket.emit("call-signal", { ...body, token });
+    }
+    await api("/api/calls/signal", { method: "POST", body }).catch(() => undefined);
+  }
+
+  async _waitIceGathered() {
+    const pc = this.pc;
+    if (!pc || pc.iceGatheringState === "complete") return;
+    await new Promise((resolve) => {
+      const finish = () => {
+        pc.removeEventListener("icegatheringstatechange", onChange);
+        resolve();
+      };
+      const onChange = () => {
+        if (pc.iceGatheringState === "complete") finish();
+      };
+      pc.addEventListener("icegatheringstatechange", onChange);
+      setTimeout(finish, 2500);
+    });
   }
 
   async _flushIce() {
@@ -70,18 +140,22 @@ class CallController {
   }
 
   async onSignal(signal, iceServers) {
+    if (iceServers) this._iceServers = iceServers;
+    const key = this._signalKey(signal);
+    if (this._seenSignals.has(key)) return;
+    this._seenSignals.add(key);
     const type = signal.signal_type;
     if (type === "offer") {
       if (this._lastOfferId === signal.call_id && this._incoming) return;
       this._lastOfferId = signal.call_id || "";
-      this.pendingOffer = { signal, iceServers };
+      this.pendingOffer = { signal, iceServers: iceServers || this._iceServers };
       this.videoMode = this._isVideoSignal(signal);
       this._incoming = signal;
       const kind = this.videoMode ? "video call" : "voice call";
-      await voice.speak(
+      this.updateBanner(`Incoming ${kind} from ${signal.from_name || "a contact"}`);
+      voice.speak(
         `Incoming ${kind} from ${signal.from_name || "a Vibe Eye user"}. Say call to answer, or stop to decline.`
       );
-      this.updateBanner(`Incoming ${kind} from ${signal.from_name || "a contact"}`);
       return;
     }
     if (type === "ice" && signal.payload) {
@@ -128,13 +202,11 @@ class CallController {
     if (!video) {
       return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     }
-    const videoConstraint = {
-      facingMode: { ideal: "user" },
-      width: { ideal: 640 },
-      height: { ideal: 480 },
-    };
     try {
-      return await navigator.mediaDevices.getUserMedia({ audio: true, video: videoConstraint });
+      return await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+      });
     } catch {
       return navigator.mediaDevices.getUserMedia({ audio: true, video: true });
     }
@@ -159,17 +231,17 @@ class CallController {
     if (!stream) return;
     const remoteAudio = document.getElementById("remote-audio");
     const remoteVideo = document.getElementById("remote-video");
-    const hasVideo = stream.getVideoTracks().length > 0;
     if (this.videoMode && remoteVideo) {
       remoteVideo.srcObject = stream;
       remoteVideo.playsInline = true;
+      remoteVideo.setAttribute("playsinline", "true");
       remoteVideo.muted = true;
       const playVideo = remoteVideo.play();
       if (playVideo && typeof playVideo.catch === "function") playVideo.catch(() => {});
     }
     if (remoteAudio) {
-      const audioOnly = new MediaStream(stream.getAudioTracks());
-      remoteAudio.srcObject = hasVideo ? audioOnly : stream;
+      const audioTracks = stream.getAudioTracks();
+      remoteAudio.srcObject = audioTracks.length ? new MediaStream(audioTracks) : stream;
       remoteAudio.muted = false;
       remoteAudio.volume = 1;
       const playAudio = remoteAudio.play();
@@ -194,12 +266,16 @@ class CallController {
   async createPeer(iceServers, targetUserId, callId, video = false) {
     this.videoMode = Boolean(video);
     this._remoteReady = false;
-    this.pc = new RTCPeerConnection({
-      iceServers: iceServers || [{ urls: "stun:stun.l.google.com:19302" }],
-      iceCandidatePoolSize: 4,
-    });
+    const servers = iceServers || this._iceServers || [{ urls: "stun:stun.l.google.com:19302" }];
+    this.pc = new RTCPeerConnection({ iceServers: servers });
     this.localStream = await this._getLocalMedia(video);
-    this.localStream.getTracks().forEach((track) => this.pc.addTrack(track, this.localStream));
+    this.localStream.getTracks().forEach((track) => {
+      try {
+        this.pc.addTransceiver(track, { direction: "sendrecv", streams: [this.localStream] });
+      } catch {
+        this.pc.addTrack(track, this.localStream);
+      }
+    });
     this._attachLocalPreview();
     this.remoteStream = new MediaStream();
     this._iceRestarts = 0;
@@ -207,17 +283,14 @@ class CallController {
       this._addRemoteTrack(event.track, event.streams?.[0]);
     };
     this.pc.onicecandidate = (event) => {
-      if (!targetUserId) return;
-      api("/api/calls/signal", {
-        method: "POST",
-        body: {
-          target_user_id: targetUserId,
-          call_id: callId,
-          signal_type: "ice",
-          payload: event.candidate ? signalPayload(event.candidate) : { candidate: "" },
-          media: this.videoMode ? "video" : "audio",
-        },
-      }).catch(() => undefined);
+      if (!targetUserId || !event.candidate) return;
+      this._sendSignal({
+        target_user_id: targetUserId,
+        call_id: callId,
+        signal_type: "ice",
+        payload: signalPayload(event.candidate),
+        media: this.videoMode ? "video" : "audio",
+      });
     };
     this.pc.onconnectionstatechange = () => {
       const state = this.pc?.connectionState;
@@ -226,15 +299,11 @@ class CallController {
         this._attachRemote(this.remoteStream);
         this.updateBanner(this.videoMode ? "Video call connected" : "Voice call connected");
       }
-      if (state === "failed") {
-        this._recoverIce();
-      }
+      if (state === "failed") this._recoverIce();
     };
     this.pc.oniceconnectionstatechange = () => {
       const ice = this.pc?.iceConnectionState;
-      if (ice === "connected" || ice === "completed") {
-        this._attachRemote(this.remoteStream);
-      }
+      if (ice === "connected" || ice === "completed") this._attachRemote(this.remoteStream);
       if (ice === "failed") this._recoverIce();
     };
   }
@@ -255,6 +324,8 @@ class CallController {
   }
 
   async start(target, { video = false } = {}) {
+    this.startPolling();
+    await this._connectSocket();
     await voice.speak(video ? "Connecting video call." : "Connecting voice call.");
     const data = await api("/api/calls/start", {
       method: "POST",
@@ -262,6 +333,7 @@ class CallController {
     });
     this.currentCall = { ...data.call, peer_id: data.call?.callee_id };
     this.videoMode = data.call?.call_type === "video" || video;
+    this._iceServers = data.ice_servers || this._iceServers;
     if (data.tel_url) {
       location.href = data.tel_url;
       return data.spoken;
@@ -270,20 +342,20 @@ class CallController {
       return data.spoken;
     }
     appState.set(STATES.CALLING);
-    await this.createPeer(data.ice_servers, data.call.callee_id, data.call.id, this.videoMode);
-    const offer = await this.pc.createOffer();
-    await this.pc.setLocalDescription(offer);
-    await api("/api/calls/signal", {
-      method: "POST",
-      body: {
-        target_user_id: data.call.callee_id,
-        call_id: data.call.id,
-        signal_type: "offer",
-        payload: signalPayload(offer),
-        media: this.videoMode ? "video" : "audio",
-      },
+    await this.createPeer(this._iceServers, data.call.callee_id, data.call.id, this.videoMode);
+    const offer = await this.pc.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: this.videoMode,
     });
-    this.startPolling();
+    await this.pc.setLocalDescription(offer);
+    await this._waitIceGathered();
+    await this._sendSignal({
+      target_user_id: data.call.callee_id,
+      call_id: data.call.id,
+      signal_type: "offer",
+      payload: signalPayload(this.pc.localDescription),
+      media: this.videoMode ? "video" : "audio",
+    });
     this.updateBanner(this.videoMode ? `Video calling ${data.contact.name}` : `Voice calling ${data.contact.name}`);
     return data.spoken;
   }
@@ -297,21 +369,24 @@ class CallController {
     this.videoMode = this._isVideoSignal(incoming);
     appState.set(STATES.CALLING);
     await api("/api/calls/accept", { method: "POST", body: { call_id: incoming.call_id } });
-    await this.createPeer(this.pendingOffer?.iceServers, incoming.from_user_id, incoming.call_id, this.videoMode);
+    await this.createPeer(
+      this.pendingOffer?.iceServers || this._iceServers,
+      incoming.from_user_id,
+      incoming.call_id,
+      this.videoMode
+    );
     await this.pc.setRemoteDescription(new RTCSessionDescription(incoming.payload));
     this._remoteReady = true;
     await this._flushIce();
     const answer = await this.pc.createAnswer();
     await this.pc.setLocalDescription(answer);
-    await api("/api/calls/signal", {
-      method: "POST",
-      body: {
-        target_user_id: incoming.from_user_id,
-        call_id: incoming.call_id,
-        signal_type: "answer",
-        payload: signalPayload(answer),
-        media: this.videoMode ? "video" : "audio",
-      },
+    await this._waitIceGathered();
+    await this._sendSignal({
+      target_user_id: incoming.from_user_id,
+      call_id: incoming.call_id,
+      signal_type: "answer",
+      payload: signalPayload(this.pc.localDescription),
+      media: this.videoMode ? "video" : "audio",
     });
     this.currentCall = { id: incoming.call_id, caller_id: incoming.from_user_id, peer_id: incoming.from_user_id };
     this._incoming = null;
@@ -325,10 +400,11 @@ class CallController {
     const incoming = this._incoming || this.pendingOffer?.signal;
     if (!incoming) return;
     await api("/api/calls/reject", { method: "POST", body: { call_id: incoming.call_id } }).catch(() => undefined);
-    await api("/api/calls/signal", {
-      method: "POST",
-      body: { target_user_id: incoming.from_user_id, call_id: incoming.call_id, signal_type: "reject" },
-    }).catch(() => undefined);
+    await this._sendSignal({
+      target_user_id: incoming.from_user_id,
+      call_id: incoming.call_id,
+      signal_type: "reject",
+    });
     this._incoming = null;
     this.pendingOffer = null;
     this._earlyIce = [];
@@ -364,10 +440,7 @@ class CallController {
     const callId = this.currentCall?.id;
     if (notify && peerId) {
       api("/api/calls/end", { method: "POST", body: { call_id: callId } }).catch(() => undefined);
-      api("/api/calls/signal", {
-        method: "POST",
-        body: { target_user_id: peerId, call_id: callId, signal_type: "end" },
-      }).catch(() => undefined);
+      this._sendSignal({ target_user_id: peerId, call_id: callId, signal_type: "end" });
     }
     this.localStream?.getTracks().forEach((track) => track.stop());
     try {
