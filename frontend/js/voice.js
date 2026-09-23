@@ -6,6 +6,15 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent || "");
 const IS_ANDROID = /Android/i.test(navigator.userAgent || "");
 
+function voiceLog(event, extra) {
+  try {
+    if (extra !== undefined) console.log(`[VOICE] ${event}`, extra);
+    else console.log(`[VOICE] ${event}`);
+  } catch {
+    /* ignore */
+  }
+}
+
 function quietWavUrl() {
   const sampleRate = 22050;
   const samples = Math.floor(sampleRate * 0.35);
@@ -149,6 +158,7 @@ class VoiceService {
     this.player.setAttribute("webkit-playsinline", "true");
     this.player.playsInline = true;
     this.player.preload = "auto";
+    this.keepEl = null;
     this.ctx = null;
     this._utterance = null;
     this._playing = false;
@@ -156,17 +166,19 @@ class VoiceService {
     this._serverToken = 0;
     this._objectUrl = "";
     this._pending = null;
+    this._pendingPriority = 0;
     this._webSource = null;
+    this._webGain = null;
     this._instantChat = "";
     this._usedMic = false;
-    this._finishSpeak = null;
-    this._keepOsc = null;
-    this._keepGain = null;
     this._keepNoise = null;
-    this._primed = false;
+    this._keepGain = null;
     this._busy = false;
     this._onStart = null;
     this._synthDone = Promise.resolve(false);
+    this._priority = 0;
+    this._gestureAt = 0;
+    this._boundCtx = null;
     if (this.synth) {
       this.synth.addEventListener("voiceschanged", () => {
         this.voices = this.synth.getVoices();
@@ -174,8 +186,15 @@ class VoiceService {
       this.voices = this.synth.getVoices();
     }
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) this.keepAlive(true);
+      if (!document.hidden) this.restoreSpeaker();
     });
+    document.addEventListener(
+      "pointerdown",
+      () => {
+        this.unlock({ fromGesture: true });
+      },
+      { capture: true }
+    );
   }
 
   isSpeaking() {
@@ -189,14 +208,42 @@ class VoiceService {
       this.ctx = new Ctx();
       this._keepNoise = null;
       this._keepGain = null;
+      this._bindContext(this.ctx);
     }
     return this.ctx;
   }
 
-  _stopSpeech() {
-    this._stopWebAudio();
+  _bindContext(ctx) {
+    if (this._boundCtx === ctx) return;
+    this._boundCtx = ctx;
+    ctx.onstatechange = () => {
+      voiceLog("AUDIO CONTEXT", ctx.state);
+      if (ctx.state === "interrupted" || ctx.state === "suspended") {
+        this._keepNoise = null;
+      }
+      if (ctx.state === "running") this._ensureKeepAlive();
+    };
+  }
+
+  _cancelBrowserTts() {
     try {
-      this.player.pause();
+      this.synth?.cancel();
+    } catch {
+      /* ignore */
+    }
+    this._utterance = null;
+    this._synthDone = Promise.resolve(false);
+  }
+
+  _stopHtmlPlayer() {
+    const player = this.player;
+    if (!player) return;
+    try {
+      player.onended = null;
+      player.onerror = null;
+      player.pause();
+      player.removeAttribute("src");
+      player.load?.();
     } catch {
       /* ignore */
     }
@@ -211,17 +258,16 @@ class VoiceService {
       }
       this._webSource = null;
     }
+    this._webGain = null;
+  }
+
+  _stopSpeech() {
+    this._stopWebAudio();
+    this._stopHtmlPlayer();
+    this._cancelBrowserTts();
   }
 
   _ensureKeepAlive() {
-    if (IS_ANDROID) {
-      try {
-        this._audioContext()?.resume?.();
-      } catch {
-        /* ignore */
-      }
-      return;
-    }
     const ctx = this._audioContext();
     if (!ctx) return;
     try {
@@ -231,7 +277,7 @@ class VoiceService {
     }
     if (this._keepNoise) return;
     try {
-      const frames = Math.max(1, Math.floor(ctx.sampleRate * 0.4));
+      const frames = Math.max(1, Math.floor(ctx.sampleRate * 0.25));
       const buffer = ctx.createBuffer(1, frames, ctx.sampleRate);
       const source = ctx.createBufferSource();
       const gain = ctx.createGain();
@@ -263,33 +309,68 @@ class VoiceService {
     return this.player;
   }
 
+  _ensureKeepEl() {
+    if (this.keepEl && this.keepEl.tagName === "AUDIO") {
+      if (!this.keepEl.isConnected && document.body) document.body.appendChild(this.keepEl);
+      return this.keepEl;
+    }
+    const el = document.createElement("audio");
+    el.id = "tts-keep";
+    el.setAttribute("playsinline", "true");
+    el.setAttribute("webkit-playsinline", "true");
+    el.playsInline = true;
+    el.preload = "auto";
+    el.hidden = true;
+    el.loop = true;
+    this.keepEl = el;
+    if (document.body) document.body.appendChild(el);
+    return el;
+  }
+
   _startKeepPlayer() {
-    if (IS_ANDROID) return;
-    const player = this._ensurePlayer();
-    if (player && !player.paused && player.currentSrc) return;
-    player.loop = true;
-    player.muted = false;
-    player.volume = 1;
-    player.src = KEEP_SRC;
-    const play = player.play();
+    this._ensureKeepAlive();
+    if (IS_IOS || IS_ANDROID) return;
+    const keep = this._ensureKeepEl();
+    if (keep && !keep.paused && keep.currentSrc) return;
+    keep.loop = true;
+    keep.muted = true;
+    keep.volume = 0;
+    keep.src = KEEP_SRC;
+    const play = keep.play();
     if (play && typeof play.catch === "function") play.catch(() => {});
+  }
+
+  restoreSpeaker() {
+    this._unlocked = true;
+    const ctx = this._audioContext();
+    try {
+      ctx?.resume?.();
+    } catch {
+      /* ignore */
+    }
+    this._keepNoise = null;
+    this._ensureKeepAlive();
+    this._startKeepPlayer();
+    voiceLog("VOICE RECOVERED", ctx?.state || "no-ctx");
   }
 
   unlock({ fromGesture = false } = {}) {
     this._unlocked = true;
+    if (fromGesture) this._gestureAt = performance.now();
+    const ctx = this._audioContext();
     try {
-      this._audioContext()?.resume?.();
+      ctx?.resume?.();
     } catch {
       /* ignore */
     }
+    if (fromGesture || ctx?.state !== "running") this._keepNoise = null;
     this._ensureKeepAlive();
     if (fromGesture) this._startKeepPlayer();
   }
 
   keepAlive(on) {
     if (!on) return;
-    this.unlock({ fromGesture: false });
-    if (!this._playing) this._startKeepPlayer();
+    this.restoreSpeaker();
   }
 
   _notifyStart() {
@@ -304,48 +385,54 @@ class VoiceService {
   }
 
   _pauseForMic() {
+    voiceLog("MIC START");
     this._serverToken += 1;
     this._playing = false;
     this._busy = false;
     this._pending = null;
-    this._stopWebAudio();
-    try {
-      this.player.pause();
-    } catch {
-      /* ignore */
-    }
-    this._startKeepPlayer();
+    this._stopSpeech();
+    this._usedMic = true;
   }
 
-  speak(text, { interrupt = true, onStart } = {}) {
+  speak(text, { interrupt = true, onStart, priority = 1 } = {}) {
     const cleaned = (text || "").trim();
     if (!cleaned) return Promise.resolve();
     appState.lastSpoken = cleaned;
+    const inGesture = performance.now() - this._gestureAt < 500;
     if (!interrupt && this.isSpeaking()) {
       this._pending = cleaned;
+      this._pendingPriority = priority;
+      voiceLog("VOICE PENDING", cleaned.slice(0, 80));
+      return Promise.resolve();
+    }
+    if (interrupt && this.isSpeaking() && this._priority > priority) {
+      this._pending = cleaned;
+      this._pendingPriority = priority;
+      voiceLog("VOICE DEFERRED", { priority, current: this._priority });
       return Promise.resolve();
     }
     this._pending = null;
     this._onStart = typeof onStart === "function" ? onStart : null;
-    if (!IS_IOS) {
-      try {
-        this.synth?.cancel();
-      } catch {
-        /* ignore */
-      }
-    }
-    this.unlock();
+    this._priority = priority;
+    this._stopSpeech();
+    this.unlock({ fromGesture: false });
     this._serverToken += 1;
     const token = this._serverToken;
-    this._stopWebAudio();
+    voiceLog("VOICE REQUEST", cleaned.slice(0, 120));
+    voiceLog("VOICE TOKEN", token);
     const previous = appState.value;
     appState.set(STATES.SPEAKING);
     this._busy = true;
     const finish = () => {
-      if (token !== this._serverToken) return;
+      if (token !== this._serverToken) {
+        voiceLog("VOICE CANCELLED", token);
+        return;
+      }
       this._playing = false;
       this._busy = false;
+      this._priority = 0;
       this._startKeepPlayer();
+      voiceLog("VOICE FINISHED", token);
       if (appState.value === STATES.SPEAKING) {
         const restore =
           previous &&
@@ -358,20 +445,18 @@ class VoiceService {
         appState.set(restore);
       }
       const next = this._pending;
+      const nextPriority = this._pendingPriority || 1;
       this._pending = null;
-      if (next) this.speak(next, { interrupt: false });
+      if (next) this.speak(next, { interrupt: false, priority: nextPriority });
     };
-    return this._playSpoken(cleaned, finish, token);
+    return this._playSpoken(cleaned, finish, token, inGesture);
   }
 
   sayNow(text) {
-    const cleaned = (text || "").trim();
-    if (!cleaned) return;
-    this.unlock({ fromGesture: true });
-    this._kickSynth(cleaned);
+    return this.speak(text, { interrupt: true, priority: 1 });
   }
 
-  _kickSynth(text) {
+  _kickSynth(text, token) {
     if (!this.synth) {
       this._synthDone = Promise.resolve(false);
       return;
@@ -394,31 +479,28 @@ class VoiceService {
         const chosen = preferredVoice(this.voices, settings.voice_name);
         if (chosen && chosen.localService && !IS_IOS) utter.voice = chosen;
         utter.onstart = () => {
+          if (token !== this._serverToken) return;
+          voiceLog("BROWSER TTS START");
           this._playing = true;
         };
         utter.onend = () => done(true);
-        utter.onerror = () => done(false);
+        utter.onerror = (event) => {
+          voiceLog("BROWSER TTS ERROR", event?.error || "error");
+          done(false);
+        };
         this._utterance = utter;
         this.synth.speak(utter);
-        setTimeout(() => {
-          try {
-            this.synth.pause();
-            this.synth.resume();
-          } catch {
-            /* iOS sometimes needs this kick */
-          }
-        }, 40);
-        setTimeout(() => done(true), 20000);
-      } catch {
+      } catch (error) {
+        voiceLog("BROWSER TTS ERROR", error?.message || "throw");
         done(false);
       }
     });
   }
 
-  async _playSpoken(text, finish, token) {
-    const iosKick = IS_IOS && !this._usedMic;
-    if (iosKick) {
-      this._kickSynth(text);
+  async _playSpoken(text, finish, token, inGesture) {
+    const canKick = IS_IOS && inGesture;
+    if (canKick) {
+      this._kickSynth(text, token);
       this._notifyStart();
     }
     try {
@@ -429,42 +511,49 @@ class VoiceService {
     this._ensureKeepAlive();
     try {
       const chunks = splitSpeakChunks(text);
-      let wavHeard = false;
+      let heard = false;
       for (let i = 0; i < chunks.length; i += 1) {
         if (token !== this._serverToken) return;
-        if (IS_IOS && !wavHeard && i > 0) break;
+        if (IS_IOS && heard && i > 0) break;
         const played = await this._speakServer(chunks[i], token);
         if (token !== this._serverToken) return;
         if (played) {
-          wavHeard = true;
+          heard = true;
+          if (canKick) this._cancelBrowserTts();
           continue;
         }
         if (IS_IOS) {
-          if (iosKick) {
+          if (canKick) {
             await this._synthDone;
             break;
           }
-          this._kickSynth(text);
+          voiceLog("BROWSER TTS START");
+          this._kickSynth(text, token);
           this._notifyStart();
           await this._synthDone;
           break;
         }
-        const started = await this._speakBrowserWait(chunks[i], 4000);
+        const started = await this._speakBrowserWait(chunks[i], token, 4000);
         if (token !== this._serverToken) return;
         if (started) {
           this._notifyStart();
           continue;
         }
-        if (i === 0) return;
+        if (i === 0) {
+          voiceLog("AUDIO PLAY ERROR", "all playback paths failed");
+          this.restoreSpeaker();
+          return;
+        }
       }
-    } catch {
-      /* finish below */
+    } catch (error) {
+      voiceLog("AUDIO PLAY ERROR", error?.message || "throw");
+      this.restoreSpeaker();
     } finally {
       if (token === this._serverToken) finish();
     }
   }
 
-  _speakBrowserWait(text, waitMs) {
+  _speakBrowserWait(text, token, waitMs) {
     if (!this.synth) return Promise.resolve(false);
     return new Promise((resolve) => {
       let settled = false;
@@ -486,26 +575,23 @@ class VoiceService {
         utter.rate = Number(settings.speech_rate || 1);
         utter.lang = settings.language || "en-US";
         utter.volume = 1;
-        const ios = /iPad|iPhone|iPod/.test(navigator.userAgent || "");
         const chosen = preferredVoice(this.voices, settings.voice_name);
-        if (chosen && chosen.localService && !ios) utter.voice = chosen;
+        if (chosen && chosen.localService && !IS_IOS) utter.voice = chosen;
         utter.onstart = () => {
+          if (token !== this._serverToken) return done(false);
           started = true;
+          voiceLog("BROWSER TTS START");
           this._playing = true;
         };
         utter.onend = () => done(started);
-        utter.onerror = () => done(started);
+        utter.onerror = (event) => {
+          voiceLog("BROWSER TTS ERROR", event?.error || "error");
+          done(started);
+        };
         this._utterance = utter;
         this.synth.speak(utter);
-        setTimeout(() => {
-          try {
-            this.synth.pause();
-            this.synth.resume();
-          } catch {
-            /* iOS sometimes needs this kick */
-          }
-        }, 40);
-      } catch {
+      } catch (error) {
+        voiceLog("BROWSER TTS ERROR", error?.message || "throw");
         done(false);
         return;
       }
@@ -516,30 +602,9 @@ class VoiceService {
     });
   }
 
-  _speakBrowser(text, finish) {
-    if (!this.synth) return false;
-    try {
-      this.synth.cancel();
-      this.synth.resume();
-      const utter = new SpeechSynthesisUtterance(text);
-      const settings = getSettings();
-      utter.rate = Number(settings.speech_rate || 1);
-      utter.lang = settings.language || "en-US";
-      utter.volume = 1;
-      const chosen = preferredVoice(this.voices, settings.voice_name);
-      if (chosen && chosen.localService) utter.voice = chosen;
-      utter.onend = () => finish?.();
-      utter.onerror = () => finish?.();
-      this._utterance = utter;
-      this.synth.speak(utter);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
   async _speakServer(text, token) {
     if (token !== this._serverToken) return false;
+    voiceLog("SERVER TTS REQUEST");
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12000);
     try {
@@ -552,55 +617,42 @@ class VoiceService {
         body: JSON.stringify({ text }),
         signal: controller.signal,
       });
-      if (token !== this._serverToken) return false;
-      if (!response.ok) return false;
+      if (token !== this._serverToken) {
+        voiceLog("VOICE CANCELLED", "stale server response");
+        return false;
+      }
+      if (!response.ok) {
+        voiceLog("SERVER TTS ERROR", response.status);
+        return false;
+      }
       const buffer = await response.arrayBuffer();
       if (token !== this._serverToken) return false;
-      if (!buffer || buffer.byteLength < 44) return false;
+      if (!buffer || buffer.byteLength < 44) {
+        voiceLog("SERVER TTS ERROR", "empty audio");
+        return false;
+      }
+      voiceLog("SERVER TTS SUCCESS", buffer.byteLength);
       const mime = audioMime(buffer, response.headers.get("content-type") || "");
       return await this._playWav(buffer, token, mime);
-    } catch {
+    } catch (error) {
+      voiceLog("SERVER TTS ERROR", error?.message || "throw");
       return false;
     } finally {
       clearTimeout(timer);
     }
   }
 
-  _confirmProgress(token, ms) {
-    const player = this.player;
-    return new Promise((resolve) => {
-      let done = false;
-      const finish = (value) => {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        player.removeEventListener("timeupdate", onTime);
-        player.removeEventListener("playing", onTime);
-        resolve(value);
-      };
-      const onTime = () => {
-        if (token !== this._serverToken) return finish(false);
-        if (player.currentTime > 0.02) finish(true);
-      };
-      const timer = setTimeout(() => finish(player.currentTime > 0.02), ms);
-      player.addEventListener("timeupdate", onTime);
-      player.addEventListener("playing", onTime);
-    });
-  }
-
   async _playWav(buffer, token, mime = "audio/wav") {
     if (token !== this._serverToken) return false;
-    const waitMs = audioDurationMs(buffer);
+    let waitMs = audioDurationMs(buffer);
     try {
       await this._audioContext()?.resume?.();
     } catch {
       /* ignore */
     }
     this._ensureKeepAlive();
-    if (IS_IOS || IS_ANDROID) {
-      const web = await this._playWebAudio(buffer, token, waitMs);
-      if (web) return true;
-    }
+    const web = await this._playWebAudio(buffer, token, waitMs);
+    if (web) return true;
     const url = URL.createObjectURL(new Blob([buffer], { type: mime || "audio/wav" }));
     if (this._objectUrl) URL.revokeObjectURL(this._objectUrl);
     this._objectUrl = url;
@@ -615,8 +667,11 @@ class VoiceService {
         resolve(ok);
       };
       player.onended = () => done(token === this._serverToken);
-      player.onerror = () => done(false);
-      setTimeout(() => done(token === this._serverToken), waitMs);
+      player.onerror = () => {
+        voiceLog("AUDIO PLAY ERROR", "html error");
+        done(false);
+      };
+      setTimeout(() => done(token === this._serverToken && !player.paused), waitMs);
     });
     player.loop = false;
     player.muted = false;
@@ -624,32 +679,24 @@ class VoiceService {
     player.src = url;
     try {
       await player.play();
+      if (token !== this._serverToken) return false;
+      voiceLog("AUDIO PLAY START", "html");
       this._notifyStart();
-      if (IS_IOS && !this._usedMic && mime === "audio/wav") {
-        const heard = await this._confirmProgress(token, 700);
-        if (!heard) {
-          try {
-            player.pause();
-          } catch {
-            /* keep phone synth as the voice */
-          }
-          return false;
-        }
-        try {
-          this.synth?.cancel();
-        } catch {
-          /* one voice */
-        }
-      }
+      this._cancelBrowserTts();
       return ended;
-    } catch {
-      const web = await this._playWebAudio(buffer, token, waitMs);
-      if (web) return true;
+    } catch (error) {
+      voiceLog("AUDIO PLAY ERROR", error?.message || "html play");
+      this.restoreSpeaker();
+      const webRetry = await this._playWebAudio(buffer, token, waitMs);
+      if (webRetry) return true;
       try {
         await player.play();
+        if (token !== this._serverToken) return false;
+        voiceLog("AUDIO PLAY START", "html-retry");
         this._notifyStart();
         return ended;
-      } catch {
+      } catch (retryError) {
+        voiceLog("AUDIO PLAY ERROR", retryError?.message || "html retry");
         return false;
       }
     }
@@ -669,6 +716,7 @@ class VoiceService {
         decoded = await ctx.decodeAudioData(copy);
       }
       if (token !== this._serverToken) return false;
+      const durationMs = decoded.duration ? Math.min(20000, decoded.duration * 1000 + 250) : waitMs;
       const source = ctx.createBufferSource();
       const gain = ctx.createGain();
       gain.gain.value = 1;
@@ -676,6 +724,7 @@ class VoiceService {
       source.connect(gain);
       gain.connect(ctx.destination);
       this._webSource = source;
+      this._webGain = gain;
       const ended = new Promise((resolve) => {
         let settled = false;
         const done = (ok) => {
@@ -687,22 +736,27 @@ class VoiceService {
           if (this._webSource === source) this._webSource = null;
           done(token === this._serverToken);
         };
-        setTimeout(() => done(token === this._serverToken), waitMs);
+        setTimeout(() => done(token === this._serverToken), durationMs);
       });
       source.start(0);
+      voiceLog("AUDIO PLAY START", "webaudio");
       this._notifyStart();
+      this._cancelBrowserTts();
       return ended;
-    } catch {
+    } catch (error) {
+      voiceLog("AUDIO PLAY ERROR", error?.message || "webaudio");
       return false;
     }
   }
 
   stopSpeaking() {
+    voiceLog("VOICE CANCELLED", "stopSpeaking");
     this._serverToken += 1;
     this._playing = false;
     this._busy = false;
     this._pending = null;
-    this._stopWebAudio();
+    this._priority = 0;
+    this._stopSpeech();
     this._startKeepPlayer();
   }
 
@@ -787,17 +841,9 @@ class VoiceService {
     this._holding = false;
     const text = (this._holdText || "").trim();
     this.stopListening();
-    try {
-      this.synth?.cancel();
-    } catch {
-      /* release the speaker after the microphone */
-    }
-    try {
-      this._audioContext()?.resume?.();
-    } catch {
-      /* ignore */
-    }
-    this._startKeepPlayer();
+    voiceLog("MIC STOP");
+    this.unlock({ fromGesture: true });
+    this.restoreSpeaker();
     if (appState.value === STATES.LISTENING) appState.set(STATES.IDLE);
     return text;
   }
@@ -860,8 +906,8 @@ class VoiceService {
         finish("", Object.assign(new Error(event.error), { code }));
       };
       rec.onend = () => {
-        this._audioContext()?.resume?.();
-        this._startKeepPlayer();
+        voiceLog("MIC STOP");
+        this.restoreSpeaker();
         finish(finalText);
       };
       const watch = setTimeout(() => {

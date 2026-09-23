@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { camera } from "./camera.js";
-import { voice } from "./voice.js?v=54";
+import { voice } from "./voice.js?v=55";
 
 async function sendVision(path, extra = {}, signal) {
   voice.keepAlive(true);
@@ -10,6 +10,7 @@ async function sendVision(path, extra = {}, signal) {
     form.append("image", file, "capture.jpg");
     Object.entries(extra).forEach(([key, value]) => form.append(key, value));
     const data = await api(path, { method: "POST", body: form, isForm: true, signal, timeout: 45000 });
+    voice.restoreSpeaker();
     return data.spoken || data.description || data.answer || data.text || "I could not complete that request.";
   } catch (error) {
     voice.keepAlive(false);

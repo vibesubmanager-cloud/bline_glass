@@ -1,7 +1,7 @@
 import { getToken, pages, getSettings, getUser } from "./config.js";
 import { ApiError, isOnline, api } from "./api.js";
 import { appState, STATES } from "./state.js";
-import { voice } from "./voice.js?v=54";
+import { voice } from "./voice.js?v=55";
 import { camera } from "./camera.js";
 import { interpretCommand, isAffirmative, isNegative, HELP_TEXT, smallTalkReply } from "./intent.js?v=37";
 import { detectObjects, ensureOnDeviceYolo, resetOnDeviceYolo } from "./detection.js";
@@ -35,7 +35,7 @@ function speakThenShow(heard, spoken) {
   voice.stopListening();
   voice.unlock({ fromGesture: true });
   showVoiceReply(heard, spoken);
-  speakOut(spoken, { interrupt: true, onStart: () => showVoiceReply(heard, spoken) });
+  speakOut(spoken, { interrupt: true, priority: 2, onStart: () => showVoiceReply(heard, spoken) });
 }
 
 appState.onChange((state) => {
@@ -385,7 +385,7 @@ async function executeCommand(parsed, text) {
       appState.set(detectionMode ? STATES.DETECTING : STATES.IDLE);
       setStatus(spoken);
       showVoiceReply(text, spoken);
-      await speakOut(spoken, { interrupt: true });
+      await speakOut(spoken, { interrupt: true, priority: 2 });
       return;
     }
     if (parsed.intent === "DESCRIBE") {
@@ -395,7 +395,7 @@ async function executeCommand(parsed, text) {
       appState.set(detectionMode ? STATES.DETECTING : STATES.IDLE);
       setStatus(spoken);
       showVoiceReply(text, spoken);
-      await speakOut(spoken, { interrupt: true });
+      await speakOut(spoken, { interrupt: true, priority: 2 });
       return;
     }
     if (parsed.intent === "VISUAL_QUESTION") {
@@ -538,7 +538,7 @@ function announceDetections(detections, spoken) {
   }
   const phrase = spoken || "You see something in front of you.";
   setStatus(phrase);
-  speakOut(phrase, { interrupt: true });
+  speakOut(phrase, { interrupt: false, priority: 1 });
 }
 
 function scheduleDetectionLoop() {
@@ -752,7 +752,7 @@ async function endHoldTalk() {
   const text = voice.finishHoldListen();
   voice.unlock({ fromGesture: true });
   if (text) {
-    voice.speak("Okay.", { interrupt: true });
+    voice.speak("Okay.", { interrupt: true, priority: 0 });
     setStatus(text);
     try {
       await handleCommand(text);
