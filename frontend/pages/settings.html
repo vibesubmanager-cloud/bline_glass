@@ -16,6 +16,23 @@
         <p>Voice, camera, and privacy.</p>
       </header>
       <p id="settings-status" class="status-bar" role="status" aria-live="polite"></p>
+      <article class="card iphone-help" aria-label="Test speaker">
+        <strong>Test speaker</strong>
+        <p>
+          Tap a button. You should hear the same voice used on the camera, in earphones, and on iPhone.
+          Turn the iPhone Ring switch on and turn volume up first.
+        </p>
+        <p id="speaker-test-result" class="status-bar" role="status">Tap a test. If you hear it, that part of the speaker is working.</p>
+        <div class="auth-actions">
+          <button class="btn primary wide" id="test-speak-all" type="button">Test all</button>
+          <button class="btn" id="test-speak-voice" type="button">Test voice</button>
+          <button class="btn" id="test-speak-detect" type="button">Test detection</button>
+          <button class="btn" id="test-speak-describe" type="button">Test describe</button>
+          <button class="btn" id="test-speak-read" type="button">Test reading</button>
+          <button class="btn" id="test-speak-directions" type="button">Test directions</button>
+          <button class="btn" id="test-speak-call" type="button">Test calling</button>
+        </div>
+      </article>
       <article class="card iphone-help" aria-label="iPhone">
         <strong>iPhone</strong>
         <p>Use Safari. Tap to speak. Hold for a command. Double tap to start or stop object detection.</p>
@@ -98,6 +115,7 @@
       </article>
       <button class="btn danger" id="logout" type="button">Sign out</button>
     </main>
+    <audio id="tts-player" playsinline webkit-playsinline hidden></audio>
     <nav class="dock" aria-label="Main">
       <a class="dock-btn" href="./home.html" aria-label="Live camera"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/></svg></a>
       <a class="dock-btn" href="./navigation.html" aria-label="Navigation"><svg viewBox="0 0 24 24"><path d="M12 3l7 18-7-3-7 3z"/></svg></a>
@@ -117,6 +135,43 @@
       import { speakOut } from "../js/speak-out.js";
       if (!getToken()) location.href = pages().welcome;
       bindApiField();
+      const SPEAKER_TESTS = [
+        ["voice", "Voice. Hold the screen to speak. Double tap for object detection."],
+        ["detect", "Detection. You see a chair and a person in front of you."],
+        ["describe", "Describe. Okay. Looking in front of you. There is a table and a doorway ahead."],
+        ["read", "Reading. The text says: Welcome to AI Sight."],
+        ["directions", "Directions. In 50 meters, turn left. Continue straight."],
+        ["call", "Calling. Connecting voice call."],
+      ];
+      async function runSpeakerTest(key, phrase) {
+        const out = document.getElementById("speaker-test-result");
+        const status = document.getElementById("settings-status");
+        voice.unlock({ fromGesture: true });
+        out.textContent = `Playing ${key}…`;
+        status.textContent = `Playing ${key} speaker test.`;
+        try {
+          await voice.speak(phrase, { interrupt: true });
+          out.textContent = `Heard ${key}? If yes, that speaker path is working.`;
+          status.textContent = `Finished ${key} speaker test.`;
+        } catch (error) {
+          out.textContent = error.message || `Could not play ${key}.`;
+          status.textContent = out.textContent;
+        }
+      }
+      document.getElementById("test-speak-all")?.addEventListener("click", async () => {
+        voice.unlock({ fromGesture: true });
+        for (const [key, phrase] of SPEAKER_TESTS) {
+          await runSpeakerTest(key, phrase);
+        }
+        document.getElementById("speaker-test-result").textContent =
+          "Finished all speaker tests. If you heard each one, the phone speaker is working.";
+      });
+      document.getElementById("test-speak-voice")?.addEventListener("click", () => runSpeakerTest(...SPEAKER_TESTS[0]));
+      document.getElementById("test-speak-detect")?.addEventListener("click", () => runSpeakerTest(...SPEAKER_TESTS[1]));
+      document.getElementById("test-speak-describe")?.addEventListener("click", () => runSpeakerTest(...SPEAKER_TESTS[2]));
+      document.getElementById("test-speak-read")?.addEventListener("click", () => runSpeakerTest(...SPEAKER_TESTS[3]));
+      document.getElementById("test-speak-directions")?.addEventListener("click", () => runSpeakerTest(...SPEAKER_TESTS[4]));
+      document.getElementById("test-speak-call")?.addEventListener("click", () => runSpeakerTest(...SPEAKER_TESTS[5]));
       const settings = getSettings();
       document.body.classList.toggle("high-contrast", Boolean(settings.high_contrast));
       const form = document.getElementById("settings-form");
