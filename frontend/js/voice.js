@@ -97,15 +97,30 @@ function pcmWavToBuffer(ctx, arrayBuffer) {
   return buffer;
 }
 
-function wavDurationMs(arrayBuffer) {
+function audioDurationMs(arrayBuffer) {
   try {
+    const bytes = new Uint8Array(arrayBuffer);
+    if (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) {
+      return 20000;
+    }
+    if (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) {
+      return 20000;
+    }
     const view = new DataView(arrayBuffer);
     const byteRate = view.getUint32(28, true) || 44100;
     const dataSize = view.getUint32(40, true) || Math.max(0, arrayBuffer.byteLength - 44);
     return Math.min(20000, Math.max(800, Math.ceil((dataSize / byteRate) * 1000) + 350));
   } catch {
-    return 4000;
+    return 8000;
   }
+}
+
+function audioMime(arrayBuffer, headerType) {
+  if (headerType && headerType.includes("mpeg")) return "audio/mpeg";
+  const bytes = new Uint8Array(arrayBuffer);
+  if (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) return "audio/mpeg";
+  if (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) return "audio/mpeg";
+  return "audio/wav";
 }
 
 function splitSpeakChunks(text) {
@@ -547,7 +562,8 @@ class VoiceService {
       const buffer = await response.arrayBuffer();
       if (token !== this._serverToken) return false;
       if (!buffer || buffer.byteLength < 44) return false;
-      return await this._playWav(buffer, token);
+      const mime = audioMime(buffer, response.headers.get("content-type") || "");
+      return await this._playWav(buffer, token, mime);
     } catch {
       return false;
     } finally {
@@ -577,10 +593,10 @@ class VoiceService {
     });
   }
 
-  async _playWav(buffer, token) {
+  async _playWav(buffer, token, mime = "audio/wav") {
     if (token !== this._serverToken) return false;
-    const waitMs = wavDurationMs(buffer);
-    const url = URL.createObjectURL(new Blob([buffer], { type: "audio/wav" }));
+    const waitMs = audioDurationMs(buffer);
+    const url = URL.createObjectURL(new Blob([buffer], { type: mime || "audio/wav" }));
     if (this._objectUrl) URL.revokeObjectURL(this._objectUrl);
     this._objectUrl = url;
     const player = this._ensurePlayer();
@@ -604,7 +620,7 @@ class VoiceService {
     try {
       await player.play();
       this._notifyStart();
-      if (IS_IOS && !this._usedMic) {
+      if (IS_IOS && !this._usedMic && mime === "audio/wav") {
         const heard = await this._confirmProgress(token, 700);
         if (!heard) {
           try {
@@ -622,8 +638,10 @@ class VoiceService {
       }
       return ended;
     } catch {
-      const web = await this._playWebAudio(buffer, token, waitMs);
-      if (web) return true;
+      if (mime !== "audio/mpeg") {
+        const web = await this._playWebAudio(buffer, token, waitMs);
+        if (web) return true;
+      }
       try {
         await player.play();
         this._notifyStart();

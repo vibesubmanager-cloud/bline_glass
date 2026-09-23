@@ -27,10 +27,10 @@ WARM_PHRASES = (
 )
 
 
-def _cache_path(text: str) -> Path:
+def _cache_path(text: str, suffix: str = ".wav") -> Path:
     digest = hashlib.sha1(text.encode("utf-8")).hexdigest()
     _CACHE.mkdir(parents=True, exist_ok=True)
-    return _CACHE / f"{digest}.wav"
+    return _CACHE / f"{digest}{suffix}"
 
 
 def _normalize_wav(path: Path) -> bool:
@@ -122,33 +122,96 @@ def _synthesize_windows(text: str, path: Path) -> bool:
         return False
 
 
-def _synthesize_one(text: str, path: Path) -> bool:
-    if path.exists() and path.stat().st_size > 1000:
-        return True
-    return _synthesize_sapi(text, path) or _synthesize_windows(text, path)
+def _synthesize_edge(text: str, path: Path) -> bool:
+    """Microsoft online voices. Works on Linux phones/Render, returns MP3."""
+    try:
+        import asyncio
+        import edge_tts
+    except ImportError:
+        return False
+    voice = os.getenv("TTS_VOICE", "en-US-JennyNeural")
+
+    async def _save() -> None:
+        communicate = edge_tts.Communicate(text, voice)
+        await communicate.save(str(path))
+
+    try:
+        try:
+            asyncio.run(_save())
+        except RuntimeError:
+            done = threading.Event()
+            error: list[BaseException] = []
+
+            def _runner() -> None:
+                try:
+                    asyncio.run(_save())
+                except BaseException as exc:  # noqa: BLE001
+                    error.append(exc)
+                finally:
+                    done.set()
+
+            threading.Thread(target=_runner, daemon=True).start()
+            if not done.wait(20):
+                return False
+            if error:
+                raise error[0]
+        return path.exists() and path.stat().st_size > 500
+    except Exception as exc:
+        log_error("TTS_EDGE_ERROR", exc)
+        return False
 
 
-def synthesize_wav(text: str) -> bytes | None:
+def _synthesize_one(text: str, wav_path: Path, mp3_path: Path) -> str | None:
+    if wav_path.exists() and wav_path.stat().st_size > 1000:
+        return "audio/wav"
+    if mp3_path.exists() and mp3_path.stat().st_size > 500:
+        return "audio/mpeg"
+    if _synthesize_sapi(text, wav_path) or _synthesize_windows(text, wav_path):
+        return "audio/wav"
+    if _synthesize_edge(text, mp3_path):
+        return "audio/mpeg"
+    return None
+
+
+def synthesize_audio(text: str) -> tuple[bytes, str] | None:
     cleaned = " ".join((text or "").split())[:800]
     if not cleaned:
         return None
-    path = _cache_path(cleaned)
-    if path.exists() and path.stat().st_size > 1000:
-        return path.read_bytes()
+    wav_path = _cache_path(cleaned, ".wav")
+    mp3_path = _cache_path(cleaned, ".mp3")
+    if wav_path.exists() and wav_path.stat().st_size > 1000:
+        return wav_path.read_bytes(), "audio/wav"
+    if mp3_path.exists() and mp3_path.stat().st_size > 500:
+        return mp3_path.read_bytes(), "audio/mpeg"
     with _LOCK:
-        if path.exists() and path.stat().st_size > 1000:
-            return path.read_bytes()
+        if wav_path.exists() and wav_path.stat().st_size > 1000:
+            return wav_path.read_bytes(), "audio/wav"
+        if mp3_path.exists() and mp3_path.stat().st_size > 500:
+            return mp3_path.read_bytes(), "audio/mpeg"
         started = time.perf_counter()
         log_event("TTS_SYNTH", chars=len(cleaned))
-        if not _synthesize_one(cleaned, path):
+        kind = _synthesize_one(cleaned, wav_path, mp3_path)
+        if kind == "audio/wav":
+            payload = wav_path.read_bytes()
+        elif kind == "audio/mpeg":
+            payload = mp3_path.read_bytes()
+        else:
             return None
-        log_event("TTS_SYNTH_DONE", chars=len(cleaned), ms=int((time.perf_counter() - started) * 1000))
-        return path.read_bytes()
+        log_event("TTS_SYNTH_DONE", chars=len(cleaned), ms=int((time.perf_counter() - started) * 1000), kind=kind)
+        return payload, kind
+
+
+def synthesize_wav(text: str) -> bytes | None:
+    result = synthesize_audio(text)
+    if not result:
+        return None
+    payload, kind = result
+    return payload if kind == "audio/wav" else payload
 
 
 def warmup_tts() -> None:
     for phrase in WARM_PHRASES:
         try:
-            synthesize_wav(phrase)
+            synthesize_audio(phrase)
         except Exception as exc:
             log_error("TTS_WARMUP_ERROR", exc)

@@ -1,7 +1,7 @@
 import { getToken, pages, getSettings, getUser } from "./config.js";
 import { ApiError, isOnline, api } from "./api.js";
 import { appState, STATES } from "./state.js";
-import { voice } from "./voice.js?v=51";
+import { voice } from "./voice.js?v=52";
 import { camera } from "./camera.js";
 import { interpretCommand, isAffirmative, isNegative, HELP_TEXT, smallTalkReply } from "./intent.js?v=37";
 import { detectObjects, ensureOnDeviceYolo, resetOnDeviceYolo } from "./detection.js";

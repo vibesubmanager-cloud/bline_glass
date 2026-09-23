@@ -22,3 +22,4 @@ twilio==9.3.6
 simple-websocket==1.0.0
 cryptography>=43.0.1
 pyttsx3==2.98
+edge-tts==6.1.12
