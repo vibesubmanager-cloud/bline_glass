@@ -42,6 +42,12 @@ class CallController {
     this._iceServers = null;
     this.socket = null;
     this._seenSignals = new Set();
+    this._bridgeOn = false;
+    this._bridgeTimer = 0;
+    this._bridgeAudio = null;
+    this._playCtx = null;
+    this._playTime = 0;
+    this._grabCanvas = null;
   }
 
   startPolling() {
@@ -212,6 +218,150 @@ class CallController {
     }
   }
 
+  _bridgeSurface() {
+    const video = document.getElementById("remote-video");
+    let canvas = document.getElementById("remote-bridge");
+    if (!canvas && video?.parentNode) {
+      canvas = document.createElement("canvas");
+      canvas.id = "remote-bridge";
+      canvas.width = 480;
+      canvas.height = 640;
+      video.parentNode.insertBefore(canvas, video);
+    }
+    if (canvas) canvas.classList.toggle("hidden", !this.videoMode);
+    return canvas;
+  }
+
+  _startBridge(callId) {
+    this._stopBridge();
+    if (!callId || !this.localStream) return;
+    this._bridgeOn = true;
+    this._playTime = 0;
+    this._bridgeSurface();
+    try {
+      this._playCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+      this._playCtx.resume?.();
+    } catch {
+      this._playCtx = null;
+    }
+    const sendVideo = () => {
+      if (!this._bridgeOn || !this.videoMode || this.cameraEnabled === false) return;
+      const track = this.localStream?.getVideoTracks()?.[0];
+      if (!track || track.readyState !== "live") return;
+      if (!this._grabCanvas) this._grabCanvas = document.createElement("canvas");
+      const canvas = this._grabCanvas;
+      canvas.width = 240;
+      canvas.height = 320;
+      const ctx = canvas.getContext("2d");
+      const local = document.getElementById("local-video");
+      try {
+        ctx.drawImage(local || this._grabCanvas, 0, 0, 240, 320);
+      } catch {
+        return;
+      }
+      const data = canvas.toDataURL("image/jpeg", 0.45).split(",")[1];
+      if (data) {
+        api("/api/calls/media", { method: "POST", body: { call_id: callId, kind: "video", data }, timeout: 4000 }).catch(
+          () => undefined
+        );
+      }
+    };
+    const sendAudio = () => {
+      if (!this._bridgeOn || this.muted) return;
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = ctx.createMediaStreamSource(this.localStream);
+      const proc = ctx.createScriptProcessor(2048, 1, 1);
+      proc.onaudioprocess = (event) => {
+        if (!this._bridgeOn || this.muted) return;
+        const now = Date.now();
+        if (now - (this._lastAudioSend || 0) < 160) return;
+        this._lastAudioSend = now;
+        const input = event.inputBuffer.getChannelData(0);
+        const ratio = ctx.sampleRate / 16000;
+        const count = Math.floor(input.length / ratio);
+        const pcm = new Int16Array(count);
+        for (let i = 0; i < count; i += 1) {
+          const sample = Math.max(-1, Math.min(1, input[Math.floor(i * ratio)] || 0));
+          pcm[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+        }
+        const bytes = new Uint8Array(pcm.buffer);
+        let raw = "";
+        for (let i = 0; i < bytes.length; i += 1) raw += String.fromCharCode(bytes[i]);
+        api("/api/calls/media", {
+          method: "POST",
+          body: { call_id: callId, kind: "audio", data: btoa(raw) },
+          timeout: 4000,
+        }).catch(() => undefined);
+      };
+      const silent = ctx.createGain();
+      silent.gain.value = 0;
+      source.connect(proc);
+      proc.connect(silent);
+      silent.connect(ctx.destination);
+      ctx.resume?.();
+      this._bridgeAudio = { ctx, proc, source };
+    };
+    sendAudio();
+    this._bridgeTimer = setInterval(async () => {
+      if (!this._bridgeOn) return;
+      sendVideo();
+      try {
+        const media = await api(`/api/calls/media?call_id=${encodeURIComponent(callId)}`, { timeout: 4000 });
+        if (media?.video) {
+          const img = new Image();
+          img.onload = () => {
+            const surface = this._bridgeSurface();
+            if (!surface) return;
+            const ctx = surface.getContext("2d");
+            ctx.drawImage(img, 0, 0, surface.width, surface.height);
+          };
+          img.src = `data:image/jpeg;base64,${media.video}`;
+        }
+        if (this._playCtx && media?.audio?.length) {
+          this._playCtx.resume?.();
+          for (const chunk of media.audio) {
+            const binary = atob(chunk);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+            const pcm = new Int16Array(bytes.buffer);
+            const buffer = this._playCtx.createBuffer(1, pcm.length, 16000);
+            const out = buffer.getChannelData(0);
+            for (let i = 0; i < pcm.length; i += 1) out[i] = pcm[i] / 32768;
+            const src = this._playCtx.createBufferSource();
+            src.buffer = buffer;
+            src.connect(this._playCtx.destination);
+            const startAt = Math.max(this._playCtx.currentTime, this._playTime || this._playCtx.currentTime);
+            src.start(startAt);
+            this._playTime = startAt + buffer.duration;
+          }
+        }
+      } catch {
+        /* keep call UI */
+      }
+    }, 180);
+  }
+
+  _stopBridge() {
+    this._bridgeOn = false;
+    clearInterval(this._bridgeTimer);
+    this._bridgeTimer = 0;
+    try {
+      this._bridgeAudio?.proc.disconnect();
+      this._bridgeAudio?.source.disconnect();
+      this._bridgeAudio?.ctx.close();
+    } catch {
+      /* ignore */
+    }
+    this._bridgeAudio = null;
+    try {
+      this._playCtx?.close();
+    } catch {
+      /* ignore */
+    }
+    this._playCtx = null;
+    document.getElementById("remote-bridge")?.classList.add("hidden");
+  }
+
   _attachLocalPreview() {
     const localVideo = document.getElementById("local-video");
     if (!localVideo) return;
@@ -343,6 +493,7 @@ class CallController {
     }
     appState.set(STATES.CALLING);
     await this.createPeer(this._iceServers, data.call.callee_id, data.call.id, this.videoMode);
+    this._startBridge(data.call.id);
     const offer = await this.pc.createOffer({
       offerToReceiveAudio: true,
       offerToReceiveVideo: this.videoMode,
@@ -389,6 +540,7 @@ class CallController {
       media: this.videoMode ? "video" : "audio",
     });
     this.currentCall = { id: incoming.call_id, caller_id: incoming.from_user_id, peer_id: incoming.from_user_id };
+    this._startBridge(incoming.call_id);
     this._incoming = null;
     this.pendingOffer = null;
     this.updateBanner(this.videoMode ? "Video call connected" : "Voice call connected");
@@ -436,6 +588,7 @@ class CallController {
   async end(notify = true) {
     if (this._ending) return;
     this._ending = true;
+    this._stopBridge();
     const peerId = this._peerId();
     const callId = this.currentCall?.id;
     if (notify && peerId) {

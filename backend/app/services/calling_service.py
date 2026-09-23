@@ -16,6 +16,41 @@ from app.models.user import User
 from app.utils.logging import log_event
 
 _mailboxes: dict[str, deque] = defaultdict(lambda: deque(maxlen=50))
+_call_video: dict[str, dict[str, str]] = defaultdict(dict)
+_call_audio: dict[str, dict[str, deque]] = defaultdict(lambda: defaultdict(lambda: deque(maxlen=24)))
+
+
+def put_call_media(call_id: str, user_id: str, kind: str, data: str) -> None:
+    if kind == "video":
+        _call_video[call_id][user_id] = data
+        return
+    if kind == "audio" and data:
+        _call_audio[call_id][user_id].append(data)
+
+
+def take_call_media(call_id: str, user_id: str) -> dict:
+    video = None
+    audio: list[str] = []
+    for other_id, frame in _call_video.get(call_id, {}).items():
+        if other_id != user_id and frame:
+            video = frame
+    for other_id, chunks in _call_audio.get(call_id, {}).items():
+        if other_id != user_id:
+            while chunks:
+                audio.append(chunks.popleft())
+    return {"video": video, "audio": audio}
+
+
+def clear_call_media(call_id: str) -> None:
+    _call_video.pop(call_id, None)
+    _call_audio.pop(call_id, None)
+
+
+def require_call_party(call_id: str, user_id: str) -> CallSession:
+    session = db.session.get(CallSession, call_id)
+    if not session or user_id not in {session.caller_id, session.callee_id}:
+        raise CallingServiceError("Call not found.", "CALL_NOT_FOUND")
+    return session
 
 
 def post_signal(target_user_id: str, message: dict) -> None:
@@ -160,4 +195,6 @@ def set_call_status(call_id: str, user_id: str, status: str) -> CallSession:
         session.ended_at = datetime.now(timezone.utc)
     db.session.commit()
     log_event("CALL_STATUS", call_id=call_id, status=status)
+    if status in {"ended", "rejected", "missed", "failed"}:
+        clear_call_media(call_id)
     return session

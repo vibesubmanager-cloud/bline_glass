@@ -6,9 +6,12 @@ from app.services.calling_service import (
     drain_signals,
     ice_servers,
     post_signal,
+    put_call_media,
+    require_call_party,
     resolve_contact_for_call,
     set_call_status,
     start_call,
+    take_call_media,
 )
 from app.services.usage_service import record_usage
 from app.utils.responses import fail, ok
@@ -118,3 +121,37 @@ def accept():
     except CallingServiceError as exc:
         return fail(exc.code, str(exc), 404)
     return ok({"call": session.public_dict(), "spoken": "Call connected."})
+
+
+@calls_bp.post("/media")
+@login_required
+def upload_media():
+    data = request.get_json(silent=True) or {}
+    try:
+        call_id = require_string(data, "call_id")
+        require_call_party(call_id, g.current_user.id)
+    except ValidationError as exc:
+        return fail(exc.code, exc.message, 400)
+    except CallingServiceError as exc:
+        return fail(exc.code, str(exc), 404)
+    kind = "video" if str(data.get("kind") or "") == "video" else "audio"
+    payload = data.get("data") if isinstance(data.get("data"), str) else ""
+    if not payload:
+        return fail("VALIDATION_ERROR", "Media data is required.", 400)
+    if len(payload) > 400000:
+        return fail("VALIDATION_ERROR", "That media chunk is too large.", 400)
+    put_call_media(call_id, g.current_user.id, kind, payload)
+    return ok({"queued": True})
+
+
+@calls_bp.get("/media")
+@login_required
+def download_media():
+    call_id = (request.args.get("call_id") or "").strip()
+    if not call_id:
+        return fail("VALIDATION_ERROR", "call_id is required.", 400)
+    try:
+        require_call_party(call_id, g.current_user.id)
+    except CallingServiceError as exc:
+        return fail(exc.code, str(exc), 404)
+    return ok(take_call_media(call_id, g.current_user.id))

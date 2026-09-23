@@ -494,12 +494,14 @@ body.nav-active.map-closed .stage-canvas {
   text-shadow: 0 1px 8px #000;
 }
 
-.call-overlay.is-video #remote-video {
+.call-overlay.is-video #remote-bridge {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   border-radius: 0;
+  object-fit: cover;
+  z-index: 1;
 }
 
 .call-overlay.is-video .local-video {
