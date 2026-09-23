@@ -494,6 +494,7 @@ body.nav-active.map-closed .stage-canvas {
   text-shadow: 0 1px 8px #000;
 }
 
+.call-overlay.is-video #remote-video,
 .call-overlay.is-video #remote-bridge {
   position: absolute;
   inset: 0;
@@ -502,6 +503,25 @@ body.nav-active.map-closed .stage-canvas {
   border-radius: 0;
   object-fit: cover;
   z-index: 1;
+}
+
+.call-debug {
+  position: absolute;
+  left: 8px;
+  bottom: calc(var(--dock-h) + 140px);
+  z-index: 4;
+  max-width: min(92%, 360px);
+  max-height: 30%;
+  overflow: auto;
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #b6f5b6;
+  font-size: 10px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  pointer-events: none;
 }
 
 .call-overlay.is-video .local-video {

@@ -1,13 +1,14 @@
-"""Call signaling helpers. Media stays peer-to-peer via WebRTC."""
+"""Call signaling helpers. Live media is WebRTC; HTTP mailbox is ICE fallback only."""
 
 from __future__ import annotations
 
 import json
+import threading
+import time
+from collections import defaultdict, deque
 from datetime import datetime, timezone
 
 from flask import current_app
-
-from collections import defaultdict, deque
 
 from app.extensions import db
 from app.models.call import CallSession, CallSignal
@@ -18,32 +19,37 @@ from app.utils.logging import log_event
 _mailboxes: dict[str, deque] = defaultdict(lambda: deque(maxlen=50))
 _call_video: dict[str, dict[str, str]] = defaultdict(dict)
 _call_audio: dict[str, dict[str, deque]] = defaultdict(lambda: defaultdict(lambda: deque(maxlen=24)))
+_media_lock = threading.Lock()
+_ice_cache: dict = {"at": 0.0, "servers": None}
 
 
 def put_call_media(call_id: str, user_id: str, kind: str, data: str) -> None:
-    if kind == "video":
-        _call_video[call_id][user_id] = data
-        return
-    if kind == "audio" and data:
-        _call_audio[call_id][user_id].append(data)
+    with _media_lock:
+        if kind == "video":
+            _call_video[call_id][user_id] = data
+            return
+        if kind == "audio" and data:
+            _call_audio[call_id][user_id].append(data)
 
 
 def take_call_media(call_id: str, user_id: str) -> dict:
     video = None
     audio: list[str] = []
-    for other_id, frame in _call_video.get(call_id, {}).items():
-        if other_id != user_id and frame:
-            video = frame
-    for other_id, chunks in _call_audio.get(call_id, {}).items():
-        if other_id != user_id:
-            while chunks:
-                audio.append(chunks.popleft())
+    with _media_lock:
+        for other_id, frame in _call_video.get(call_id, {}).items():
+            if other_id != user_id and frame:
+                video = frame
+        for other_id, chunks in _call_audio.get(call_id, {}).items():
+            if other_id != user_id:
+                while chunks:
+                    audio.append(chunks.popleft())
     return {"video": video, "audio": audio}
 
 
 def clear_call_media(call_id: str) -> None:
-    _call_video.pop(call_id, None)
-    _call_audio.pop(call_id, None)
+    with _media_lock:
+        _call_video.pop(call_id, None)
+        _call_audio.pop(call_id, None)
 
 
 def require_call_party(call_id: str, user_id: str) -> CallSession:
@@ -53,15 +59,23 @@ def require_call_party(call_id: str, user_id: str) -> CallSession:
     return session
 
 
-def post_signal(target_user_id: str, message: dict) -> None:
+def persist_signal(target_user_id: str, message: dict) -> None:
+    """HTTP poll backup. Socket.IO is optional and must not be the only path."""
     try:
         row = CallSignal(target_user_id=target_user_id, payload=json.dumps(message))
         db.session.add(row)
         db.session.commit()
+        return
     except Exception:
         db.session.rollback()
         log_event("CALL_SIGNAL_STORE_FAILED", target_user_id=target_user_id)
         _mailboxes[target_user_id].append(message)
+
+
+def post_signal(target_user_id: str, message: dict, emit: bool = True) -> None:
+    persist_signal(target_user_id, message)
+    if not emit:
+        return
     try:
         from app.extensions import socketio
 
@@ -101,34 +115,66 @@ class CallingServiceError(RuntimeError):
         self.code = code
 
 
+def _flatten_ice(servers: list[dict]) -> list[dict]:
+    """Safari is unreliable when urls is an array."""
+    flat: list[dict] = []
+    seen: set[str] = set()
+    for server in servers:
+        urls = server.get("urls") or server.get("url") or []
+        if isinstance(urls, str):
+            urls = [urls]
+        for url in urls:
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            item: dict = {"urls": url}
+            if server.get("username"):
+                item["username"] = server["username"]
+                item["credential"] = server.get("credential") or server.get("password") or ""
+            flat.append(item)
+    return flat
+
+
+def _twilio_ice_servers() -> list[dict]:
+    sid = (current_app.config.get("TWILIO_ACCOUNT_SID") or "").strip()
+    token = (current_app.config.get("TWILIO_AUTH_TOKEN") or "").strip()
+    if not sid or not token:
+        return []
+    now = time.time()
+    cached = _ice_cache.get("servers")
+    if cached and now - float(_ice_cache.get("at") or 0) < 300:
+        return cached
+    try:
+        from twilio.rest import Client
+
+        ice = Client(sid, token).tokens.create().ice_servers or []
+        servers = _flatten_ice(list(ice))
+        _ice_cache["servers"] = servers
+        _ice_cache["at"] = now
+        log_event("CALL_ICE_TWILIO", stun=sum(1 for s in servers if str(s.get("urls", "")).startswith("stun")), turn=sum(1 for s in servers if "turn:" in str(s.get("urls", "")).lower()))
+        return servers
+    except Exception as exc:
+        log_event("CALL_ICE_TWILIO_FAILED", error=type(exc).__name__)
+        return []
+
+
 def ice_servers() -> list[dict]:
-    """One URL per entry. iPhone Safari is unreliable with urls arrays."""
+    """STUN always. TURN only from TURN_* or Twilio Network Traversal — never fake public relays."""
     servers: list[dict] = [
         {"urls": "stun:stun.l.google.com:19302"},
         {"urls": "stun:stun1.l.google.com:19302"},
         {"urls": "stun:stun.cloudflare.com:3478"},
-        {"urls": "stun:stun.relay.metered.ca:80"},
     ]
     turn_url = (current_app.config.get("TURN_URL") or "").strip()
     turn_user = current_app.config.get("TURN_USERNAME") or ""
     turn_pass = current_app.config.get("TURN_PASSWORD") or ""
     if turn_url:
         servers.append({"urls": turn_url, "username": turn_user, "credential": turn_pass})
-        return servers
-    for url in (
-        "turn:openrelay.metered.ca:80",
-        "turn:openrelay.metered.ca:443",
-        "turn:openrelay.metered.ca:443?transport=tcp",
-        "turn:global.relay.metered.ca:80",
-        "turn:global.relay.metered.ca:443?transport=tcp",
-        "turn:numb.viagenie.ca",
-        "turn:numb.viagenie.ca:3478?transport=tcp",
-    ):
-        if "viagenie" in url:
-            servers.append({"urls": url, "username": "webrtc@live.com", "credential": "muazkh"})
-        else:
-            servers.append({"urls": url, "username": "openrelayproject", "credential": "openrelayproject"})
-    return servers
+        return _flatten_ice(servers)
+    twilio = _twilio_ice_servers()
+    if twilio:
+        return _flatten_ice(servers + twilio)
+    return _flatten_ice(servers)
 
 
 def resolve_contact_for_call(owner_id: str, target: str) -> Contact:

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Contacts — AI Sight</title>
-    <link rel="stylesheet" href="../css/main.css?v=25" />
+    <link rel="stylesheet" href="../css/main.css?v=26" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
   </head>
@@ -54,8 +54,9 @@
       </div>
       <section id="call-overlay" class="call-overlay hidden" aria-label="Call">
         <p id="call-status-text">Calling</p>
-        <video id="remote-video" autoplay playsinline muted></video>
-        <video id="local-video" class="local-video hidden" autoplay playsinline muted></video>
+        <video id="remote-video" autoplay playsinline webkit-playsinline muted></video>
+        <video id="local-video" class="local-video hidden" autoplay playsinline webkit-playsinline muted></video>
+        <pre id="call-debug" class="call-debug hidden" aria-hidden="true"></pre>
         <div class="call-controls">
           <button id="call-answer" class="ok hidden" type="button" aria-label="Answer call">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12l4 4 8-8"/></svg>
@@ -86,7 +87,7 @@
     </nav>
     <script type="module">
       import { api } from "../js/api.js";
-      import { calls } from "../js/calls.js?v=6";
+      import { calls } from "../js/calls.js?v=7";
       import { voice } from "../js/voice.js";
       import { getToken, getUser, getLinkedBlind, pages } from "../js/config.js";
       if (!getToken()) location.href = pages().welcome;

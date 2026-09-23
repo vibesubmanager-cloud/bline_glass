@@ -1,5 +1,6 @@
 from flask import Blueprint, g, request
 
+from app.extensions import limiter
 from app.models.contact import Contact
 from app.services.calling_service import (
     CallingServiceError,
@@ -84,11 +85,18 @@ def reject():
 
 @calls_bp.post("/signal")
 @login_required
+@limiter.exempt
 def signal():
     data = request.get_json(silent=True) or {}
     target = data.get("target_user_id")
     if not target:
         return fail("VALIDATION_ERROR", "target_user_id is required.", 400)
+    call_id = (data.get("call_id") or "").strip()
+    if call_id:
+        try:
+            require_call_party(call_id, g.current_user.id)
+        except CallingServiceError as exc:
+            return fail(exc.code, str(exc), 404)
     post_signal(
         target,
         {
@@ -105,6 +113,7 @@ def signal():
 
 @calls_bp.get("/poll")
 @login_required
+@limiter.exempt
 def poll():
     return ok({"signals": drain_signals(g.current_user.id), "ice_servers": ice_servers()})
 
@@ -125,6 +134,7 @@ def accept():
 
 @calls_bp.post("/media")
 @login_required
+@limiter.exempt
 def upload_media():
     data = request.get_json(silent=True) or {}
     try:
@@ -146,6 +156,7 @@ def upload_media():
 
 @calls_bp.get("/media")
 @login_required
+@limiter.exempt
 def download_media():
     call_id = (request.args.get("call_id") or "").strip()
     if not call_id:

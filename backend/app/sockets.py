@@ -6,6 +6,7 @@ from flask_socketio import emit, join_room, leave_room
 from app.extensions import db, socketio
 from app.utils.logging import log_event
 from app.utils.security import decode_token
+from app.services.calling_service import persist_signal
 from app.models.user import User
 
 
@@ -49,5 +50,6 @@ def on_signal(data):
         "payload": data.get("payload"),
         "media": data.get("media") or "audio",
     }
+    persist_signal(target_id, payload)
     emit("call-signal", payload, room=f"user:{target_id}")
     log_event("CALL_SIGNAL", from_user=user.id, to_user=target_id, kind=data.get("signal_type"))

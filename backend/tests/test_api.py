@@ -136,3 +136,72 @@ def test_call_unknown_contact(auth_client):
     response = auth_client.post("/api/calls/start", json={"target": "Nobody"})
     assert response.status_code == 404
 
+
+def test_call_http_signaling_and_media_mailbox(client):
+    first = client.post(
+        "/api/auth/register",
+        json={"name": "Ada", "email": "ada-call@example.com", "password": "securepass", "phone": "+15551110001"},
+    )
+    second = client.post(
+        "/api/auth/register",
+        json={"name": "Ben", "email": "ben-call@example.com", "password": "securepass", "phone": "+15551110002"},
+    )
+    token_a = first.get_json()["data"]["token"]
+    token_b = second.get_json()["data"]["token"]
+    user_b = second.get_json()["data"]["user"]["id"]
+
+    client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token_a}"
+    created = client.post(
+        "/api/contacts",
+        json={"name": "Ben", "phone": "+15551110002", "relationship": "brother"},
+    )
+    assert created.status_code == 201
+
+    started = client.post("/api/calls/start", json={"target": "Ben", "media": "video"})
+    assert started.status_code == 200
+    call = started.get_json()["data"]["call"]
+    ice = started.get_json()["data"]["ice_servers"]
+    assert call["call_type"] == "video"
+    assert call["callee_id"] == user_b
+    assert any(str(item.get("urls", "")).startswith("stun:") for item in ice)
+    assert not any("openrelay" in str(item.get("urls", "")).lower() for item in ice)
+
+    offer = client.post(
+        "/api/calls/signal",
+        json={
+            "target_user_id": user_b,
+            "call_id": call["id"],
+            "signal_type": "offer",
+            "media": "video",
+            "payload": {"type": "offer", "sdp": "v=0"},
+        },
+    )
+    assert offer.status_code == 200
+
+    client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token_b}"
+    polled = client.get("/api/calls/poll")
+    signals = polled.get_json()["data"]["signals"]
+    assert any(item.get("signal_type") == "offer" for item in signals)
+
+    answer = client.post(
+        "/api/calls/signal",
+        json={
+            "target_user_id": first.get_json()["data"]["user"]["id"],
+            "call_id": call["id"],
+            "signal_type": "answer",
+            "media": "video",
+            "payload": {"type": "answer", "sdp": "v=0"},
+        },
+    )
+    assert answer.status_code == 200
+
+    client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token_a}"
+    caller_poll = client.get("/api/calls/poll")
+    assert any(item.get("signal_type") == "answer" for item in caller_poll.get_json()["data"]["signals"])
+
+    posted = client.post("/api/calls/media", json={"call_id": call["id"], "kind": "video", "data": "abc123"})
+    assert posted.status_code == 200
+    client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token_b}"
+    taken = client.get(f"/api/calls/media?call_id={call['id']}")
+    assert taken.get_json()["data"]["video"] == "abc123"
+

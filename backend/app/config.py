@@ -104,3 +104,4 @@ class TestConfig(Config):
     ADMIN_USERNAME = "admin"
     ADMIN_PASSWORD = "AdminSight1!"
     RATELIMIT_ENABLED = False
+    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
