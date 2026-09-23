@@ -1029,7 +1029,9 @@ window.addEventListener("offline", () => {
 window.addEventListener("online", () => setOnline(true));
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("../sw.js").catch(() => undefined);
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    regs.forEach((reg) => reg.unregister());
+  }).catch(() => undefined);
 }
 
 boot();
