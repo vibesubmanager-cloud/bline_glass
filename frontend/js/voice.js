@@ -430,7 +430,13 @@ class VoiceService {
           continue;
         }
         if (IS_IOS) {
-          if (iosKick) await this._synthDone;
+          if (iosKick) {
+            await this._synthDone;
+            break;
+          }
+          this._kickSynth(text);
+          this._notifyStart();
+          await this._synthDone;
           break;
         }
         const started = await this._speakBrowserWait(chunks[i], 4000);

@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { voice } from "./voice.js?v=50";
+import { voice } from "./voice.js?v=51";
 import { appState, STATES } from "./state.js";
 import { getCurrentPosition, requestLocationAccess, locationPermissionState, watchPosition } from "./location.js";
 
