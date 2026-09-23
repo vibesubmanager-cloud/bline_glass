@@ -1,25 +1,8 @@
-import { getSettings } from "./config.js";
+import { voice } from "./voice.js?v=50";
 
-export function speakOut(text) {
+/** Same speaking path as contacts: do not use a separate home-only synthesizer. */
+export function speakOut(text, opts = {}) {
   const cleaned = (text || "").trim();
   if (!cleaned) return Promise.resolve();
-  const synth = window.speechSynthesis;
-  if (!synth) return Promise.resolve();
-  try {
-    if (synth.speaking || synth.pending) synth.cancel();
-  } catch {
-    /* ignore */
-  }
-  try {
-    synth.resume();
-  } catch {
-    /* ignore */
-  }
-  const utter = new SpeechSynthesisUtterance(cleaned);
-  const settings = getSettings();
-  utter.lang = settings.language || "en-US";
-  utter.rate = Number(settings.speech_rate || 1) || 1;
-  utter.volume = 1;
-  synth.speak(utter);
-  return Promise.resolve();
+  return voice.speak(cleaned, { interrupt: true, ...opts });
 }
