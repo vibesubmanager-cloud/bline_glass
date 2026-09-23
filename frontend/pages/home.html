@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="AI Sight" />
     <title>AI Sight</title>
-    <link rel="stylesheet" href="../css/main.css?v=26" />
+    <link rel="stylesheet" href="../css/main.css?v=27" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -73,8 +73,7 @@
 
       <section id="call-overlay" class="call-overlay hidden" aria-label="Call">
         <p id="call-status-text">Calling</p>
-        <video id="remote-video" autoplay playsinline webkit-playsinline muted></video>
-        <video id="local-video" class="local-video hidden" autoplay playsinline webkit-playsinline muted></video>
+        <div id="jitsi-container" class="jitsi-container" aria-hidden="true"></div>
         <pre id="call-debug" class="call-debug hidden" aria-hidden="true"></pre>
         <div class="call-controls">
           <button id="call-answer" class="ok hidden" type="button" aria-label="Answer call">
@@ -135,6 +134,6 @@
       </nav>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script type="module" src="../js/app.js?v=71"></script>
+    <script type="module" src="../js/app.js?v=72"></script>
   </body>
 </html>

@@ -21,6 +21,7 @@ class CallSession(db.Model):
     status = db.Column(db.String(32), default="ringing", nullable=False, index=True)
     daily_room_name = db.Column(db.String(128), nullable=True)
     daily_room_url = db.Column(db.String(255), nullable=True)
+    jitsi_room_name = db.Column(db.String(128), nullable=True)
     started_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
     ended_at = db.Column(db.DateTime(timezone=True), nullable=True)
 

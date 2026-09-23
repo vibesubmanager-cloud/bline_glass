@@ -257,4 +257,6 @@ def _ensure_call_columns() -> None:
         db.session.execute(text("ALTER TABLE call_sessions ADD COLUMN daily_room_name VARCHAR(128)"))
     if "daily_room_url" not in columns:
         db.session.execute(text("ALTER TABLE call_sessions ADD COLUMN daily_room_url VARCHAR(255)"))
+    if "jitsi_room_name" not in columns:
+        db.session.execute(text("ALTER TABLE call_sessions ADD COLUMN jitsi_room_name VARCHAR(128)"))
     db.session.commit()

@@ -1,8 +1,9 @@
-"""Application-level call sessions. Daily transports the live audio and video."""
+"""Application-level call sessions. Jitsi Meet carries live audio and video."""
 
 from __future__ import annotations
 
 import json
+import uuid
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 
@@ -10,9 +11,9 @@ from app.extensions import db
 from app.models.call import CallSession, CallSignal
 from app.models.contact import Contact
 from app.models.user import User
-from app.services.daily_service import DailyServiceError, create_room, delete_room, meeting_token
 from app.utils.logging import log_event
 
+JITSI_DOMAIN = "meet.jit.si"
 _mailboxes: dict[str, deque] = defaultdict(lambda: deque(maxlen=50))
 
 
@@ -91,10 +92,16 @@ def resolve_contact_for_call(owner_id: str, target: str) -> Contact:
     return contact
 
 
-def _daily_payload(session: CallSession, user) -> dict:
-    video = session.call_type == "video"
-    token = meeting_token(session.daily_room_name, user, video=video)
-    return {"url": session.daily_room_url, "token": token, "video": video}
+def _new_jitsi_room() -> str:
+    return f"aidobot-call-{uuid.uuid4().hex}"
+
+
+def _jitsi_payload(session: CallSession) -> dict:
+    return {
+        "domain": JITSI_DOMAIN,
+        "room": session.jitsi_room_name,
+        "video": session.call_type == "video",
+    }
 
 
 def start_call(caller: User, contact: Contact, media: str = "audio") -> dict:
@@ -127,38 +134,24 @@ def start_call(caller: User, contact: Contact, media: str = "audio") -> dict:
         contact_id=contact.id,
         call_type=call_type,
         status="ringing" if call_type in {"webrtc", "video"} else "dialing",
+        jitsi_room_name=_new_jitsi_room() if call_type in {"webrtc", "video"} else None,
     )
     db.session.add(session)
     db.session.commit()
-
-    daily = None
-    if call_type in {"webrtc", "video"}:
-        try:
-            room = create_room(session.id)
-            session.daily_room_name = room["name"]
-            session.daily_room_url = room["url"]
-            db.session.commit()
-            daily = _daily_payload(session, caller)
-        except DailyServiceError as exc:
-            session.status = "failed"
-            session.ended_at = datetime.now(timezone.utc)
-            db.session.commit()
-            raise CallingServiceError(str(exc), exc.code) from exc
-
     log_event("CALL_STARTED", call_id=session.id, call_type=call_type)
     return {
         "call": session.public_dict(),
         "contact": contact.public_dict(),
-        "daily": daily,
+        "jitsi": _jitsi_payload(session) if session.jitsi_room_name else None,
         "tel_url": f"tel:{contact.phone}" if contact.phone and call_type == "tel" else None,
     }
 
 
 def accept_call(call_id: str, user: User) -> dict:
     session = set_call_status(call_id, user.id, "active")
-    if not session.daily_room_name or not session.daily_room_url:
-        raise CallingServiceError("Unable to start the call. Please try again.")
-    return {"call": session.public_dict(), "daily": _daily_payload(session, user)}
+    if not session.jitsi_room_name:
+        raise CallingServiceError("Unable to connect the call. Please try again.")
+    return {"call": session.public_dict(), "jitsi": _jitsi_payload(session)}
 
 
 def set_call_status(call_id: str, user_id: str, status: str) -> CallSession:
@@ -168,11 +161,6 @@ def set_call_status(call_id: str, user_id: str, status: str) -> CallSession:
     session.status = status
     if status in {"ended", "rejected", "missed", "failed"}:
         session.ended_at = datetime.now(timezone.utc)
-        room_name = session.daily_room_name
-        session.daily_room_name = session.daily_room_name
-        db.session.commit()
-        delete_room(room_name)
-    else:
-        db.session.commit()
+    db.session.commit()
     log_event("CALL_STATUS", call_id=call_id, status=status)
     return session

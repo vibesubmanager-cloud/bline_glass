@@ -137,17 +137,7 @@ def test_call_unknown_contact(auth_client):
     assert response.status_code == 404
 
 
-def test_call_daily_signaling_without_exposing_key(client, monkeypatch):
-    monkeypatch.setattr(
-        "app.services.calling_service.create_room",
-        lambda call_id: {"name": f"ais-{call_id[:8]}", "url": "https://example.daily.co/room-test"},
-    )
-    monkeypatch.setattr(
-        "app.services.calling_service.meeting_token",
-        lambda room_name, user, video=False: f"meeting-token-for-{user.id}",
-    )
-    monkeypatch.setattr("app.services.calling_service.delete_room", lambda room_name: None)
-
+def test_call_jitsi_unique_rooms_without_api_key(client):
     first = client.post(
         "/api/auth/register",
         json={"name": "Ada", "email": "ada-call@example.com", "password": "securepass", "phone": "+15551110001"},
@@ -158,7 +148,6 @@ def test_call_daily_signaling_without_exposing_key(client, monkeypatch):
     )
     token_a = first.get_json()["data"]["token"]
     token_b = second.get_json()["data"]["token"]
-    user_a = first.get_json()["data"]["user"]["id"]
     user_b = second.get_json()["data"]["user"]["id"]
 
     client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token_a}"
@@ -172,15 +161,23 @@ def test_call_daily_signaling_without_exposing_key(client, monkeypatch):
     assert started.status_code == 200
     payload = started.get_json()["data"]
     call = payload["call"]
-    daily = payload["daily"]
+    jitsi = payload["jitsi"]
     blob = str(payload)
     assert call["call_type"] == "video"
     assert call["callee_id"] == user_b
-    assert daily["url"].startswith("https://example.daily.co/")
-    assert daily["token"].startswith("meeting-token-for-")
-    assert "5acad95e" not in blob
-    assert "Bearer" not in blob
+    assert jitsi["domain"] == "meet.jit.si"
+    assert jitsi["room"].startswith("aidobot-call-")
+    assert jitsi["room"] != "aidobot"
+    assert len(jitsi["room"]) > 20
+    assert jitsi["video"] is True
+    assert "daily" not in payload
+    assert "token" not in (jitsi or {})
     assert "api_key" not in blob.lower()
+
+    second_call = client.post("/api/calls/start", json={"target": "Ben", "media": "audio"})
+    other_room = second_call.get_json()["data"]["jitsi"]["room"]
+    assert other_room.startswith("aidobot-call-")
+    assert other_room != jitsi["room"]
 
     client.post(
         "/api/calls/signal",
@@ -197,10 +194,11 @@ def test_call_daily_signaling_without_exposing_key(client, monkeypatch):
     signals = polled.get_json()["data"]["signals"]
     assert any(item.get("signal_type") == "ring" for item in signals)
     assert all("token" not in (item or {}) for item in signals)
+    assert all("jitsi" not in (item or {}) for item in signals)
 
     accepted = client.post("/api/calls/accept", json={"call_id": call["id"]})
     assert accepted.status_code == 200
-    callee_daily = accepted.get_json()["data"]["daily"]
-    assert callee_daily["token"] == f"meeting-token-for-{user_b}"
-    assert callee_daily["url"] == daily["url"]
+    callee_jitsi = accepted.get_json()["data"]["jitsi"]
+    assert callee_jitsi["room"] == jitsi["room"]
+    assert callee_jitsi["domain"] == "meet.jit.si"
 

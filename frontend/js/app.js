@@ -11,7 +11,7 @@ import { isYoloInstalled, onYoloProgress, holdDetectionAwake, releaseDetectionAw
 import { readScene, describeScene, askAboutScene } from "./vision.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { isStandaloneApp } from "./location.js";
-import { calls } from "./calls.js?v=10";
+import { calls } from "./calls.js?v=11";
 import { activateEmergency } from "./emergency.js";
 import { setListeningUI, setAiStatus, setLive, setGps, setOnline, setDetectHud, drawDetections, clearDetections, drawRoute, setNavPanel, setMapVisible } from "./overlay.js";
 import { walkingDirectionsOn } from "./shareLocation.js";
@@ -930,11 +930,11 @@ async function boot() {
   document.getElementById("call-end")?.addEventListener("click", () => calls.end(true));
   document.getElementById("call-mute")?.addEventListener("click", () => {
     const muted = calls.toggleMute();
-    voice.speak(muted ? "Muted." : "Microphone on.");
+        voice.speak(muted ? "Microphone muted." : "Microphone unmuted.");
   });
   document.getElementById("call-camera")?.addEventListener("click", () => {
     const enabled = calls.toggleCamera();
-    voice.speak(enabled ? "Camera on." : "Camera off.");
+        voice.speak(enabled ? "Camera turned on." : "Camera turned off.");
   });
   document.getElementById("dock-call")?.addEventListener("click", () => {
     location.href = pages().contacts;

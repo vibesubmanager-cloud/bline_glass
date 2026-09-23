@@ -469,9 +469,12 @@ body.nav-active.map-closed .stage-canvas {
   border: 1px solid var(--stroke);
 }
 
-.call-overlay.is-voice #remote-video,
-.call-overlay.is-voice .local-video {
-  display: none;
+.call-overlay.is-voice .jitsi-container {
+  width: min(100%, 320px);
+  height: 180px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #05070c;
 }
 
 .call-overlay.is-video {
@@ -488,21 +491,24 @@ body.nav-active.map-closed .stage-canvas {
   top: calc(12px + env(safe-area-inset-top));
   left: 16px;
   right: 16px;
-  z-index: 2;
+  z-index: 4;
   margin: 0;
   text-align: center;
   text-shadow: 0 1px 8px #000;
 }
 
-.call-overlay.is-video #remote-video,
-.call-overlay.is-video #remote-bridge {
+.call-overlay.is-video .jitsi-container {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  border-radius: 0;
-  object-fit: cover;
   z-index: 1;
+}
+
+.call-overlay.is-video .jitsi-container iframe {
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
 }
 
 .call-debug {

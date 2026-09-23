@@ -20,18 +20,9 @@ def health():
             "groq_configured": bool(current_app.config.get("GROQ_API_KEY")),
             "maps_configured": True,
             "cloudinary_configured": bool(current_app.config.get("CLOUDINARY_CLOUD_NAME")),
-            "daily_configured": _daily_ready(),
+            "jitsi_domain": "meet.jit.si",
         }
     )
-
-
-def _daily_ready() -> bool:
-    try:
-        from app.services.daily_service import daily_configured
-
-        return daily_configured()
-    except Exception:
-        return False
 
 
 @health_bp.post("/health/groq")

@@ -1,4 +1,4 @@
-"""Application call notifications over Socket.IO. Daily carries live media."""
+"""Application call notifications over Socket.IO. Jitsi Meet carries live media."""
 
 from flask import request
 from flask_socketio import emit, join_room, leave_room
