@@ -1,4 +1,4 @@
-const CACHE = "aisight-static-v4";
+const CACHE = "aisight-static-v5";
 const STATIC_ASSETS = [
   "./",
   "./index.html",

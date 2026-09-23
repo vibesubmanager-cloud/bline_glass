@@ -28,6 +28,8 @@ htmlcov/
 *.engine
 runs/
 ultralytics/
+# Phone detector is shipped with the frontend so APK/GitHub Pages can install offline.
+!frontend/models/*.onnx
 
 # Databases
 backend/certs/

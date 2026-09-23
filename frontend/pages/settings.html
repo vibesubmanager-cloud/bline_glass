@@ -5,7 +5,7 @@
     <meta http-equiv="Cache-Control" content="no-store" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit-cover" />
     <title>Settings — AI Sight</title>
-    <link rel="stylesheet" href="../css/main.css?v=17" />
+    <link rel="stylesheet" href="../css/main.css?v=18" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
   </head>
@@ -32,6 +32,17 @@
         <p>Also turn on Settings → Privacy & Security → Location Services. Chrome on iPhone is less reliable; Safari is the one to save to the home screen.</p>
         <p>For App Store and Play Store later, wrap this same app as a native shell. Then the phone GPS is used automatically.</p>
         <button class="btn primary" id="allow-location" type="button">Allow location</button>
+      </article>
+      <article class="card iphone-help" aria-label="On-phone object detection">
+        <strong>On-phone object detection</strong>
+        <p>
+          Download YOLO once onto this phone. After that, double tap the camera for live boxes and spoken objects,
+          even without waiting on the server. Use this before wrapping the app as an APK.
+        </p>
+        <p id="yolo-status" class="status-bar" role="status">Checking this phone…</p>
+        <div class="yolo-progress" aria-hidden="true"><span id="yolo-progress-bar"></span></div>
+        <button class="btn primary" id="yolo-download" type="button">Download YOLO to this phone</button>
+        <button class="btn" id="yolo-remove" type="button">Remove from this phone</button>
       </article>
       <form id="settings-form" class="form-stack">
         <article class="settings-row">
@@ -96,12 +107,14 @@
     </nav>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
     <script type="module">
-      import { api } from "../js/api.js?v=33";
-      import { bindApiField } from "../js/auth.js?v=33";
-      import { clearSession, getSettings, setSession, getUser, getToken, pages } from "../js/config.js?v=33";
-      import { voice } from "../js/voice.js?v=32";
+      import { api } from "../js/api.js?v=34";
+      import { bindApiField } from "../js/auth.js?v=34";
+      import { clearSession, getSettings, setSession, getUser, getToken, pages } from "../js/config.js?v=34";
+      import { voice } from "../js/voice.js?v=49";
       import { requestLocationAccess } from "../js/navigation.js";
       import { drawSystemQr } from "../js/qr.js";
+      import { installYolo, removeYolo, yoloStatus, onYoloProgress, isYoloReady } from "../js/yolo-on-device.js";
+      import { speakOut } from "../js/speak-out.js";
       if (!getToken()) location.href = pages().welcome;
       bindApiField();
       const settings = getSettings();
@@ -129,6 +142,46 @@
           ? "Settings saved. Walking directions are on."
           : "Settings saved. Walking directions are off. I can send your location to a family member instead.";
         await voice.speak(spoken);
+      });
+
+      const yoloStatusEl = document.getElementById("yolo-status");
+      const yoloBar = document.getElementById("yolo-progress-bar");
+      function renderYoloStatus(extra) {
+        const info = extra || yoloStatus();
+        if (yoloStatusEl) yoloStatusEl.textContent = info.label || extra?.label || "";
+      }
+      onYoloProgress((info) => {
+        if (yoloBar && info.pct != null) yoloBar.style.width = `${info.pct}%`;
+        if (info.state === "downloading") {
+          yoloStatusEl.textContent = `Downloading ${info.pct || 0} percent…`;
+        } else if (info.state === "ready") {
+          yoloBar.style.width = "100%";
+          renderYoloStatus();
+        } else if (info.state === "missing") {
+          yoloBar.style.width = "0";
+          renderYoloStatus();
+        }
+      });
+      isYoloReady().then(() => renderYoloStatus()).catch(() => renderYoloStatus());
+      document.getElementById("yolo-download")?.addEventListener("click", async () => {
+        const status = document.getElementById("settings-status");
+        try {
+          yoloStatusEl.textContent = "Downloading YOLO to this phone…";
+          await speakOut("Downloading object detection to this phone.");
+          await installYolo();
+          renderYoloStatus();
+          status.textContent = "YOLO is on this phone. Double tap the camera to detect objects.";
+          await speakOut("Object detection is ready on this phone. Open the camera and double tap.");
+        } catch (error) {
+          status.textContent = error.message;
+          await speakOut(error.message);
+        }
+      });
+      document.getElementById("yolo-remove")?.addEventListener("click", async () => {
+        await removeYolo();
+        renderYoloStatus();
+        document.getElementById("settings-status").textContent = "YOLO was removed from this phone.";
+        await speakOut("Object detection was removed from this phone.");
       });
       const httpsHelp = document.getElementById("iphone-https-help");
       if (httpsHelp && !window.isSecureContext) {

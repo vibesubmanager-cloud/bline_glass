@@ -4,7 +4,8 @@ import { appState, STATES } from "./state.js";
 import { voice } from "./voice.js?v=49";
 import { camera } from "./camera.js";
 import { interpretCommand, isAffirmative, isNegative, HELP_TEXT, smallTalkReply } from "./intent.js?v=37";
-import { detectObjects } from "./detection.js";
+import { detectObjects, ensureOnDeviceYolo } from "./detection.js";
+import { speakOut } from "./speak-out.js";
 import { readScene, describeScene, askAboutScene } from "./vision.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { isStandaloneApp } from "./location.js";
@@ -42,9 +43,8 @@ function showVoiceReply(_heard, reply) {
 function speakThenShow(heard, spoken) {
   voice.stopListening();
   voice.unlock({ fromGesture: true });
-  voice
-    .speak(spoken, { interrupt: true, onStart: () => showVoiceReply(heard, spoken) })
-    .finally(() => showVoiceReply(heard, spoken));
+  showVoiceReply(heard, spoken);
+  speakOut(spoken, { interrupt: true, onStart: () => showVoiceReply(heard, spoken) });
 }
 
 appState.onChange((state) => {
@@ -354,8 +354,34 @@ async function executeCommand(parsed, text) {
     return;
   }
 
+    if (parsed.intent === "DETECT_OBJECTS") {
+      try {
+        await ensureOnDeviceYolo();
+      } catch {
+        /* server fallback if the phone cannot store YOLO */
+      }
+      const signal = appState.beginRequest();
+      try {
+        const data = await detectObjects({ objectName: parsed.slots.object, signal });
+        drawDetections(
+          document.getElementById("detect-canvas"),
+          document.getElementById("camera-preview"),
+          data.detections || [],
+          camera.lastCapture || data.sourceSize
+        );
+        const spoken = data.spoken || "I did not detect any objects I recognize in this view.";
+        setStatus(spoken);
+        await speakOut(spoken, { interrupt: true });
+      } finally {
+        if (appState.value === STATES.PROCESSING) {
+          appState.set(detectionMode ? STATES.DETECTING : STATES.IDLE);
+        }
+      }
+      return;
+    }
+
   if (!isOnline()) {
-    await voice.speak("The internet connection looks unavailable. Camera AI features need a connection.");
+    await speakOut("The internet connection looks unavailable. Camera AI features need a connection.");
     return;
   }
 
@@ -368,20 +394,7 @@ async function executeCommand(parsed, text) {
       appState.set(detectionMode ? STATES.DETECTING : STATES.IDLE);
       setStatus(spoken);
       showVoiceReply(text, spoken);
-      voice.speak(spoken, { interrupt: true });
-      return;
-    }
-    if (parsed.intent === "DETECT_OBJECTS") {
-      const data = await detectObjects({ objectName: parsed.slots.object, signal });
-      drawDetections(
-        document.getElementById("detect-canvas"),
-        document.getElementById("camera-preview"),
-        data.detections || [],
-        camera.lastCapture
-      );
-      const spoken = data.spoken || "I did not detect any objects I recognize in this view.";
-      setStatus(spoken);
-      await voice.speak(spoken);
+      await speakOut(spoken, { interrupt: true });
       return;
     }
     if (parsed.intent === "DESCRIBE") {
@@ -391,7 +404,7 @@ async function executeCommand(parsed, text) {
       appState.set(detectionMode ? STATES.DETECTING : STATES.IDLE);
       setStatus(spoken);
       showVoiceReply(text, spoken);
-      voice.speak(spoken, { interrupt: true });
+      await speakOut(spoken, { interrupt: true });
       return;
     }
     if (parsed.intent === "VISUAL_QUESTION") {
@@ -418,7 +431,7 @@ function formatDistance(meters) {
 
 const HOLD_MS = 500;
 const DOUBLE_TAP_MS = 320;
-const DETECT_TICK_MS = 400;
+const DETECT_TICK_MS = 280;
 const REPEAT_SPEECH_MS = 7000;
 let detectionMode = false;
 let detectionTimer = null;
@@ -536,7 +549,7 @@ function announceDetections(detections, spoken) {
   }
   const phrase = spoken || "You see something in front of you.";
   setStatus(phrase);
-  voice.speak(phrase, { interrupt: true });
+  speakOut(phrase, { interrupt: true });
 }
 
 async function detectionTick() {
@@ -550,7 +563,7 @@ async function detectionTick() {
       document.getElementById("detect-canvas"),
       document.getElementById("camera-preview"),
       data.detections || [],
-      camera.lastCapture
+      camera.lastCapture || data.sourceSize
     );
     announceDetections(data.detections || [], data.spoken);
   } catch (error) {
@@ -572,7 +585,6 @@ async function startDetection() {
   idleStatus();
   if (navigator.vibrate) navigator.vibrate([30, 60, 30]);
   voice.unlock({ fromGesture: true });
-  voice.speak("Object detection started. I will say what I see.");
   try {
     await camera.ensureStarted(document.getElementById("camera-preview"));
   } catch (error) {
@@ -581,6 +593,21 @@ async function startDetection() {
     await handleFailure(error);
     return;
   }
+  try {
+    setStatus("Getting object detection ready on this phone...");
+    await speakOut("Getting object detection ready on this phone.");
+    await ensureOnDeviceYolo();
+  } catch (error) {
+    if (!isOnline()) {
+      detectionMode = false;
+      zone?.classList.remove("is-detecting");
+      await handleFailure(error);
+      return;
+    }
+    setStatus("Using the server until this phone finishes downloading YOLO.");
+  }
+  if (!detectionMode) return;
+  await speakOut("Object detection started. I will say what I see.");
   detectionTick();
 }
 
@@ -594,7 +621,7 @@ async function stopDetection(message = "Object detection stopped.") {
   clearDetections(document.getElementById("detect-canvas"));
   if (appState.value === STATES.DETECTING) appState.set(STATES.IDLE);
   idleStatus();
-  await voice.speak(message);
+  await speakOut(message);
 }
 
 async function toggleDetection() {

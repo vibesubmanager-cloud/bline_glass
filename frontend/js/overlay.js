@@ -53,7 +53,7 @@ export function drawDetections(canvas, video, detections, sourceSize) {
   const scaleY = height / srcH;
   const seen = new Set();
   detections
-    .filter((item) => (item.confidence || 0) >= 0.4)
+    .filter((item) => (item.confidence || 0) >= 0.28)
     .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
     .slice(0, 6)
     .forEach((item) => {
