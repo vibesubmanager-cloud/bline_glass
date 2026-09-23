@@ -46,15 +46,15 @@ export async function api(path, { method = "GET", body, signal, timeout = REQUES
       signal: controller.signal,
     });
     const payload = await parseBody(response);
-      if (response.status === 401) {
-        throw new ApiError("Please sign in again.", "AUTH_REQUIRED", 401);
-      }
     if (!payload) {
       throw new ApiError("The server returned an unexpected response.", "SERVER_ERROR", response.status);
     }
     if (!payload.success) {
       const err = payload.error || {};
-      throw new ApiError(err.message || "Request failed.", err.code || "SERVER_ERROR", response.status);
+      const message =
+        err.message ||
+        (response.status === 401 ? "Username or password is incorrect." : "Request failed.");
+      throw new ApiError(message, err.code || (response.status === 401 ? "AUTH_REQUIRED" : "SERVER_ERROR"), response.status);
     }
     return payload.data;
   } catch (error) {

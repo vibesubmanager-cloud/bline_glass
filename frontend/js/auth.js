@@ -1,4 +1,4 @@
-import { api, ApiError } from "./api.js";
+import { api, ApiError } from "./api.js?v=35";
 import { setSession, getApiBase, setApiBase, pages, getToken, getUser, homeForUser, loginUrl } from "./config.js";
 import { voice } from "./voice.js?v=44";
 
