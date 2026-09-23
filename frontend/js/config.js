@@ -69,6 +69,7 @@ export function pages() {
     contacts: new URL("../pages/contacts.html", import.meta.url).href,
     chat: new URL("../pages/chat.html", import.meta.url).href,
     settings: new URL("../pages/settings.html", import.meta.url).href,
+    profile: new URL("../pages/profile.html", import.meta.url).href,
     navigation: new URL("../pages/navigation.html", import.meta.url).href,
   };
 }

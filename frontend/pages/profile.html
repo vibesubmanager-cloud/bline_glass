@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Cache-Control" content="no-store" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Profile — AI Sight</title>
+    <link rel="stylesheet" href="../css/main.css?v=24" />
+    <link rel="stylesheet" href="../css/accessibility.css?v=6" />
+    <link rel="stylesheet" href="../css/responsive.css?v=8" />
+  </head>
+  <body class="page-panel has-dock">
+    <main class="app-shell">
+      <header class="brand">
+        <h1>Profile</h1>
+        <p>Details for the person this app is helping.</p>
+      </header>
+      <p id="profile-status" class="status-bar" role="status" aria-live="polite">Loading profile…</p>
+      <article class="card" id="profile-card" aria-label="Blind person profile"></article>
+      <article class="card hidden" id="assistants-card" aria-label="Family and assistants"></article>
+      <article class="card hidden" id="contacts-card" aria-label="Saved contacts"></article>
+    </main>
+    <nav class="dock" aria-label="Main">
+      <a class="dock-btn" href="./home.html" aria-label="Live camera"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/></svg></a>
+      <a class="dock-btn" href="./navigation.html" aria-label="Navigation"><svg viewBox="0 0 24 24"><path d="M12 3l7 18-7-3-7 3z"/></svg></a>
+      <a class="dock-btn" href="./contacts.html" aria-label="Contacts"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c1.5-4 12.5-4 14 0"/></svg></a>
+      <a class="dock-btn is-active" href="./profile.html" aria-label="Profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c1.5-4 12.5-4 14 0"/></svg></a>
+      <a class="dock-btn" href="./settings.html" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg></a>
+    </nav>
+    <script type="module">
+      import { api } from "../js/api.js?v=34";
+      import { getToken, pages } from "../js/config.js?v=35";
+      import { calls } from "../js/calls.js?v=3";
+      if (!getToken()) location.href = pages().welcome;
+      calls.startPolling();
+      const status = document.getElementById("profile-status");
+      const card = document.getElementById("profile-card");
+      const assistantsCard = document.getElementById("assistants-card");
+      const contactsCard = document.getElementById("contacts-card");
+
+      function row(label, value) {
+        const text = (value || "").toString().trim();
+        if (!text) return "";
+        return `<p><strong>${label}</strong> ${text}</p>`;
+      }
+
+      try {
+        const data = await api("/api/auth/profile");
+        const person = data.user || {};
+        const viewer = data.viewer || {};
+        const initial = (person.name || "?").trim().charAt(0).toUpperCase();
+        const whose = viewer.view === "assistant" ? `${person.name}'s profile` : "Your profile";
+        status.textContent = whose;
+        card.innerHTML = `
+          <div class="profile-hero">
+            <div class="avatar" aria-hidden="true">${initial}</div>
+            <div>
+              <strong>${person.name || "Unknown"}</strong>
+              <p>${viewer.view === "assistant" ? `You help this person${viewer.relationship ? ` as ${viewer.relationship}` : ""}.` : "This is the account for the person using the glasses."}</p>
+            </div>
+          </div>
+          ${row("System ID", person.system_id)}
+          ${row("First name", person.first_name)}
+          ${row("Surname", person.last_name)}
+          ${row("Username", person.username)}
+          ${row("Email", person.email)}
+          ${row("Phone", person.phone)}
+          ${row("Health notes", person.health_notes)}
+          ${row("Other notes", person.other_notes)}
+          ${row("Speech language", person.settings?.language)}
+          ${row("Emergency location sharing", person.settings?.share_location_in_emergency === false ? "Off" : "On")}
+        `;
+        const assistants = data.assistants || [];
+        if (assistants.length) {
+          assistantsCard.classList.remove("hidden");
+          assistantsCard.innerHTML = `<strong>Family and assistants</strong>${assistants
+            .map(
+              (item) =>
+                `<p><strong>${item.name}</strong> ${item.relationship || ""} ${item.phone || ""} ${item.email || ""}</p>`
+            )
+            .join("")}`;
+        }
+        const contacts = data.contacts || [];
+        if (contacts.length) {
+          contactsCard.classList.remove("hidden");
+          contactsCard.innerHTML = `<strong>Saved contacts</strong>${contacts
+            .map(
+              (item) =>
+                `<p><strong>${item.name}</strong> ${item.relationship || ""} ${item.phone || ""}${
+                  item.is_emergency_contact ? " · emergency" : ""
+                }</p>`
+            )
+            .join("")}`;
+        }
+      } catch (error) {
+        status.textContent = error.message || "I could not load this profile.";
+        card.innerHTML = `<p>${error.message || "I could not load this profile."}</p>`;
+      }
+    </script>
+  </body>
+</html>

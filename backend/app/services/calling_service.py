@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 
 from flask import current_app
@@ -9,7 +10,7 @@ from flask import current_app
 from collections import defaultdict, deque
 
 from app.extensions import db
-from app.models.call import CallSession
+from app.models.call import CallSession, CallSignal
 from app.models.contact import Contact
 from app.models.user import User
 from app.utils.logging import log_event
@@ -18,15 +19,39 @@ _mailboxes: dict[str, deque] = defaultdict(lambda: deque(maxlen=50))
 
 
 def post_signal(target_user_id: str, message: dict) -> None:
+    try:
+        row = CallSignal(target_user_id=target_user_id, payload=json.dumps(message))
+        db.session.add(row)
+        db.session.commit()
+        return
+    except Exception:
+        db.session.rollback()
+        log_event("CALL_SIGNAL_STORE_FAILED", target_user_id=target_user_id)
     _mailboxes[target_user_id].append(message)
 
 
 def drain_signals(user_id: str) -> list[dict]:
+    items: list[dict] = []
+    try:
+        rows = (
+            CallSignal.query.filter_by(target_user_id=user_id)
+            .order_by(CallSignal.created_at.asc())
+            .all()
+        )
+        for row in rows:
+            try:
+                items.append(json.loads(row.payload))
+            except Exception:
+                continue
+            db.session.delete(row)
+        if rows:
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
     box = _mailboxes.get(user_id)
-    if not box:
-        return []
-    items = list(box)
-    box.clear()
+    if box:
+        items.extend(list(box))
+        box.clear()
     return items
 
 

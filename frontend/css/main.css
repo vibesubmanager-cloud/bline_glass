@@ -157,6 +157,34 @@ a {
   pointer-events: none;
 }
 
+.profile-chip {
+  pointer-events: auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--glass);
+  border: 1px solid var(--stroke);
+  color: var(--fg);
+}
+
+.profile-chip svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.profile-hero {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
 .pill {
   min-height: 34px;
   padding: 0 10px;

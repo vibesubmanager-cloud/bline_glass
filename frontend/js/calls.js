@@ -2,6 +2,14 @@ import { api } from "./api.js";
 import { voice } from "./voice.js?v=55";
 import { appState, STATES } from "./state.js";
 import { getToken } from "./config.js";
+import { camera } from "./camera.js";
+
+function signalPayload(value) {
+  if (!value) return value;
+  if (typeof value.toJSON === "function") return value.toJSON();
+  if (value.type && value.sdp) return { type: value.type, sdp: value.sdp };
+  return value;
+}
 
 class CallController {
   constructor() {
@@ -12,11 +20,16 @@ class CallController {
     this.muted = false;
     this.pendingOffer = null;
     this.videoMode = false;
+    this._incoming = null;
+    this._earlyIce = [];
+    this._remoteReady = false;
+    this._ending = false;
+    this._lastOfferId = "";
   }
 
   startPolling() {
     if (this.pollTimer) return;
-    this.pollTimer = setInterval(() => this.poll().catch(() => undefined), 1000);
+    this.pollTimer = setInterval(() => this.poll().catch(() => undefined), 700);
   }
 
   stopPolling() {
@@ -36,8 +49,28 @@ class CallController {
     return String(signal?.media || signal?.call_type || "").toLowerCase() === "video";
   }
 
+  _peerId() {
+    const call = this.currentCall || {};
+    return call.peer_id || call.callee_id || call.caller_id || this._incoming?.from_user_id || "";
+  }
+
+  async _flushIce() {
+    if (!this.pc || !this._remoteReady) return;
+    const queued = this._earlyIce.splice(0, this._earlyIce.length);
+    for (const candidate of queued) {
+      try {
+        await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch {
+        /* stale candidate */
+      }
+    }
+  }
+
   async onSignal(signal, iceServers) {
-    if (signal.signal_type === "offer") {
+    const type = signal.signal_type;
+    if (type === "offer") {
+      if (this._lastOfferId === signal.call_id && this._incoming) return;
+      this._lastOfferId = signal.call_id || "";
       this.pendingOffer = { signal, iceServers };
       this.videoMode = this._isVideoSignal(signal);
       this._incoming = signal;
@@ -48,24 +81,45 @@ class CallController {
       this.updateBanner(`Incoming ${kind} from ${signal.from_name || "a contact"}`);
       return;
     }
+    if (type === "ice" && signal.payload) {
+      if (!this.pc || !this._remoteReady) {
+        this._earlyIce.push(signal.payload);
+        return;
+      }
+      try {
+        await this.pc.addIceCandidate(new RTCIceCandidate(signal.payload));
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
     if (!this.pc) return;
-    if (signal.signal_type === "answer" && signal.payload) {
+    if (type === "answer" && signal.payload) {
       await this.pc.setRemoteDescription(new RTCSessionDescription(signal.payload));
+      this._remoteReady = true;
+      await this._flushIce();
+      this.updateBanner(this.videoMode ? "Video call connected" : "Voice call connected");
     }
-    if (signal.signal_type === "ice" && signal.payload) {
-      await this.pc.addIceCandidate(signal.payload);
-    }
-    if (signal.signal_type === "end") {
+    if (type === "end") {
       await this.end(false);
       await voice.speak("Call ended.");
     }
-    if (signal.signal_type === "reject") {
+    if (type === "reject") {
       await this.end(false);
       await voice.speak("The other person declined the call.");
     }
   }
 
   async _getLocalMedia(video) {
+    if (video) {
+      try {
+        camera.stop();
+      } catch {
+        /* home camera may not be running */
+      }
+      const preview = document.getElementById("camera-preview");
+      if (preview) preview.srcObject = null;
+    }
     if (!video) {
       return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     }
@@ -96,45 +150,62 @@ class CallController {
     }
   }
 
+  _attachRemote(stream) {
+    const remoteAudio = document.getElementById("remote-audio");
+    const remoteVideo = document.getElementById("remote-video");
+    if (this.videoMode && remoteVideo) {
+      remoteVideo.srcObject = stream;
+      remoteVideo.muted = false;
+      remoteVideo.volume = 1;
+      const playVideo = remoteVideo.play();
+      if (playVideo && typeof playVideo.catch === "function") playVideo.catch(() => {});
+      if (remoteAudio) remoteAudio.srcObject = null;
+      return;
+    }
+    if (remoteAudio) {
+      remoteAudio.srcObject = stream;
+      remoteAudio.muted = false;
+      remoteAudio.volume = 1;
+      const playAudio = remoteAudio.play();
+      if (playAudio && typeof playAudio.catch === "function") playAudio.catch(() => {});
+    }
+  }
+
   async createPeer(iceServers, targetUserId, callId, video = false) {
     this.videoMode = Boolean(video);
-    this.pc = new RTCPeerConnection({ iceServers: iceServers || [{ urls: "stun:stun.l.google.com:19302" }] });
+    this._remoteReady = false;
+    this.pc = new RTCPeerConnection({
+      iceServers: iceServers || [{ urls: "stun:stun.l.google.com:19302" }],
+      iceCandidatePoolSize: 4,
+    });
     this.localStream = await this._getLocalMedia(video);
     this.localStream.getTracks().forEach((track) => this.pc.addTrack(track, this.localStream));
     this._attachLocalPreview();
-    const remote = document.getElementById("remote-audio");
-    const remoteVideo = document.getElementById("remote-video");
     this.pc.ontrack = (event) => {
       const stream = event.streams[0] || new MediaStream([event.track]);
-      if (remote) {
-        remote.srcObject = stream;
-        const playAudio = remote.play();
-        if (playAudio && typeof playAudio.catch === "function") playAudio.catch(() => {});
-      }
-      if (remoteVideo && event.track.kind === "video") {
-        remoteVideo.srcObject = stream;
-        remoteVideo.muted = true;
-        const playVideo = remoteVideo.play();
-        if (playVideo && typeof playVideo.catch === "function") playVideo.catch(() => {});
-      }
+      this._attachRemote(stream);
     };
     this.pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        api("/api/calls/signal", {
-          method: "POST",
-          body: {
-            target_user_id: targetUserId,
-            call_id: callId,
-            signal_type: "ice",
-            payload: event.candidate,
-            media: this.videoMode ? "video" : "audio",
-          },
-        }).catch(() => undefined);
-      }
+      if (!event.candidate || !targetUserId) return;
+      api("/api/calls/signal", {
+        method: "POST",
+        body: {
+          target_user_id: targetUserId,
+          call_id: callId,
+          signal_type: "ice",
+          payload: signalPayload(event.candidate),
+          media: this.videoMode ? "video" : "audio",
+        },
+      }).catch(() => undefined);
     };
     this.pc.onconnectionstatechange = () => {
-      if (["failed", "disconnected"].includes(this.pc?.connectionState)) {
+      const state = this.pc?.connectionState;
+      if (state === "connected") {
+        this.updateBanner(this.videoMode ? "Video call connected" : "Voice call connected");
+      }
+      if (state === "failed" && !this._ending) {
         voice.speak("The call connection failed.");
+        this.end(true).catch(() => undefined);
       }
     };
   }
@@ -145,7 +216,7 @@ class CallController {
       method: "POST",
       body: { target, media: video ? "video" : "audio" },
     });
-    this.currentCall = data.call;
+    this.currentCall = { ...data.call, peer_id: data.call?.callee_id };
     this.videoMode = data.call?.call_type === "video" || video;
     if (data.tel_url) {
       location.href = data.tel_url;
@@ -164,7 +235,7 @@ class CallController {
         target_user_id: data.call.callee_id,
         call_id: data.call.id,
         signal_type: "offer",
-        payload: offer,
+        payload: signalPayload(offer),
         media: this.videoMode ? "video" : "audio",
       },
     });
@@ -184,6 +255,8 @@ class CallController {
     await api("/api/calls/accept", { method: "POST", body: { call_id: incoming.call_id } });
     await this.createPeer(this.pendingOffer?.iceServers, incoming.from_user_id, incoming.call_id, this.videoMode);
     await this.pc.setRemoteDescription(new RTCSessionDescription(incoming.payload));
+    this._remoteReady = true;
+    await this._flushIce();
     const answer = await this.pc.createAnswer();
     await this.pc.setLocalDescription(answer);
     await api("/api/calls/signal", {
@@ -192,25 +265,28 @@ class CallController {
         target_user_id: incoming.from_user_id,
         call_id: incoming.call_id,
         signal_type: "answer",
-        payload: answer,
+        payload: signalPayload(answer),
         media: this.videoMode ? "video" : "audio",
       },
     });
-    this.currentCall = { id: incoming.call_id, callee_id: incoming.from_user_id };
+    this.currentCall = { id: incoming.call_id, caller_id: incoming.from_user_id, peer_id: incoming.from_user_id };
     this._incoming = null;
+    this.pendingOffer = null;
     this.updateBanner(this.videoMode ? "Video call connected" : "Voice call connected");
     await voice.speak(this.videoMode ? "Video call connected." : "Voice call connected.");
   }
 
   async rejectIncoming() {
-    const incoming = this._incoming;
+    const incoming = this._incoming || this.pendingOffer?.signal;
     if (!incoming) return;
-    await api("/api/calls/reject", { method: "POST", body: { call_id: incoming.call_id } });
+    await api("/api/calls/reject", { method: "POST", body: { call_id: incoming.call_id } }).catch(() => undefined);
     await api("/api/calls/signal", {
       method: "POST",
       body: { target_user_id: incoming.from_user_id, call_id: incoming.call_id, signal_type: "reject" },
-    });
+    }).catch(() => undefined);
     this._incoming = null;
+    this.pendingOffer = null;
+    this._earlyIce = [];
     this.videoMode = false;
     this.updateBanner("");
     await voice.speak("Call declined.");
@@ -237,20 +313,32 @@ class CallController {
   }
 
   async end(notify = true) {
-    if (notify && this.currentCall?.callee_id) {
-      api("/api/calls/end", { method: "POST", body: { call_id: this.currentCall.id } }).catch(() => undefined);
+    if (this._ending) return;
+    this._ending = true;
+    const peerId = this._peerId();
+    const callId = this.currentCall?.id;
+    if (notify && peerId) {
+      api("/api/calls/end", { method: "POST", body: { call_id: callId } }).catch(() => undefined);
       api("/api/calls/signal", {
         method: "POST",
-        body: { target_user_id: this.currentCall.callee_id, call_id: this.currentCall.id, signal_type: "end" },
+        body: { target_user_id: peerId, call_id: callId, signal_type: "end" },
       }).catch(() => undefined);
     }
     this.localStream?.getTracks().forEach((track) => track.stop());
-    this.pc?.close();
+    try {
+      this.pc?.close();
+    } catch {
+      /* already closed */
+    }
     this.pc = null;
     this.localStream = null;
     this.currentCall = null;
     this._incoming = null;
+    this.pendingOffer = null;
+    this._earlyIce = [];
+    this._remoteReady = false;
     this.videoMode = false;
+    this._lastOfferId = "";
     const remote = document.getElementById("remote-audio");
     const remoteVideo = document.getElementById("remote-video");
     const localVideo = document.getElementById("local-video");
@@ -261,7 +349,12 @@ class CallController {
       localVideo.classList.add("hidden");
     }
     this.updateBanner("");
+    const preview = document.getElementById("camera-preview");
+    if (preview) {
+      camera.ensureStarted(preview).catch(() => undefined);
+    }
     if (appState.value === STATES.CALLING) appState.set(STATES.IDLE);
+    this._ending = false;
   }
 
   updateBanner(text) {

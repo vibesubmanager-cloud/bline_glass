@@ -150,3 +150,14 @@ def test_blind_user_can_add_assistant_from_contacts(auth_client, client):
     data = login.get_json()["data"]
     assert data["user"]["role"] == "assistant"
     assert data["linked_blind"]["name"] == "Ada"
+
+
+def test_blind_profile_endpoint(auth_client):
+    profile = auth_client.get("/api/auth/profile")
+    assert profile.status_code == 200
+    payload = profile.get_json()["data"]
+    assert payload["user"]["name"] == "Ada"
+    assert payload["user"]["system_id"]
+    assert payload["viewer"]["view"] == "self"
+    assert "assistants" in payload
+    assert "contacts" in payload

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Contacts — AI Sight</title>
-    <link rel="stylesheet" href="../css/main.css?v=21" />
+    <link rel="stylesheet" href="../css/main.css?v=24" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
   </head>
@@ -74,18 +74,19 @@
           </button>
         </div>
       </section>
-      <audio id="remote-audio" autoplay></audio>
+      <audio id="remote-audio" autoplay playsinline></audio>
     </main>
     <nav class="dock" aria-label="Main">
       <a class="dock-btn" href="./home.html" aria-label="Live camera"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/></svg></a>
       <a class="dock-btn" href="./navigation.html" aria-label="Navigation"><svg viewBox="0 0 24 24"><path d="M12 3l7 18-7-3-7 3z"/></svg></a>
       <a class="dock-btn is-active" href="./contacts.html" aria-label="Contacts"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c1.5-4 12.5-4 14 0"/></svg></a>
+      <a class="dock-btn" href="./profile.html" aria-label="Profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c1.5-4 12.5-4 14 0"/></svg></a>
       <a class="dock-btn" href="./contacts.html" aria-label="Video call"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="11" height="10" rx="2"/><path d="M14 10l7-3v10l-7-3z"/></svg></a>
       <a class="dock-btn" href="./settings.html" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg></a>
     </nav>
     <script type="module">
       import { api } from "../js/api.js";
-      import { calls } from "../js/calls.js";
+      import { calls } from "../js/calls.js?v=3";
       import { voice } from "../js/voice.js";
       import { getToken, getUser, getLinkedBlind, pages } from "../js/config.js";
       if (!getToken()) location.href = pages().welcome;

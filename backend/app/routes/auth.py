@@ -47,6 +47,37 @@ def _linked_blind_summary(user: User) -> dict | None:
     }
 
 
+def _full_blind_profile(blind: User) -> dict:
+    assistants = User.query.filter_by(linked_blind_user_id=blind.id, role="assistant").all()
+    contacts = Contact.query.filter_by(user_id=blind.id).order_by(Contact.name.asc()).all()
+    return {
+        "user": {
+            **blind.public_dict(),
+            "settings": blind.settings.public_dict() if blind.settings else {},
+        },
+        "assistants": [
+            {
+                "id": person.id,
+                "name": person.name,
+                "relationship": person.relationship_to_blind,
+                "phone": person.phone,
+                "email": person.email,
+            }
+            for person in assistants
+        ],
+        "contacts": [
+            {
+                "id": item.id,
+                "name": item.name,
+                "phone": item.phone,
+                "relationship": item.relationship,
+                "is_emergency_contact": bool(item.is_emergency_contact),
+            }
+            for item in contacts
+        ],
+    }
+
+
 def _auth_payload(user: User) -> dict:
     ensure_user_identity(user)
     db.session.commit()
@@ -220,6 +251,31 @@ def me():
     payload = {"user": g.current_user.public_dict(), "settings": settings}
     if g.current_user.role == "assistant":
         payload["linked_blind"] = _linked_blind_summary(g.current_user)
+    return ok(payload)
+
+
+@auth_bp.get("/profile")
+@login_required
+def profile():
+    viewer = g.current_user
+    if viewer.role == "blind":
+        blind = viewer
+        viewer_role = "self"
+    else:
+        if not viewer.linked_blind_user_id:
+            return fail("PROFILE_UNAVAILABLE", "No blind person is linked to this account yet.", 404)
+        blind = db.session.get(User, viewer.linked_blind_user_id)
+        if not blind:
+            return fail("PROFILE_UNAVAILABLE", "I could not find the linked profile.", 404)
+        viewer_role = "assistant"
+    payload = _full_blind_profile(blind)
+    payload["viewer"] = {
+        "id": viewer.id,
+        "name": viewer.name,
+        "role": viewer.role,
+        "relationship": viewer.relationship_to_blind if viewer.role == "assistant" else None,
+        "view": viewer_role,
+    }
     return ok(payload)
 
 
