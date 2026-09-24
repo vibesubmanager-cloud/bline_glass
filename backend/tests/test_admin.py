@@ -1,3 +1,8 @@
+import io
+
+from PIL import Image
+
+
 def _login_admin(client):
     response = client.post("/api/admin/login", json={"username": "admin", "password": "AdminSight1!"})
     assert response.status_code == 200
@@ -147,3 +152,31 @@ def test_admin_test_section_is_on_page(client):
     assert "Stripe payments" in html
     assert "PayPal payments" in html
     assert "text-test-form" in html
+    assert "App logo" in html
+    assert "section-branding" in html
+
+
+def test_admin_can_upload_and_clear_logo(client):
+    empty = client.get("/api/branding")
+    assert empty.status_code == 200
+    assert empty.get_json()["data"]["logo_url"] == ""
+
+    _login_admin(client)
+    buffer = io.BytesIO()
+    Image.new("RGB", (48, 48), color="red").save(buffer, format="JPEG")
+    buffer.seek(0)
+    uploaded = client.post(
+        "/api/admin/logo",
+        data={"logo": (buffer, "logo.jpg")},
+        content_type="multipart/form-data",
+    )
+    assert uploaded.status_code == 200
+    url = uploaded.get_json()["data"]["logo_url"]
+    assert url.startswith("data:image/") or url.startswith("https://")
+
+    listed = client.get("/api/branding")
+    assert listed.get_json()["data"]["logo_url"] == url
+
+    removed = client.delete("/api/admin/logo")
+    assert removed.status_code == 200
+    assert removed.get_json()["data"]["logo_url"] == ""

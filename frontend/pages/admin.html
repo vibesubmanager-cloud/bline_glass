@@ -12,6 +12,7 @@
         <h1>AI Sight Admin</h1>
         <button class="nav-btn active" data-section="users" type="button">Users</button>
         <button class="nav-btn" data-section="subscription" type="button">Subscriptions</button>
+        <button class="nav-btn" data-section="branding" type="button">Logo</button>
         <button class="nav-btn" data-section="keys" type="button">API keys</button>
         <button class="nav-btn" data-section="test" type="button">Test</button>
         <button class="sign-out" id="sign-out" type="button">Sign out</button>
@@ -140,6 +141,22 @@
           </form>
         </section>
 
+        <section id="section-branding" class="hidden">
+          <h2>App logo</h2>
+          <p class="muted">This icon replaces the AI Sight text on the live camera screen. Upload a square PNG or JPEG.</p>
+          <form class="card" id="logo-form">
+            <div class="logo-preview-wrap">
+              <img id="logo-preview" alt="Current app logo" class="logo-preview hidden" />
+              <p id="logo-empty" class="muted">No custom logo yet. The default icon will show.</p>
+            </div>
+            <label>Logo file <input id="logo-file" name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/jpg" required /></label>
+            <div class="row-actions">
+              <button class="btn primary" type="submit">Save logo</button>
+              <button class="btn ghost" id="logo-remove" type="button">Remove logo</button>
+            </div>
+          </form>
+        </section>
+
         <section id="section-keys" class="hidden">
           <h2>API keys</h2>
           <p class="muted">Add Gemini, Groq, Daily, Stripe, and PayPal keys here. Secret keys stay on the server. Phones never receive them.</p>
@@ -230,6 +247,6 @@
         </section>
       </main>
     </div>
-    <script type="module" src="../js/admin.js?v=7"></script>
+    <script type="module" src="../js/admin.js?v=8"></script>
   </body>
 </html>

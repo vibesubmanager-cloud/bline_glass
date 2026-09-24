@@ -131,8 +131,10 @@ def admin_payload() -> dict:
         }
     )
     from app.services.payment_service import payment_status
+    from app.services.branding_service import branding_payload
 
     data.update(payment_status())
+    data.update(branding_payload())
     return data
 
 

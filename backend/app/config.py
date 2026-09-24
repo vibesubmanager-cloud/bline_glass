@@ -106,3 +106,6 @@ class TestConfig(Config):
     ADMIN_PASSWORD = "AdminSight1!"
     RATELIMIT_ENABLED = False
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
+    CLOUDINARY_CLOUD_NAME = ""
+    CLOUDINARY_API_KEY = ""
+    CLOUDINARY_API_SECRET = ""

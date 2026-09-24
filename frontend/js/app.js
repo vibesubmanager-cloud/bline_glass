@@ -18,6 +18,7 @@ import { walkingDirectionsOn } from "./shareLocation.js";
 import { updateNavMap, clearNavMap, fitNavMap } from "./map.js";
 import { loadUnread, markMessagesRead, sendChatMessage, sendChatLocation } from "./messages.js";
 import { refreshBilling, canUseDescribe, PREMIUM_SPOKEN } from "./billing.js";
+import { applyAppLogo } from "./branding.js";
 
 const zone = document.getElementById("interaction-zone");
 const statusEl = document.getElementById("status-text");
@@ -929,6 +930,7 @@ async function boot() {
   });
   setDetectHud(isYoloInstalled() ? "ready" : "loading");
   applyAppearance();
+  applyAppLogo();
   idleStatus();
   setOnline(navigator.onLine);
   voice.unlock();

@@ -24,4 +24,5 @@ class AppSettings(db.Model):
     paypal_mode = db.Column(db.String(16), default="live", nullable=False)
     paypal_product_id = db.Column(db.String(64), nullable=True)
     paypal_plan_id = db.Column(db.String(64), nullable=True)
+    logo_url = db.Column(db.Text, nullable=True)
     updated_at = db.Column(db.DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False)

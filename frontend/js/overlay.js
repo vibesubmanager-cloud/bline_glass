@@ -11,7 +11,6 @@ export function setHidden(el, hidden) {
 
 export function setListeningUI(active) {
   setHidden($("listen-overlay"), !active);
-  $("mic-pill")?.classList.toggle("is-on", active);
   document.body.classList.toggle("is-listening", active);
 }
 

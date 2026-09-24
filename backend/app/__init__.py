@@ -298,6 +298,7 @@ def _ensure_app_settings() -> None:
             "paypal_mode": "VARCHAR(16) DEFAULT 'live'",
             "paypal_product_id": "VARCHAR(64)",
             "paypal_plan_id": "VARCHAR(64)",
+            "logo_url": "TEXT",
         }
         for name, definition in additions.items():
             if name not in columns:

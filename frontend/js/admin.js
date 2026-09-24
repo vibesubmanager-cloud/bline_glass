@@ -250,6 +250,7 @@ function showSection(name) {
   });
   document.getElementById("section-users").classList.toggle("hidden", name !== "users");
   document.getElementById("section-subscription")?.classList.toggle("hidden", name !== "subscription");
+  document.getElementById("section-branding")?.classList.toggle("hidden", name !== "branding");
   document.getElementById("section-keys").classList.toggle("hidden", name !== "keys");
   document.getElementById("section-test").classList.toggle("hidden", name !== "test");
   if (name === "keys" || name === "test") {
@@ -257,6 +258,9 @@ function showSection(name) {
   }
   if (name === "subscription") {
     return loadSubscription().catch((error) => showStatus(error.message));
+  }
+  if (name === "branding") {
+    return loadLogo().catch((error) => showStatus(error.message));
   }
 }
 
@@ -320,6 +324,41 @@ async function saveSubscription(form) {
       : "Subscriptions are off. Everything is free.",
     true
   );
+}
+
+function showLogo(url) {
+  const preview = document.getElementById("logo-preview");
+  const empty = document.getElementById("logo-empty");
+  if (!preview) return;
+  if (url) {
+    preview.src = url;
+    preview.classList.remove("hidden");
+    empty?.classList.add("hidden");
+  } else {
+    preview.removeAttribute("src");
+    preview.classList.add("hidden");
+    empty?.classList.remove("hidden");
+  }
+}
+
+async function loadLogo() {
+  const data = await adminApi("/api/admin/subscription");
+  showLogo(data.logo_url || "");
+}
+
+async function saveLogo(form) {
+  const file = document.getElementById("logo-file")?.files?.[0];
+  if (!file) {
+    showStatus("Choose a logo image first.");
+    return;
+  }
+  const payload = new FormData();
+  payload.append("logo", file);
+  showStatus("Saving logo…");
+  const data = await adminApi("/api/admin/logo", { method: "POST", body: payload, isForm: true });
+  form.reset();
+  showLogo(data.logo_url || "");
+  showStatus("Logo saved. It will show on the live camera screen.", true);
 }
 
 function keyRow(item) {
@@ -555,6 +594,35 @@ function bindDashboard() {
           ? "On — Describe and Read require Premium"
           : "Off — everything is free";
       }
+    };
+  }
+  const logoForm = document.getElementById("logo-form");
+  if (logoForm) {
+    logoForm.onsubmit = async (event) => {
+      event.preventDefault();
+      try {
+        await saveLogo(event.currentTarget);
+      } catch (error) {
+        showStatus(error.message);
+      }
+    };
+    document.getElementById("logo-remove").onclick = async () => {
+      try {
+        showStatus("Removing logo…");
+        await adminApi("/api/admin/logo", { method: "DELETE" });
+        showLogo("");
+        showStatus("Custom logo removed. The default icon will show.", true);
+      } catch (error) {
+        showStatus(error.message);
+      }
+    };
+    document.getElementById("logo-file").onchange = (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const preview = document.getElementById("logo-preview");
+      preview.src = URL.createObjectURL(file);
+      preview.classList.remove("hidden");
+      document.getElementById("logo-empty")?.classList.add("hidden");
     };
   }
   loadUsers().catch((error) => showStatus(error.message));

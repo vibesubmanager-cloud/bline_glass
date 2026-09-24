@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="AI Sight" />
     <title>AI Sight</title>
-    <link rel="stylesheet" href="../css/main.css?v=29" />
+    <link rel="stylesheet" href="../css/main.css?v=30" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -28,20 +28,21 @@
       ></button>
 
       <header class="hud-top">
-        <div class="brand-mark">
-          <strong>AI Sight</strong>
-          <span>See more. Live better.</span>
-        </div>
+        <a class="brand-logo" href="./home.html" aria-label="AI Sight">
+          <img id="app-logo" alt="" class="hidden" />
+          <svg id="app-logo-fallback" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="8"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </a>
         <div class="hud-pills">
           <a class="profile-chip" href="./profile.html" aria-label="Open profile">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 20c1.5-4 12.5-4 14 0"/></svg>
           </a>
-          <span id="live-pill" class="pill"><span class="dot"></span>LIVE</span>
-          <span id="gps-pill" class="pill"><span class="dot"></span>GPS</span>
-          <span id="mic-pill" class="pill"><span class="dot"></span>MIC</span>
+          <span id="gps-pill" class="pill" aria-label="GPS"><span class="dot"></span>GPS</span>
           <span id="detect-pill" class="pill is-loading" aria-label="Object detection">
             <span class="detect-sun" aria-hidden="true"></span>
-            <span id="detect-pill-label">LOAD</span>
+            <span id="detect-pill-label">DET</span>
           </span>
         </div>
       </header>
@@ -134,6 +135,6 @@
       </nav>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script type="module" src="../js/app.js?v=77"></script>
+    <script type="module" src="../js/app.js?v=78"></script>
   </body>
 </html>

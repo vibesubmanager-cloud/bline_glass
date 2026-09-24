@@ -25,6 +25,13 @@ def health():
     )
 
 
+@health_bp.get("/branding")
+def branding():
+    from app.services.branding_service import branding_payload
+
+    return ok(branding_payload())
+
+
 @health_bp.post("/health/groq")
 @login_required
 def test_groq():

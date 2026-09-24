@@ -320,3 +320,28 @@ def save_payments():
     except Exception as exc:
         db.session.rollback()
         return _error(exc)
+
+
+@admin_bp.post("/logo")
+@admin_required
+@limiter.exempt
+def upload_logo():
+    try:
+        from app.services.branding_service import save_logo
+
+        file = request.files.get("logo")
+        return ok(save_logo(file))
+    except Exception as exc:
+        db.session.rollback()
+        return _error(exc)
+
+
+@admin_bp.delete("/logo")
+@admin_required
+def remove_logo():
+    try:
+        from app.services.branding_service import clear_logo
+
+        return ok(clear_logo())
+    except Exception as exc:
+        return _error(exc)

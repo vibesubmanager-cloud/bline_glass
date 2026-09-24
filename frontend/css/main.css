@@ -140,6 +140,35 @@ a {
   backdrop-filter: blur(16px);
 }
 
+.brand-logo {
+  pointer-events: auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--glass);
+  border: 1px solid var(--stroke);
+  backdrop-filter: blur(16px);
+  color: var(--fg);
+}
+
+.brand-logo img,
+.brand-logo svg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.brand-logo svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
 .brand-mark strong {
   font-size: 0.95rem;
   letter-spacing: 0.12em;
@@ -204,6 +233,16 @@ a {
 .pill.is-on {
   color: var(--cyan);
   box-shadow: 0 0 16px rgba(90, 220, 255, 0.25);
+}
+
+#gps-pill.is-on {
+  color: #ffd36a;
+  box-shadow: 0 0 16px rgba(255, 211, 106, 0.4);
+}
+
+#gps-pill.is-on .dot {
+  background: #ffd36a;
+  box-shadow: 0 0 8px rgba(255, 211, 106, 0.85);
 }
 
 .pill .dot {
