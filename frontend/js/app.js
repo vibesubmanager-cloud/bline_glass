@@ -1,14 +1,14 @@
 import { getToken, pages, getSettings, getUser } from "./config.js";
 import { ApiError, isOnline, api } from "./api.js";
 import { appState, STATES } from "./state.js";
-import { voice } from "./voice.js?v=55";
+import { voice } from "./voice.js?v=56";
 import { camera } from "./camera.js";
 import { interpretCommand, isAffirmative, isNegative, HELP_TEXT, smallTalkReply } from "./intent.js?v=38";
 import { detectObjects, ensureOnDeviceYolo, resetOnDeviceYolo } from "./detection.js";
 import { speakOut } from "./speak-out.js";
 import { preloadYolo } from "./yolo-preload.js";
 import { isYoloInstalled, onYoloProgress, holdDetectionAwake, releaseDetectionAwake } from "./yolo-on-device.js";
-import { readScene, describeScene, askAboutScene } from "./vision.js?v=2";
+import { readScene, describeScene, askAboutScene } from "./vision.js?v=3";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { isStandaloneApp } from "./location.js";
 import { calls } from "./calls.js?v=13";
@@ -397,6 +397,7 @@ async function executeCommand(parsed, text) {
       appState.set(detectionMode ? STATES.DETECTING : STATES.IDLE);
       setStatus(spoken);
       showVoiceReply(text, spoken);
+      voice.restoreSpeaker();
       await speakOut(spoken, { interrupt: true, priority: 2 });
       return;
     }
@@ -407,6 +408,7 @@ async function executeCommand(parsed, text) {
       appState.set(detectionMode ? STATES.DETECTING : STATES.IDLE);
       setStatus(spoken);
       showVoiceReply(text, spoken);
+      voice.restoreSpeaker();
       await speakOut(spoken, { interrupt: true, priority: 2 });
       return;
     }
@@ -465,6 +467,8 @@ async function listenForNext(prompt) {
   } finally {
     tapListening = false;
     setListeningUI(false);
+    voice.unlock({ fromGesture: true });
+    voice.restoreSpeaker();
   }
 }
 
@@ -550,6 +554,7 @@ function announceDetections(detections, spoken) {
   }
   const phrase = spoken || "You see something in front of you.";
   setStatus(phrase);
+  voice.restoreSpeaker();
   speakOut(phrase, { interrupt: false, priority: 1 });
 }
 
@@ -690,6 +695,8 @@ async function startTapListen() {
     const text = await voice.listen();
     tapListening = false;
     setListeningUI(false);
+    voice.unlock({ fromGesture: true });
+    voice.restoreSpeaker();
     if (text) {
       setStatus(text);
       showVoiceReply(text, "…");

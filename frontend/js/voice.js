@@ -178,6 +178,7 @@ class VoiceService {
     this._synthDone = Promise.resolve(false);
     this._priority = 0;
     this._gestureAt = 0;
+    this._holding = false;
     this._boundCtx = null;
     if (this.synth) {
       this.synth.addEventListener("voiceschanged", () => {
@@ -327,15 +328,23 @@ class VoiceService {
     return el;
   }
 
+  _pauseKeepPlayer() {
+    try {
+      this.keepEl?.pause();
+    } catch {
+      /* ignore */
+    }
+  }
+
   _startKeepPlayer() {
+    if (this._holding) return;
     this._ensureKeepAlive();
-    if (IS_IOS || IS_ANDROID) return;
     const keep = this._ensureKeepEl();
     if (keep && !keep.paused && keep.currentSrc) return;
     keep.loop = true;
     keep.muted = true;
     keep.volume = 0;
-    keep.src = KEEP_SRC;
+    if (!keep.currentSrc) keep.src = KEEP_SRC;
     const play = keep.play();
     if (play && typeof play.catch === "function") play.catch(() => {});
   }
@@ -357,6 +366,7 @@ class VoiceService {
   unlock({ fromGesture = false } = {}) {
     this._unlocked = true;
     if (fromGesture) this._gestureAt = performance.now();
+    if (this._holding) return;
     const ctx = this._audioContext();
     try {
       ctx?.resume?.();
@@ -365,11 +375,14 @@ class VoiceService {
     }
     if (fromGesture || ctx?.state !== "running") this._keepNoise = null;
     this._ensureKeepAlive();
-    if (fromGesture) this._startKeepPlayer();
+    this._startKeepPlayer();
   }
 
   keepAlive(on) {
-    if (!on) return;
+    if (!on) {
+      this._pauseKeepPlayer();
+      return;
+    }
     this.restoreSpeaker();
   }
 
@@ -391,6 +404,7 @@ class VoiceService {
     this._busy = false;
     this._pending = null;
     this._stopSpeech();
+    this._pauseKeepPlayer();
     this._usedMic = true;
   }
 
@@ -398,7 +412,8 @@ class VoiceService {
     const cleaned = (text || "").trim();
     if (!cleaned) return Promise.resolve();
     appState.lastSpoken = cleaned;
-    const inGesture = performance.now() - this._gestureAt < 500;
+    const inGesture = !this._holding && this._unlocked;
+    if (!this._holding) this.restoreSpeaker();
     if (!interrupt && this.isSpeaking()) {
       this._pending = cleaned;
       this._pendingPriority = priority;
@@ -498,7 +513,7 @@ class VoiceService {
   }
 
   async _playSpoken(text, finish, token, inGesture) {
-    const canKick = IS_IOS && inGesture;
+    const canKick = IS_IOS && !this._holding && this._unlocked;
     if (canKick) {
       this._kickSynth(text, token);
       this._notifyStart();
@@ -651,6 +666,7 @@ class VoiceService {
       /* ignore */
     }
     this._ensureKeepAlive();
+    this._pauseKeepPlayer();
     const web = await this._playWebAudio(buffer, token, waitMs);
     if (web) return true;
     const url = URL.createObjectURL(new Blob([buffer], { type: mime || "audio/wav" }));
@@ -907,6 +923,7 @@ class VoiceService {
       };
       rec.onend = () => {
         voiceLog("MIC STOP");
+        this.unlock({ fromGesture: true });
         this.restoreSpeaker();
         finish(finalText);
       };

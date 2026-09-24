@@ -2,7 +2,7 @@ import { api } from "./api.js";
 import { getSettings } from "./config.js";
 import { navigation, getCurrentPosition } from "./navigation.js";
 import { calls } from "./calls.js?v=13";
-import { voice } from "./voice.js?v=55";
+import { voice } from "./voice.js?v=56";
 
 export async function activateEmergency() {
   await voice.speak("Emergency. Getting your location.");

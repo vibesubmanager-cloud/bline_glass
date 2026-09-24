@@ -1,11 +1,12 @@
 import { api } from "./api.js";
 import { camera } from "./camera.js";
-import { voice } from "./voice.js?v=55";
+import { voice } from "./voice.js?v=56";
 
 async function sendVision(path, extra = {}, signal) {
-  voice.keepAlive(true);
+  voice.restoreSpeaker();
   try {
     const file = await camera.captureFile();
+    voice.restoreSpeaker();
     const form = new FormData();
     form.append("image", file, "capture.jpg");
     Object.entries(extra).forEach(([key, value]) => form.append(key, value));
@@ -13,7 +14,7 @@ async function sendVision(path, extra = {}, signal) {
     voice.restoreSpeaker();
     return data.spoken || data.description || data.answer || data.text || "I could not complete that request.";
   } catch (error) {
-    voice.keepAlive(false);
+    voice.restoreSpeaker();
     throw error;
   }
 }
