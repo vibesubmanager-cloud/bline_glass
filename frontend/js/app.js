@@ -4,10 +4,10 @@ import { appState, STATES } from "./state.js";
 import { voice } from "./voice.js?v=57";
 import { camera } from "./camera.js";
 import { interpretCommand, isAffirmative, isNegative, HELP_TEXT, smallTalkReply } from "./intent.js?v=38";
-import { detectObjects, ensureOnDeviceYolo, resetOnDeviceYolo } from "./detection.js";
+import { detectObjects, ensureOnDeviceYolo } from "./detection.js";
 import { speakOut } from "./speak-out.js";
 import { preloadYolo } from "./yolo-preload.js";
-import { isYoloInstalled, onYoloProgress, holdDetectionAwake, releaseDetectionAwake } from "./yolo-on-device.js";
+import { isYoloInstalled, onYoloProgress, holdDetectionAwake, releaseDetectionAwake, warmYoloIfInstalled } from "./yolo-on-device.js";
 import { readScene, describeScene, askAboutScene } from "./vision.js?v=3";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { isStandaloneApp } from "./location.js";
@@ -606,9 +606,7 @@ async function detectionLoop() {
     announceDetections(data.detections || [], data.spoken);
   } catch (error) {
     if (!detectionMode) return;
-    if (String(error.message || "").includes("DETECT_TIMEOUT")) {
-      await resetOnDeviceYolo().catch(() => undefined);
-    }
+    /* Skip a slow frame. Do not reload the detector — that is what made LOAD appear on every tap. */
   } finally {
     detectionBusy = false;
     if (detectionMode) scheduleDetectionLoop();
@@ -623,7 +621,7 @@ async function startDetection() {
   appState.set(STATES.DETECTING);
   idleStatus();
   if (navigator.vibrate) navigator.vibrate([30, 60, 30]);
-  setDetectHud("loading");
+  setDetectHud(isYoloInstalled() ? "live" : "loading");
   holdDetectionAwake();
   voice.unlock({ fromGesture: true });
   voice.keepAlive(true);
@@ -636,10 +634,12 @@ async function startDetection() {
     await handleFailure(error);
     return;
   }
-  try {
-    await ensureOnDeviceYolo();
-  } catch (error) {
-    setStatus(error.message || "Object detection is still loading.");
+  if (!isYoloInstalled()) {
+    try {
+      await ensureOnDeviceYolo();
+    } catch (error) {
+      setStatus(error.message || "Object detection is still loading.");
+    }
   }
   if (!detectionMode) return;
   setDetectHud("live");
@@ -658,7 +658,7 @@ async function stopDetection(message = "Object detection stopped.") {
   voice.keepAlive(true);
   if (appState.value === STATES.DETECTING) appState.set(STATES.IDLE);
   idleStatus();
-  setDetectHud(isYoloInstalled() ? "ready" : "loading");
+  setDetectHud("ready");
   if (message) speakOut(message);
 }
 
@@ -945,15 +945,19 @@ async function boot() {
   if (!requireAuth()) return;
   onYoloProgress((info) => {
     if (detectionMode) return;
-    if (info.state === "downloading" || info.state === "loading") setDetectHud("loading");
+    if (info.state === "downloading" || info.state === "loading") {
+      if (!isYoloInstalled()) setDetectHud("loading");
+      return;
+    }
     if (info.state === "ready") setDetectHud("ready");
-    if (info.state === "missing") setDetectHud("loading");
+    if (info.state === "missing") setDetectHud("ready");
   });
   preloadYolo();
+  warmYoloIfInstalled();
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && detectionMode) holdDetectionAwake();
   });
-  setDetectHud(isYoloInstalled() ? "ready" : "loading");
+  setDetectHud("ready");
   applyAppearance();
   applyAppLogo();
   idleStatus();

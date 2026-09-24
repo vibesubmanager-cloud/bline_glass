@@ -1,13 +1,39 @@
 /** Street map for live walking directions. Uses Leaflet when loaded. */
 
+const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+
 let map;
 let routeLine;
 let userMarker;
 let destMarker;
 let lastFitKey = "";
+let leafletPromise = null;
 
 function leafletReady() {
   return Boolean(window.L);
+}
+
+function loadLeaflet() {
+  if (leafletReady()) return Promise.resolve();
+  if (leafletPromise) return leafletPromise;
+  leafletPromise = new Promise((resolve, reject) => {
+    if (!document.querySelector(`link[href="${LEAFLET_CSS}"]`)) {
+      const css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = LEAFLET_CSS;
+      document.head.appendChild(css);
+    }
+    const script = document.createElement("script");
+    script.src = LEAFLET_JS;
+    script.onload = () => resolve();
+    script.onerror = () => {
+      leafletPromise = null;
+      reject(new Error("Map library did not load."));
+    };
+    document.head.appendChild(script);
+  });
+  return leafletPromise;
 }
 
 function flattenLatLngs(latlngs) {
@@ -21,7 +47,16 @@ function flattenLatLngs(latlngs) {
 
 export function ensureNavMap() {
   const el = document.getElementById("nav-map");
-  if (!el || !leafletReady()) return null;
+  if (!el) return null;
+  if (!leafletReady()) {
+    loadLeaflet()
+      .then(() => {
+        ensureNavMap();
+        fitNavMap();
+      })
+      .catch(() => undefined);
+    return null;
+  }
   if (map) {
     setTimeout(() => map.invalidateSize(), 80);
     return map;

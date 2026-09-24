@@ -1,4 +1,5 @@
 const READY_KEY = "aisight-yolo-ready";
+const MODEL_IDB = "indexeddb://aisight-coco-ssd-lite-v2";
 const TF_SRC = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js";
 const COCO_SRC = "https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js";
 
@@ -37,7 +38,7 @@ export async function isYoloReady() {
 export function yoloStatus() {
   if (model) return { state: "ready", label: "On this phone. Object detection can run without the server." };
   if (loading) return { state: "downloading", label: "Downloading object detection to this phone…" };
-  if (isYoloInstalled()) return { state: "cached", label: "Downloaded. It will load the first time you detect." };
+  if (isYoloInstalled()) return { state: "cached", label: "On this phone. Object detection is ready." };
   return { state: "missing", label: "Not on this phone yet. Download once, then detection works in real time." };
 }
 
@@ -76,20 +77,42 @@ async function pickBackend(tf) {
   return tf.getBackend();
 }
 
+async function saveModelLocally(net) {
+  try {
+    await net?.model?.save?.(MODEL_IDB);
+  } catch {
+    /* phone storage may be full; HTTP cache still helps next open */
+  }
+}
+
+async function loadCoco(fromPhone) {
+  if (fromPhone) {
+    try {
+      return await window.cocoSsd.load({ modelUrl: MODEL_IDB });
+    } catch {
+      /* fall through and use the copy already downloaded in the browser cache */
+    }
+  }
+  const net = await window.cocoSsd.load({ base: "lite_mobilenet_v2" });
+  await saveModelLocally(net);
+  return net;
+}
+
 async function loadModel() {
   if (model) return model;
   if (loading) return loading;
+  const alreadyOnPhone = localStorage.getItem(READY_KEY) === "1";
   loading = (async () => {
-    emitProgress({ state: "loading", pct: 20 });
+    if (!alreadyOnPhone) emitProgress({ state: "loading", pct: 20 });
     await loadScript(TF_SRC);
     const tf = window.tf;
     if (!tf) throw new Error("Object detection could not start on this device.");
     await pickBackend(tf);
-    emitProgress({ state: "loading", pct: 60 });
+    if (!alreadyOnPhone) emitProgress({ state: "loading", pct: 60 });
     await loadScript(COCO_SRC);
     if (!window.cocoSsd) throw new Error("Object detection could not start on this device.");
-    emitProgress({ state: "loading", pct: 80 });
-    model = await window.cocoSsd.load({ base: "lite_mobilenet_v2" });
+    if (!alreadyOnPhone) emitProgress({ state: "loading", pct: 80 });
+    model = await loadCoco(alreadyOnPhone);
     localStorage.setItem(READY_KEY, "1");
     emitProgress({ state: "ready", pct: 100 });
     return model;
@@ -102,6 +125,11 @@ async function loadModel() {
 export async function installYolo() {
   await loadModel();
   return true;
+}
+
+export function warmYoloIfInstalled() {
+  if (!isYoloInstalled()) return;
+  loadModel().catch(() => undefined);
 }
 
 export async function ensureWorker() {
@@ -122,6 +150,11 @@ export async function recoverDetector() {
 export async function removeYolo() {
   await recoverDetector();
   localStorage.removeItem(READY_KEY);
+  try {
+    await window.tf?.io?.removeModel?.(MODEL_IDB);
+  } catch {
+    /* ignore */
+  }
   emitProgress({ state: "missing", pct: 0 });
 }
 

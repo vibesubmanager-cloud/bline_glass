@@ -12,31 +12,26 @@
     <link rel="manifest" href="./manifest.json" />
     <link rel="stylesheet" href="./css/main.css" />
     <script>
-      const go = () => {
+      (function () {
         const token = localStorage.getItem("VIBE_EYE_TOKEN") || sessionStorage.getItem("VIBE_EYE_TOKEN");
         if (!token) {
           location.replace("./pages/welcome.html");
-          return;
+        } else {
+          let role = "blind";
+          try {
+            role = JSON.parse(localStorage.getItem("VIBE_EYE_USER") || sessionStorage.getItem("VIBE_EYE_USER") || "{}").role || "blind";
+          } catch {
+            role = "blind";
+          }
+          location.replace(role === "assistant" ? "./pages/contacts.html" : "./pages/home.html");
         }
-        let role = "blind";
-        try {
-          role = JSON.parse(localStorage.getItem("VIBE_EYE_USER") || sessionStorage.getItem("VIBE_EYE_USER") || "{}").role || "blind";
-        } catch {
-          role = "blind";
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.getRegistrations()
+            .then((regs) => Promise.all(regs.map((reg) => reg.unregister())))
+            .catch(() => undefined);
         }
-        location.replace(role === "assistant" ? "./pages/contacts.html" : "./pages/home.html");
-      };
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.getRegistrations()
-          .then((regs) => Promise.all(regs.map((reg) => reg.unregister())))
-          .catch(() => undefined)
-          .finally(go);
-      } else {
-        go();
-      }
+      })();
     </script>
   </head>
-  <body>
-    <p>Opening AI Sight…</p>
-  </body>
+  <body></body>
 </html>
