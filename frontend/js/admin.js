@@ -1,4 +1,5 @@
 import { getApiBase } from "./config.js";
+import { compressPhoto } from "./compress-photo.js";
 
 const TOKEN_KEY = "AISIGHT_ADMIN_TOKEN";
 
@@ -391,7 +392,7 @@ function bindDashboard() {
       return;
     }
     const payload = new FormData();
-    payload.append("image", file);
+    payload.append("image", await compressPhoto(file));
     const question = (form.text.value || "").trim();
     if (question) payload.append("text", question);
     reply.textContent = "Testing Gemini with this photo…";

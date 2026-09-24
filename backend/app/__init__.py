@@ -103,7 +103,7 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
 
     @flask_app.errorhandler(413)
     def too_large(_e):
-        return fail("IMAGE_TOO_LARGE", "Image is too large. Maximum size is 5 MB.", 413)
+        return fail("IMAGE_TOO_LARGE", "Image is too large. Maximum size is 20 MB.", 413)
 
     @flask_app.errorhandler(429)
     def rate_limited(_e):

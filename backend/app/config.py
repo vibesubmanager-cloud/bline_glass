@@ -84,7 +84,7 @@ class Config:
     TURN_PASSWORD = os.getenv("TURN_PASSWORD", "")
     DAILY_API_KEY = os.getenv("DAILY_API_KEY", "")
 
-    MAX_CONTENT_LENGTH = 6 * 1024 * 1024
+    MAX_CONTENT_LENGTH = 25 * 1024 * 1024
     REQUEST_TIMEOUT_SECONDS = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "30"))
 
     @property

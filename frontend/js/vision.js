@@ -9,7 +9,7 @@ async function sendVision(path, extra = {}, signal) {
     const form = new FormData();
     form.append("image", file, "capture.jpg");
     Object.entries(extra).forEach(([key, value]) => form.append(key, value));
-    const data = await api(path, { method: "POST", body: form, isForm: true, signal, timeout: 45000 });
+    const data = await api(path, { method: "POST", body: form, isForm: true, signal, timeout: 70000 });
     voice.restoreSpeaker();
     return data.spoken || data.description || data.answer || data.text || "I could not complete that request.";
   } catch (error) {

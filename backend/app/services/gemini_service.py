@@ -12,16 +12,16 @@ from PIL import Image
 from app.utils.logging import log_error, log_event
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-VISION_TIMEOUT_SEC = 20
-_MAX_IMAGE_SIDE = 768
-_FAST_VISION_MODEL = "gemini-3.1-flash-lite"
-_SLOW_VISION_MODELS = {
-    "gemini-3.6-flash",
-    "gemini-3.7-flash",
-    "gemini-3.8-flash",
-    "gemini-3.5-flash",
+VISION_TIMEOUT_SEC = 45
+_DESCRIBE_IMAGE_SIDE = 960
+_READ_IMAGE_SIDE = 1280
+_FAST_VISION_MODEL = "gemini-2.5-flash"
+_FALLBACK_VISION_MODELS = (
+    "gemini-2.0-flash",
     "gemini-flash-latest",
-}
+    "gemini-1.5-flash",
+    "gemini-3.1-flash-lite",
+)
 
 
 class GeminiServiceError(RuntimeError):
@@ -47,13 +47,20 @@ If you are not sure, say you are not sure. Do not invent details.
 User question: {question}"""
 
 
-def _prepare_jpeg(image: Image.Image) -> bytes:
+def _prepare_jpeg(image: Image.Image, max_side: int = _DESCRIBE_IMAGE_SIDE) -> bytes:
     rgb = image.convert("RGB")
-    if max(rgb.size) > _MAX_IMAGE_SIDE:
-        rgb.thumbnail((_MAX_IMAGE_SIDE, _MAX_IMAGE_SIDE))
+    if max(rgb.size) > max_side:
+        rgb.thumbnail((max_side, max_side))
+    quality = 78
     buf = io.BytesIO()
-    rgb.save(buf, format="JPEG", quality=72)
-    return buf.getvalue()
+    rgb.save(buf, format="JPEG", quality=quality, optimize=True)
+    data = buf.getvalue()
+    while len(data) > 1_200_000 and quality > 50:
+        quality -= 8
+        buf = io.BytesIO()
+        rgb.save(buf, format="JPEG", quality=quality, optimize=True)
+        data = buf.getvalue()
+    return data
 
 
 def _first_sentences(text: str, count: int = 4) -> str:
@@ -90,11 +97,14 @@ class GeminiService:
         return bool(self.api_key or active_secrets("gemini"))
 
     def _models_to_try(self) -> list[str]:
-        if self.model_name in _SLOW_VISION_MODELS:
-            return [_FAST_VISION_MODEL]
-        if self.model_name == _FAST_VISION_MODEL:
-            return [_FAST_VISION_MODEL]
-        return [self.model_name, _FAST_VISION_MODEL]
+        ordered = [_FAST_VISION_MODEL, self.model_name, *_FALLBACK_VISION_MODELS]
+        unique: list[str] = []
+        seen: set[str] = set()
+        for name in ordered:
+            if name and name not in seen:
+                seen.add(name)
+                unique.append(name)
+        return unique
 
     def _post(self, model_name: str, prompt: str, jpeg: bytes, max_tokens: int, api_key: str):
         body = {
@@ -131,6 +141,7 @@ class GeminiService:
         *,
         only_key: str | None = None,
         key_row=None,
+        max_side: int = _DESCRIBE_IMAGE_SIDE,
     ) -> str:
         from app.services.key_store import active_secrets, mark_error, mark_ok
 
@@ -142,7 +153,7 @@ class GeminiService:
                 keys = [(None, self.api_key)]
         if not keys:
             raise GeminiServiceError("Gemini API key is not configured.")
-        jpeg = _prepare_jpeg(image)
+        jpeg = _prepare_jpeg(image, max_side=max_side)
         last_error: Exception | None = None
         key_failed = False
         for row, api_key in keys:
@@ -196,7 +207,7 @@ class GeminiService:
         raise GeminiServiceError("I'm having trouble processing the image. Please try again.") from last_error
 
     def read_text(self, image: Image.Image) -> dict:
-        text = self._generate(READ_PROMPT, image)
+        text = self._generate(READ_PROMPT, image, max_tokens=2048, max_side=_READ_IMAGE_SIDE)
         uncertain = any(
             phrase in text.lower()
             for phrase in ["cannot read", "can't read", "unclear", "not readable", "no text"]
@@ -205,7 +216,7 @@ class GeminiService:
 
     def describe(self, image: Image.Image, *, only_key: str | None = None, key_row=None) -> dict:
         text = _first_sentences(
-            self._generate(DESCRIBE_PROMPT, image, only_key=only_key, key_row=key_row),
+            self._generate(DESCRIBE_PROMPT, image, max_tokens=640, only_key=only_key, key_row=key_row),
             4,
         )
         return {"description": text}
@@ -231,7 +242,7 @@ class GeminiService:
 
     def answer(self, image: Image.Image, question: str, *, only_key: str | None = None, key_row=None) -> dict:
         prompt = QUESTION_PROMPT.format(question=question.strip())
-        text = self._generate(prompt, image, only_key=only_key, key_row=key_row)
+        text = self._generate(prompt, image, only_key=only_key, key_row=key_row, max_tokens=640)
         return {"answer": text}
 
 

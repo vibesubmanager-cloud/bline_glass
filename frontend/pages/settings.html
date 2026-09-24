@@ -157,6 +157,7 @@
       import { drawSystemQr } from "../js/qr.js";
       import { installYolo, removeYolo, yoloStatus, onYoloProgress, isYoloReady } from "../js/yolo-on-device.js";
       import { speakOut } from "../js/speak-out.js";
+      import { compressPhoto } from "../js/compress-photo.js";
       if (!getToken()) location.href = pages().welcome;
       bindApiField();
       function renderCallingStatus() {
@@ -413,8 +414,8 @@
         const started = performance.now();
         try {
           const form = new FormData();
-          form.append("image", file, file.name || "test.jpg");
-          const result = await api("/api/health/gemini", { method: "POST", body: form, isForm: true, timeout: 25000 });
+          form.append("image", await compressPhoto(file), "test.jpg");
+          const result = await api("/api/health/gemini", { method: "POST", body: form, isForm: true, timeout: 70000 });
           showTest("gemini-test-result", result);
         } catch (error) {
           showTest("gemini-test-result", {

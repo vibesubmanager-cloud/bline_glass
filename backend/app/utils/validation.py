@@ -11,7 +11,8 @@ from werkzeug.datastructures import FileStorage
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 PHONE_RE = re.compile(r"^\+?[0-9][0-9\-\s]{6,20}$")
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
-MAX_IMAGE_BYTES = 5 * 1024 * 1024
+MAX_IMAGE_BYTES = 20 * 1024 * 1024
+MAX_IMAGE_SIDE = 1600
 
 
 class ValidationError(ValueError):
@@ -103,11 +104,15 @@ def load_image_from_upload(file: FileStorage) -> Image.Image:
     size = file.stream.tell()
     file.stream.seek(0)
     if size > MAX_IMAGE_BYTES:
-        raise ValidationError("Image is too large. Maximum size is 5 MB.", "IMAGE_TOO_LARGE")
+        raise ValidationError("Image is too large. Maximum size is 20 MB.", "IMAGE_TOO_LARGE")
     try:
         image = Image.open(file.stream)
         image.load()
         image = image.convert("RGB")
+        if max(image.size) > MAX_IMAGE_SIDE:
+            image.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE))
+    except ValidationError:
+        raise
     except Exception as exc:
         raise ValidationError("I could not read that image.", "IMAGE_INVALID") from exc
     return image
@@ -125,10 +130,13 @@ def load_image_from_base64(data_url: str) -> Image.Image:
     except Exception as exc:
         raise ValidationError("I could not read that image.", "IMAGE_INVALID") from exc
     if len(raw) > MAX_IMAGE_BYTES:
-        raise ValidationError("Image is too large. Maximum size is 5 MB.", "IMAGE_TOO_LARGE")
+        raise ValidationError("Image is too large. Maximum size is 20 MB.", "IMAGE_TOO_LARGE")
     try:
         image = Image.open(io.BytesIO(raw))
         image.load()
-        return image.convert("RGB")
+        image = image.convert("RGB")
+        if max(image.size) > MAX_IMAGE_SIDE:
+            image.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE))
+        return image
     except Exception as exc:
         raise ValidationError("I could not read that image.", "IMAGE_INVALID") from exc

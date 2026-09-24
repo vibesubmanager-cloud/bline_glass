@@ -8,7 +8,7 @@ import { detectObjects, ensureOnDeviceYolo, resetOnDeviceYolo } from "./detectio
 import { speakOut } from "./speak-out.js";
 import { preloadYolo } from "./yolo-preload.js";
 import { isYoloInstalled, onYoloProgress, holdDetectionAwake, releaseDetectionAwake } from "./yolo-on-device.js";
-import { readScene, describeScene, askAboutScene } from "./vision.js";
+import { readScene, describeScene, askAboutScene } from "./vision.js?v=2";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { isStandaloneApp } from "./location.js";
 import { calls } from "./calls.js?v=13";
