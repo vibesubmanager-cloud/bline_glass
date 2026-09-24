@@ -52,9 +52,11 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
         UsageLog,
         User,
         UserSettings,
+        AppSettings,
     )
     from app.routes.admin import admin_bp
     from app.routes.auth import auth_bp
+    from app.routes.billing import billing_bp
     from app.routes.calls import calls_bp
     from app.routes.contacts import contacts_bp
     from app.routes.detection import detection_bp
@@ -80,6 +82,7 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
     flask_app.register_blueprint(contacts_bp, url_prefix="/api/contacts")
     flask_app.register_blueprint(messages_bp, url_prefix="/api/messages")
     flask_app.register_blueprint(calls_bp, url_prefix="/api/calls")
+    flask_app.register_blueprint(billing_bp, url_prefix="/api/billing")
     flask_app.register_blueprint(emergency_bp, url_prefix="/api/emergency")
     flask_app.register_blueprint(frontend_bp)
 
@@ -138,6 +141,7 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
             _ensure_message_table,
             _ensure_api_key_table,
             _ensure_call_columns,
+            _ensure_app_settings,
         ):
             try:
                 step()
@@ -214,6 +218,10 @@ def _ensure_user_columns() -> None:
         "other_notes": "TEXT",
         "linked_blind_user_id": "VARCHAR(36)",
         "relationship_to_blind": "VARCHAR(80)",
+        "plan": "VARCHAR(16) DEFAULT 'free'",
+        "stripe_customer_id": "VARCHAR(64)",
+        "stripe_subscription_id": "VARCHAR(64)",
+        "paypal_subscription_id": "VARCHAR(64)",
     }
     for name, definition in additions.items():
         if name not in columns:
@@ -270,3 +278,29 @@ def _ensure_call_columns() -> None:
     if "jitsi_room_name" not in columns:
         db.session.execute(text("ALTER TABLE call_sessions ADD COLUMN jitsi_room_name VARCHAR(128)"))
     db.session.commit()
+
+
+def _ensure_app_settings() -> None:
+    from app.models.settings import AppSettings
+    from app.services.subscription_service import get_settings
+
+    from sqlalchemy import inspect
+
+    inspector = inspect(db.engine)
+    if "app_settings" not in inspector.get_table_names():
+        AppSettings.__table__.create(bind=db.engine, checkfirst=True)
+    else:
+        from sqlalchemy import text
+
+        columns = {column["name"] for column in inspector.get_columns("app_settings")}
+        additions = {
+            "payment_provider": "VARCHAR(16) DEFAULT ''",
+            "paypal_mode": "VARCHAR(16) DEFAULT 'live'",
+            "paypal_product_id": "VARCHAR(64)",
+            "paypal_plan_id": "VARCHAR(64)",
+        }
+        for name, definition in additions.items():
+            if name not in columns:
+                db.session.execute(text(f"ALTER TABLE app_settings ADD COLUMN {name} {definition}"))
+        db.session.commit()
+    get_settings()

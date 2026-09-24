@@ -70,6 +70,7 @@ export function pages() {
     chat: new URL("../pages/chat.html", import.meta.url).href,
     settings: new URL("../pages/settings.html", import.meta.url).href,
     profile: new URL("../pages/profile.html", import.meta.url).href,
+    plans: new URL("../pages/plans.html", import.meta.url).href,
     navigation: new URL("../pages/navigation.html", import.meta.url).href,
   };
 }

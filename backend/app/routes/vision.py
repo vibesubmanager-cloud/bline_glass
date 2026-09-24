@@ -2,6 +2,7 @@ from flask import Blueprint, g, request
 
 from app.services.gemini_service import GeminiServiceError, get_gemini_service
 from app.services.response_engine import speak_read_result
+from app.services.subscription_service import vision_gate
 from app.services.usage_service import record_usage
 from app.utils.logging import log_event
 from app.utils.responses import fail, ok
@@ -23,6 +24,9 @@ def _load_image():
 @vision_bp.post("/read")
 @login_required
 def read_text():
+    blocked = vision_gate(g.current_user)
+    if blocked:
+        return blocked
     log_event("VISION_REQUEST", kind="read", user_id=g.current_user.id)
     try:
         image = _load_image()
@@ -39,6 +43,9 @@ def read_text():
 @vision_bp.post("/describe")
 @login_required
 def describe():
+    blocked = vision_gate(g.current_user)
+    if blocked:
+        return blocked
     log_event("VISION_REQUEST", kind="describe", user_id=g.current_user.id)
     try:
         image = _load_image()
@@ -54,6 +61,9 @@ def describe():
 @vision_bp.post("/question")
 @login_required
 def question():
+    blocked = vision_gate(g.current_user)
+    if blocked:
+        return blocked
     log_event("VISION_REQUEST", kind="question", user_id=g.current_user.id)
     data = request.get_json(silent=True) or {}
     if request.form:

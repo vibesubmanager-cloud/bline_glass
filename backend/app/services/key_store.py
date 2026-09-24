@@ -9,9 +9,27 @@ from flask import current_app
 from app.extensions import db
 from app.models.api_key import ApiKey
 
-PROVIDERS = ("gemini", "groq", "daily")
+PROVIDERS = (
+    "gemini",
+    "groq",
+    "daily",
+    "stripe_secret",
+    "stripe_publishable",
+    "stripe_webhook",
+    "paypal_client",
+    "paypal_secret",
+)
 MAX_KEYS_PER_PROVIDER = 20
-_ENV_FIELDS = {"gemini": "GEMINI_API_KEY", "groq": "GROQ_API_KEY", "daily": "DAILY_API_KEY"}
+_ENV_FIELDS = {
+    "gemini": "GEMINI_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "daily": "DAILY_API_KEY",
+    "stripe_secret": "STRIPE_SECRET_KEY",
+    "stripe_publishable": "STRIPE_PUBLISHABLE_KEY",
+    "stripe_webhook": "STRIPE_WEBHOOK_SECRET",
+    "paypal_client": "PAYPAL_CLIENT_ID",
+    "paypal_secret": "PAYPAL_SECRET",
+}
 
 
 class KeyStoreError(RuntimeError):
@@ -87,7 +105,7 @@ def mark_error(row: ApiKey | None, message: str) -> None:
 def add_key(provider: str, key_value: str, label: str | None = None) -> ApiKey:
     provider = (provider or "").strip().lower()
     if provider not in PROVIDERS:
-        raise KeyStoreError("Choose Gemini, Groq, or Daily.")
+        raise KeyStoreError("Choose a supported provider.")
     secret = (key_value or "").strip()
     if len(secret) < 8:
         raise KeyStoreError("Paste a full API key.")
@@ -127,3 +145,16 @@ def update_key(row: ApiKey, *, label=None, key_value=None, is_active=None, sort_
 def delete_key(row: ApiKey) -> None:
     db.session.delete(row)
     db.session.commit()
+
+
+def upsert_key(provider: str, key_value: str, label: str | None = None) -> ApiKey:
+    provider = (provider or "").strip().lower()
+    if provider not in PROVIDERS:
+        raise KeyStoreError("Choose a supported provider.")
+    secret = (key_value or "").strip()
+    if len(secret) < 8:
+        raise KeyStoreError("Paste a full API key.")
+    row = ApiKey.query.filter_by(provider=provider).order_by(ApiKey.sort_order.asc(), ApiKey.created_at.asc()).first()
+    if row:
+        return update_key(row, label=label or row.label, key_value=secret, is_active=True)
+    return add_key(provider, secret, label)

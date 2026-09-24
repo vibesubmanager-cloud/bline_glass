@@ -28,6 +28,10 @@ class User(db.Model):
     linked_blind_user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=True, index=True)
     relationship_to_blind = db.Column(db.String(80), nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    plan = db.Column(db.String(16), default="free", nullable=False)
+    stripe_customer_id = db.Column(db.String(64), nullable=True)
+    stripe_subscription_id = db.Column(db.String(64), nullable=True)
+    paypal_subscription_id = db.Column(db.String(64), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
     updated_at = db.Column(
         db.DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
@@ -58,6 +62,7 @@ class User(db.Model):
             "other_notes": self.other_notes,
             "linked_blind_user_id": self.linked_blind_user_id,
             "relationship_to_blind": self.relationship_to_blind,
+            "plan": (self.plan or "free"),
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 

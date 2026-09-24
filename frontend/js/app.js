@@ -17,6 +17,7 @@ import { setListeningUI, setAiStatus, setLive, setGps, setOnline, setDetectHud, 
 import { walkingDirectionsOn } from "./shareLocation.js";
 import { updateNavMap, clearNavMap, fitNavMap } from "./map.js";
 import { loadUnread, markMessagesRead, sendChatMessage, sendChatLocation } from "./messages.js";
+import { refreshBilling, canUseDescribe, PREMIUM_SPOKEN } from "./billing.js";
 
 const zone = document.getElementById("interaction-zone");
 const statusEl = document.getElementById("status-text");
@@ -386,6 +387,20 @@ async function executeCommand(parsed, text) {
   if (!isOnline()) {
     await speakOut("The internet connection looks unavailable. Camera AI features need a connection.");
     return;
+  }
+
+  if (parsed.intent === "READ" || parsed.intent === "DESCRIBE" || parsed.intent === "VISUAL_QUESTION") {
+    await refreshBilling();
+    if (!canUseDescribe()) {
+      appState.set(detectionMode ? STATES.DETECTING : STATES.IDLE);
+      setAiStatus("");
+      setStatus(PREMIUM_SPOKEN);
+      showVoiceReply(text, PREMIUM_SPOKEN);
+      voice.restoreSpeaker();
+      await speakOut(PREMIUM_SPOKEN, { interrupt: true, priority: 2 });
+      location.href = pages().plans;
+      return;
+    }
   }
 
   const signal = appState.beginRequest();
@@ -812,6 +827,9 @@ async function handleFailure(error) {
   setStatus(message);
   showVoiceReply("", message);
   appState.set(detectionMode ? STATES.DETECTING : STATES.IDLE);
+  if (code === "PREMIUM_REQUIRED") {
+    location.href = pages().plans;
+  }
 }
 
 function applyAppearance() {
@@ -916,6 +934,7 @@ async function boot() {
   voice.unlock();
   promptForLocation();
   calls.startPolling();
+  refreshBilling();
   announceUnread();
   setInterval(announceUnread, 5000);
   camera
@@ -954,9 +973,6 @@ async function boot() {
   document.getElementById("call-camera")?.addEventListener("click", () => {
     const enabled = calls.toggleCamera();
         voice.speak(enabled ? "Camera turned on." : "Camera turned off.");
-  });
-  document.getElementById("dock-call")?.addEventListener("click", () => {
-    location.href = pages().contacts;
   });
   document.getElementById("nav-close")?.addEventListener("click", (event) => {
     event.preventDefault();

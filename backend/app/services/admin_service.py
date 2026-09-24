@@ -240,6 +240,11 @@ def update_user(user: User, data: dict) -> User:
         user.other_notes = optional_string(data, "other_notes", 2000)
     if "is_active" in data:
         user.is_active = bool(data.get("is_active"))
+    if "plan" in data and data.get("plan") is not None:
+        next_plan = str(data.get("plan")).strip().lower()
+        if next_plan not in {"free", "premium"}:
+            raise ValidationError("Plan must be free or premium.", "INVALID_PLAN")
+        user.plan = next_plan
     if data.get("password"):
         user.password_hash = hash_password(validate_password(str(data.get("password"))))
     if not user.username:

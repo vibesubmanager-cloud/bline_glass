@@ -144,4 +144,6 @@ def test_admin_test_section_is_on_page(client):
     assert "section-test" in html
     assert "gemini-test-form" in html
     assert "Daily calling key" in html
+    assert "Stripe payments" in html
+    assert "PayPal payments" in html
     assert "text-test-form" in html

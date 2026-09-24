@@ -16,6 +16,11 @@ from app.services.key_store import (
     mark_ok,
     update_key,
 )
+from app.services.subscription_service import (
+    SubscriptionError,
+    admin_payload,
+    update_settings as update_subscription_settings,
+)
 from app.utils.logging import log_event
 from app.utils.responses import fail, ok
 from app.utils.security import admin_required, create_token, hash_password, verify_password
@@ -34,6 +39,8 @@ def _error(exc: Exception):
     if isinstance(exc, AdminError):
         return fail(exc.code, exc.message, exc.status)
     if isinstance(exc, KeyStoreError):
+        return fail(exc.code, exc.message, exc.status)
+    if isinstance(exc, SubscriptionError):
         return fail(exc.code, exc.message, exc.status)
     if isinstance(exc, ValidationError):
         return fail(exc.code, exc.message, 400)
@@ -230,6 +237,25 @@ def _run_key_test(row: ApiKey, *, text: str = "", image=None) -> dict:
         from app.services.daily_service import ping_daily
 
         return ping_daily(row.key_value)
+    if row.provider == "stripe_secret":
+        from app.services.payment_service import ping_stripe
+
+        return ping_stripe(row.key_value)
+    if row.provider == "stripe_publishable":
+        value = row.key_value or ""
+        ok_key = value.startswith("pk_")
+        return {"ok": ok_key, "reply": "Stripe publishable key looks valid." if ok_key else "Publishable keys start with pk_test_ or pk_live_."}
+    if row.provider == "stripe_webhook":
+        value = row.key_value or ""
+        ok_key = value.startswith("whsec_")
+        return {"ok": ok_key, "reply": "Stripe webhook secret looks valid." if ok_key else "Webhook secrets start with whsec_."}
+    if row.provider in {"paypal_client", "paypal_secret"}:
+        from app.services.payment_service import first_secret, ping_paypal
+        from app.services.subscription_service import get_settings
+
+        client_id = row.key_value if row.provider == "paypal_client" else first_secret("paypal_client")
+        secret = row.key_value if row.provider == "paypal_secret" else first_secret("paypal_secret")
+        return ping_paypal(client_id, secret, get_settings().paypal_mode)
     return {"ok": False, "reply": "Unknown provider."}
 
 
@@ -260,3 +286,37 @@ def seed_admin_user() -> None:
     db.session.add(user)
     db.session.commit()
     log_event("ADMIN_SEEDED", username=username)
+
+
+@admin_bp.get("/subscription")
+@admin_required
+def get_subscription():
+    try:
+        return ok(admin_payload())
+    except Exception as exc:
+        return _error(exc)
+
+
+@admin_bp.put("/subscription")
+@admin_required
+def save_subscription():
+    try:
+        data = require_json(request.get_json(silent=True))
+        update_subscription_settings(data)
+        return ok(admin_payload())
+    except Exception as exc:
+        return _error(exc)
+
+
+@admin_bp.put("/payments")
+@admin_required
+def save_payments():
+    try:
+        from app.services.payment_service import save_payment_keys
+
+        data = require_json(request.get_json(silent=True))
+        save_payment_keys(data)
+        return ok({"keys": True, **admin_payload()})
+    except Exception as exc:
+        db.session.rollback()
+        return _error(exc)

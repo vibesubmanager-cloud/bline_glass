@@ -1345,3 +1345,148 @@ textarea {
   min-height: 1.4em;
   color: var(--muted, #b7c4cc);
 }
+
+.plans-page {
+  background:
+    radial-gradient(720px 360px at 12% -10%, rgba(255, 209, 102, 0.22), transparent 55%),
+    radial-gradient(640px 380px at 110% 8%, rgba(124, 92, 255, 0.28), transparent 50%),
+    radial-gradient(700px 420px at 50% 120%, rgba(90, 220, 255, 0.16), transparent 58%),
+    var(--bg);
+}
+
+.plans-shell {
+  gap: 16px;
+}
+
+.plans-hero {
+  padding: 8px 4px 4px;
+}
+
+.plans-kicker {
+  margin: 0 0 6px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: #ffd166;
+}
+
+.plans-hero h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.plans-hero p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.plans-banner {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(77, 255, 184, 0.28);
+  background: rgba(77, 255, 184, 0.1);
+  color: #bfffe4;
+}
+
+.plan-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.plan-card {
+  position: relative;
+  padding: 20px 18px 18px;
+  border-radius: 26px;
+  border: 1px solid var(--stroke);
+  background: rgba(10, 16, 28, 0.62);
+  overflow: hidden;
+}
+
+.plan-card.is-premium {
+  border-color: rgba(255, 209, 102, 0.45);
+  background:
+    linear-gradient(165deg, rgba(255, 209, 102, 0.16), rgba(124, 92, 255, 0.12) 42%, rgba(10, 16, 28, 0.78));
+  box-shadow: 0 18px 40px rgba(255, 209, 102, 0.08);
+}
+
+.plan-card.is-current {
+  outline: 2px solid rgba(90, 220, 255, 0.45);
+}
+
+.plan-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(90, 220, 255, 0.16);
+  color: var(--cyan);
+  font-size: 12px;
+}
+
+.plan-name {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.plan-price {
+  margin: 8px 0 4px;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.plan-card.is-premium .plan-price {
+  color: #ffd166;
+}
+
+.plan-tag {
+  margin: 0 0 14px;
+  color: var(--fg);
+}
+
+.plan-features {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.plan-features li {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 8px;
+  align-items: center;
+  color: var(--fg);
+}
+
+.plan-features li span {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(77, 255, 184, 0.16);
+  color: var(--ok);
+  font-size: 12px;
+}
+
+.plan-cta {
+  width: 100%;
+  background: linear-gradient(135deg, #ffd166, #ff9f43);
+  color: #2a1a00;
+  border: 0;
+  font-weight: 700;
+}
+
+.plan-note {
+  margin: 0;
+  color: var(--muted);
+}

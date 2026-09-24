@@ -6,6 +6,7 @@ from app.models.call import CallSession, CallSignal
 from app.models.usage import UsageLog
 from app.models.message import Message
 from app.models.api_key import ApiKey
+from app.models.settings import AppSettings
 
 __all__ = [
     "User",
@@ -18,4 +19,5 @@ __all__ = [
     "UsageLog",
     "Message",
     "ApiKey",
+    "AppSettings",
 ]

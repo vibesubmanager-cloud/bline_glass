@@ -11,6 +11,7 @@
       <aside class="sidebar">
         <h1>AI Sight Admin</h1>
         <button class="nav-btn active" data-section="users" type="button">Users</button>
+        <button class="nav-btn" data-section="subscription" type="button">Subscriptions</button>
         <button class="nav-btn" data-section="keys" type="button">API keys</button>
         <button class="nav-btn" data-section="test" type="button">Test</button>
         <button class="sign-out" id="sign-out" type="button">Sign out</button>
@@ -40,6 +41,7 @@
                     <th>Name</th>
                     <th>Username</th>
                     <th>Role</th>
+                    <th>Plan</th>
                     <th>Email</th>
                     <th>Phone</th>
                     <th>System ID</th>
@@ -65,6 +67,12 @@
                 <label>New password <input name="password" type="password" placeholder="Leave blank to keep" /></label>
                 <label>Health notes <textarea name="health_notes"></textarea></label>
                 <label>Other notes <textarea name="other_notes"></textarea></label>
+                <label>Plan
+                  <select name="plan">
+                    <option value="free">Free</option>
+                    <option value="premium">Premium</option>
+                  </select>
+                </label>
                 <label><input name="is_active" type="checkbox" /> Account is active</label>
                 <button class="btn primary" type="submit">Save account</button>
               </form>
@@ -87,9 +95,54 @@
           </div>
         </section>
 
+        <section id="section-subscription" class="hidden">
+          <h2>Subscriptions</h2>
+          <p class="muted">Turn this on to charge for Describe and Read. Turn it off and every feature is free for everyone.</p>
+          <form class="card" id="subscription-form">
+            <label class="switch-row">
+              <span>
+                <strong>Subscriptions</strong>
+                <span class="muted" id="sub-state-copy">Off — everything is free</span>
+              </span>
+              <input id="sub-enabled" name="subscriptions_enabled" type="checkbox" />
+            </label>
+            <div class="grid-2">
+              <label>Free name <input name="free_name" /></label>
+              <label>Premium name <input name="premium_name" /></label>
+            </div>
+            <label>Free tagline <input name="free_tagline" /></label>
+            <label>Premium tagline <input name="premium_tagline" /></label>
+            <div class="grid-2">
+              <label>Premium price (dollars) <input name="premium_price_dollars" type="number" min="0" step="0.01" /></label>
+              <label>Interval
+                <select name="premium_interval">
+                  <option value="month">Monthly</option>
+                  <option value="year">Yearly</option>
+                </select>
+              </label>
+            </div>
+            <p class="muted">Free always includes object detection, video calls, and messages. Premium adds Describe and Read.</p>
+            <label>Take payments with
+              <select name="payment_provider">
+                <option value="none">None yet (admin can assign Premium)</option>
+                <option value="stripe">Stripe</option>
+                <option value="paypal">PayPal</option>
+              </select>
+            </label>
+            <label>PayPal environment
+              <select name="paypal_mode">
+                <option value="live">Live</option>
+                <option value="sandbox">Sandbox (testing)</option>
+              </select>
+            </label>
+            <p class="muted" id="payment-status-copy">Save Stripe or PayPal keys on the API keys page, then choose that provider here.</p>
+            <button class="btn primary" type="submit">Save subscriptions</button>
+          </form>
+        </section>
+
         <section id="section-keys" class="hidden">
           <h2>API keys</h2>
-          <p class="muted">Add Gemini, Groq, and Daily keys here. Keys are stored on the server. Phones never receive the Daily master key.</p>
+          <p class="muted">Add Gemini, Groq, Daily, Stripe, and PayPal keys here. Secret keys stay on the server. Phones never receive them.</p>
           <div class="grid-2">
             <div class="card" data-provider="gemini">
               <h3>Gemini vision keys</h3>
@@ -120,6 +173,27 @@
               </form>
               <div class="key-list"></div>
               <p class="muted">This key stays on the server. Use Test on the key to confirm Daily accepts it.</p>
+            </div>
+            <div class="card">
+              <h3>Stripe payments</h3>
+              <p class="muted">From Stripe Dashboard → Developers → API keys. Secret key starts with sk_live_ or sk_test_. Publishable key starts with pk_live_ or pk_test_. Webhook secret is optional, from Developers → Webhooks, endpoint <code>/api/billing/stripe/webhook</code>.</p>
+              <form class="pay-form" data-bundle="stripe">
+                <label>Secret key <input name="stripe_secret" autocomplete="off" placeholder="sk_live_… or sk_test_…" /></label>
+                <label>Publishable key <input name="stripe_publishable" autocomplete="off" placeholder="pk_live_… or pk_test_…" /></label>
+                <label>Webhook signing secret <input name="stripe_webhook" autocomplete="off" placeholder="whsec_… optional" /></label>
+                <button class="btn primary" type="submit">Save Stripe keys</button>
+              </form>
+              <div class="key-list" data-providers="stripe_secret,stripe_publishable,stripe_webhook"></div>
+            </div>
+            <div class="card">
+              <h3>PayPal payments</h3>
+              <p class="muted">From PayPal Developer Dashboard → Apps &amp; Credentials. Use Live client ID and secret for real payments, or Sandbox keys for testing. Set Live/Sandbox on the Subscriptions page.</p>
+              <form class="pay-form" data-bundle="paypal">
+                <label>Client ID <input name="paypal_client_id" autocomplete="off" /></label>
+                <label>Secret <input name="paypal_secret" autocomplete="off" /></label>
+                <button class="btn primary" type="submit">Save PayPal keys</button>
+              </form>
+              <div class="key-list" data-providers="paypal_client,paypal_secret"></div>
             </div>
           </div>
         </section>
@@ -156,6 +230,6 @@
         </section>
       </main>
     </div>
-    <script type="module" src="../js/admin.js?v=5"></script>
+    <script type="module" src="../js/admin.js?v=7"></script>
   </body>
 </html>

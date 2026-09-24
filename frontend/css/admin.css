@@ -270,6 +270,47 @@ code { background: var(--chip); padding: 2px 6px; border-radius: 6px; }
   font-family: inherit;
 }
 
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0 18px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+
+.switch-row input[type="checkbox"] {
+  width: 48px;
+  height: 28px;
+  margin: 0;
+  appearance: none;
+  background: #d8dee8;
+  border-radius: 999px;
+  position: relative;
+  cursor: pointer;
+}
+
+.switch-row input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.16s ease;
+}
+
+.switch-row input[type="checkbox"]:checked {
+  background: var(--ok);
+}
+
+.switch-row input[type="checkbox"]:checked::after {
+  transform: translateX(20px);
+}
+
 @media (max-width: 900px) {
   .admin-shell { grid-template-columns: 1fr; }
   .grid-2 { grid-template-columns: 1fr; }

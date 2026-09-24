@@ -173,6 +173,7 @@ async function showUser(userId) {
   form.password.value = "";
   form.health_notes.value = user.health_notes || "";
   form.other_notes.value = user.other_notes || "";
+  form.plan.value = user.plan === "premium" ? "premium" : "free";
   form.is_active.checked = user.is_active !== false;
   form.dataset.userId = user.id;
   document.getElementById("people-box").innerHTML = peopleHtml(detail);
@@ -205,6 +206,7 @@ async function loadUsers() {
         <td>${user.name}</td>
         <td>${user.username || ""}</td>
         <td><span class="chip">${user.role}</span></td>
+        <td>${user.plan || "free"}</td>
         <td>${user.email}</td>
         <td>${user.phone || ""}</td>
         <td>${user.system_id || ""}</td>
@@ -247,11 +249,77 @@ function showSection(name) {
     item.classList.toggle("active", item.dataset.section === name);
   });
   document.getElementById("section-users").classList.toggle("hidden", name !== "users");
+  document.getElementById("section-subscription")?.classList.toggle("hidden", name !== "subscription");
   document.getElementById("section-keys").classList.toggle("hidden", name !== "keys");
   document.getElementById("section-test").classList.toggle("hidden", name !== "test");
   if (name === "keys" || name === "test") {
     return loadKeys().catch((error) => showStatus(error.message));
   }
+  if (name === "subscription") {
+    return loadSubscription().catch((error) => showStatus(error.message));
+  }
+}
+
+function fillSubscription(data) {
+  const form = document.getElementById("subscription-form");
+  if (!form || !data) return;
+  form.subscriptions_enabled.checked = Boolean(data.subscriptions_enabled);
+  form.free_name.value = data.free_name || "Free";
+  form.premium_name.value = data.premium_name || "Premium";
+  form.free_tagline.value = data.free_tagline || "";
+  form.premium_tagline.value = data.premium_tagline || "";
+  form.premium_price_dollars.value = ((data.premium_price_cents || 500) / 100).toFixed(2);
+  form.premium_interval.value = data.interval || "month";
+  form.payment_provider.value = data.payment_provider || "none";
+  form.paypal_mode.value = data.paypal_mode || "live";
+  const copy = document.getElementById("sub-state-copy");
+  if (copy) {
+    copy.textContent = data.subscriptions_enabled
+      ? "On — Describe and Read require Premium"
+      : "Off — everything is free";
+  }
+  const payCopy = document.getElementById("payment-status-copy");
+  if (payCopy) {
+    if (data.payment_provider === "stripe") {
+      payCopy.textContent = data.stripe_ready
+        ? "Stripe is ready. People will pay on Stripe Checkout."
+        : "Stripe is selected, but the secret and publishable keys are still missing on API keys.";
+    } else if (data.payment_provider === "paypal") {
+      payCopy.textContent = data.paypal_ready
+        ? `PayPal is ready (${data.paypal_mode || "live"}). People will pay on PayPal.`
+        : "PayPal is selected, but the client ID and secret are still missing on API keys.";
+    } else {
+      payCopy.textContent = "No payment provider yet. Save Stripe or PayPal keys, then choose one here.";
+    }
+  }
+}
+
+async function loadSubscription() {
+  const data = await adminApi("/api/admin/subscription");
+  fillSubscription(data);
+}
+
+async function saveSubscription(form) {
+  const body = {
+    subscriptions_enabled: form.subscriptions_enabled.checked,
+    free_name: form.free_name.value,
+    premium_name: form.premium_name.value,
+    free_tagline: form.free_tagline.value,
+    premium_tagline: form.premium_tagline.value,
+    premium_price_dollars: Number(form.premium_price_dollars.value),
+    premium_interval: form.premium_interval.value,
+    payment_provider: form.payment_provider.value,
+    paypal_mode: form.paypal_mode.value,
+  };
+  showStatus("Saving subscriptions…");
+  const data = await adminApi("/api/admin/subscription", { method: "PUT", body });
+  fillSubscription(data);
+  showStatus(
+    data.subscriptions_enabled
+      ? "Subscriptions are on for everyone."
+      : "Subscriptions are off. Everything is free.",
+    true
+  );
 }
 
 function keyRow(item) {
@@ -272,13 +340,21 @@ function keyRow(item) {
 
 async function loadKeys() {
   const data = await adminApi("/api/admin/keys");
-  cachedKeys = data.keys || { gemini: [], groq: [] };
+  cachedKeys = data.keys || { gemini: [], groq: [], daily: [] };
   document.querySelectorAll("[data-provider]").forEach((card) => {
     const provider = card.dataset.provider;
     const list = card.querySelector(".key-list");
     if (!list) return;
     const rows = cachedKeys[provider] || [];
     list.innerHTML = rows.map(keyRow).join("") || "<p class='muted'>No keys yet.</p>";
+    list.querySelectorAll("button[data-act]").forEach((button) => {
+      button.onclick = () => handleKeyAction(button).catch((error) => showStatus(error.message));
+    });
+  });
+  document.querySelectorAll(".key-list[data-providers]").forEach((list) => {
+    const names = list.dataset.providers.split(",");
+    const rows = names.flatMap((name) => cachedKeys[name] || []);
+    list.innerHTML = rows.map(keyRow).join("") || "<p class='muted'>No keys saved yet.</p>";
     list.querySelectorAll("button[data-act]").forEach((button) => {
       button.onclick = () => handleKeyAction(button).catch((error) => showStatus(error.message));
     });
@@ -291,10 +367,10 @@ async function handleKeyAction(button) {
   const id = button.dataset.id;
   const act = button.dataset.act;
   if (act === "test") {
-    if (button.dataset.provider === "daily") {
-      showStatus("Testing Daily key…");
+    if (["daily", "stripe_secret", "stripe_publishable", "stripe_webhook", "paypal_client", "paypal_secret"].includes(button.dataset.provider)) {
+      showStatus("Testing key…");
       const result = await adminApi(`/api/admin/keys/${id}/test`, { method: "POST", body: {} });
-      showStatus(result.ok ? "Daily key works." : result.reply || "That Daily key did not work.", result.ok);
+      showStatus(result.ok ? result.reply || "That key works." : result.reply || "That key did not work.", result.ok);
       await loadKeys();
       return;
     }
@@ -378,6 +454,25 @@ function bindDashboard() {
       }
     };
   });
+  document.querySelectorAll(".pay-form").forEach((form) => {
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+      const body = Object.fromEntries(new FormData(form).entries());
+      showStatus("Saving payment keys…");
+      const button = form.querySelector("button[type='submit']");
+      if (button) button.disabled = true;
+      try {
+        await adminApi("/api/admin/payments", { method: "PUT", body, timeout: 20000 });
+        form.reset();
+        await loadKeys();
+        showStatus("Payment keys saved. Only the last four characters are shown.", true);
+      } catch (error) {
+        showStatus(error.message);
+      } finally {
+        if (button) button.disabled = false;
+      }
+    };
+  });
   const preview = document.getElementById("gemini-test-preview");
   document.getElementById("gemini-test-image").onchange = (event) => {
     const file = event.target.files && event.target.files[0];
@@ -443,6 +538,25 @@ function bindDashboard() {
       showStatus(error.message);
     }
   };
+  const subscriptionForm = document.getElementById("subscription-form");
+  if (subscriptionForm) {
+    subscriptionForm.onsubmit = async (event) => {
+      event.preventDefault();
+      try {
+        await saveSubscription(event.currentTarget);
+      } catch (error) {
+        showStatus(error.message);
+      }
+    };
+    subscriptionForm.subscriptions_enabled.onchange = () => {
+      const copy = document.getElementById("sub-state-copy");
+      if (copy) {
+        copy.textContent = subscriptionForm.subscriptions_enabled.checked
+          ? "On — Describe and Read require Premium"
+          : "Off — everything is free";
+      }
+    };
+  }
   loadUsers().catch((error) => showStatus(error.message));
 }
 
