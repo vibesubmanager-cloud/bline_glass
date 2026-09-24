@@ -12,15 +12,12 @@ from PIL import Image
 from app.utils.logging import log_error, log_event
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-VISION_TIMEOUT_SEC = 45
+VISION_TIMEOUT_SEC = 20
 _DESCRIBE_IMAGE_SIDE = 960
 _READ_IMAGE_SIDE = 1280
 _FAST_VISION_MODEL = "gemini-2.5-flash"
 _FALLBACK_VISION_MODELS = (
     "gemini-2.0-flash",
-    "gemini-flash-latest",
-    "gemini-1.5-flash",
-    "gemini-3.1-flash-lite",
 )
 
 
@@ -104,6 +101,8 @@ class GeminiService:
             if name and name not in seen:
                 seen.add(name)
                 unique.append(name)
+            if len(unique) >= 2:
+                break
         return unique
 
     def _post(self, model_name: str, prompt: str, jpeg: bytes, max_tokens: int, api_key: str):
@@ -164,9 +163,7 @@ class GeminiService:
                 except requests.Timeout as exc:
                     log_event("GEMINI_TIMEOUT", seconds=VISION_TIMEOUT_SEC, model=model_name)
                     last_error = exc
-                    mark_error(row, "Timed out")
-                    key_failed = True
-                    break
+                    continue
                 except requests.RequestException as exc:
                     log_error("GEMINI_ERROR", exc)
                     last_error = exc
@@ -207,7 +204,7 @@ class GeminiService:
         raise GeminiServiceError("I'm having trouble processing the image. Please try again.") from last_error
 
     def read_text(self, image: Image.Image) -> dict:
-        text = self._generate(READ_PROMPT, image, max_tokens=2048, max_side=_READ_IMAGE_SIDE)
+        text = self._generate(READ_PROMPT, image, max_tokens=1024, max_side=_READ_IMAGE_SIDE)
         uncertain = any(
             phrase in text.lower()
             for phrase in ["cannot read", "can't read", "unclear", "not readable", "no text"]

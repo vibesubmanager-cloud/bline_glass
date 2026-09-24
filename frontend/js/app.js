@@ -8,7 +8,8 @@ import { detectObjects, ensureOnDeviceYolo } from "./detection.js";
 import { speakOut } from "./speak-out.js";
 import { preloadYolo } from "./yolo-preload.js";
 import { isYoloInstalled, onYoloProgress, holdDetectionAwake, releaseDetectionAwake, warmYoloIfInstalled } from "./yolo-on-device.js";
-import { readScene, describeScene, askAboutScene } from "./vision.js?v=3";
+import { readScene, describeScene, askAboutScene } from "./vision.js?v=4";
+import { armVisionSpeaker, speakVision } from "./vision-speak.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { isStandaloneApp } from "./location.js";
 import { calls } from "./calls.js?v=13";
@@ -407,33 +408,33 @@ async function executeCommand(parsed, text) {
 
   const signal = appState.beginRequest();
   try {
-    if (parsed.intent === "READ") {
-      setAiStatus("Reading the page...");
-      const spoken = await readScene(signal);
-      setAiStatus("");
-      appState.set(detectionMode ? STATES.DETECTING : STATES.IDLE);
-      setStatus(spoken);
-      showVoiceReply(text, spoken);
-      voice.restoreSpeaker();
-      await speakOut(spoken, { interrupt: true, priority: 2 });
-      return;
-    }
-    if (parsed.intent === "DESCRIBE") {
-      setAiStatus("Looking in front of you...");
-      const spoken = await describeScene(signal);
-      setAiStatus("");
-      appState.set(detectionMode ? STATES.DETECTING : STATES.IDLE);
-      setStatus(spoken);
-      showVoiceReply(text, spoken);
-      voice.restoreSpeaker();
-      await speakOut(spoken, { interrupt: true, priority: 2 });
-      return;
-    }
-    if (parsed.intent === "VISUAL_QUESTION") {
-      setAiStatus("AI is looking...");
-      const spoken = await askAboutScene(text, signal);
-      setAiStatus("");
-      speakThenShow(text, spoken);
+    if (parsed.intent === "READ" || parsed.intent === "DESCRIBE" || parsed.intent === "VISUAL_QUESTION") {
+      voice.unlock({ fromGesture: true });
+      armVisionSpeaker();
+      const looking = parsed.intent === "READ" ? "Reading the page..." : parsed.intent === "DESCRIBE" ? "Looking in front of you..." : "AI is looking...";
+      const cue = parsed.intent === "READ" ? "Okay. Reading the page in front of the camera." : "Okay. Looking in front of you.";
+      setAiStatus(looking);
+      speakVision(cue);
+      try {
+        const spoken =
+          parsed.intent === "READ"
+            ? await readScene(signal)
+            : parsed.intent === "DESCRIBE"
+              ? await describeScene(signal)
+              : await askAboutScene(text, signal);
+        setAiStatus("");
+        appState.set(detectionMode ? STATES.DETECTING : STATES.IDLE);
+        setStatus(spoken);
+        showVoiceReply(text, spoken);
+        armVisionSpeaker();
+        await speakVision(spoken);
+      } catch (error) {
+        setAiStatus("");
+        const message = error.message || "I could not complete that request. Please try again.";
+        setStatus(message);
+        showVoiceReply(text, message);
+        await speakVision(message);
+      }
       return;
     }
     await voice.speak(parsed.spoken || "I didn't catch that. Please say it again.");
