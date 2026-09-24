@@ -131,12 +131,19 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
 
     def _boot_database():
         db.create_all()
-        _ensure_settings_columns()
-        _ensure_user_columns()
-        _ensure_contact_columns()
-        _ensure_message_table()
-        _ensure_api_key_table()
-        _ensure_call_columns()
+        for step in (
+            _ensure_settings_columns,
+            _ensure_user_columns,
+            _ensure_contact_columns,
+            _ensure_message_table,
+            _ensure_api_key_table,
+            _ensure_call_columns,
+        ):
+            try:
+                step()
+            except Exception as extra:
+                db.session.rollback()
+                log_event("DB_BOOT_ERROR", step=step.__name__, error=str(extra)[:220])
         from app.routes.admin import seed_admin_user
         from app.services.key_store import seed_env_keys
 
@@ -148,6 +155,7 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
             try:
                 _boot_database()
             except Exception as extra:
+                db.session.rollback()
                 log_event("DB_BOOT_ERROR", error=str(extra)[:220])
             try:
                 from app.services.tts_service import warmup_tts
@@ -180,9 +188,9 @@ def _ensure_settings_columns() -> None:
         return
     columns = {column["name"] for column in inspector.get_columns("user_settings")}
     if "walking_directions" not in columns:
-        db.session.execute(text("ALTER TABLE user_settings ADD COLUMN walking_directions BOOLEAN DEFAULT 0"))
+        db.session.execute(text("ALTER TABLE user_settings ADD COLUMN walking_directions BOOLEAN DEFAULT FALSE"))
     if "calling_configured" not in columns:
-        db.session.execute(text("ALTER TABLE user_settings ADD COLUMN calling_configured BOOLEAN DEFAULT 0"))
+        db.session.execute(text("ALTER TABLE user_settings ADD COLUMN calling_configured BOOLEAN DEFAULT FALSE"))
     db.session.commit()
 
 
