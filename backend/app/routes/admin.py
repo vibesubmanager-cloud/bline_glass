@@ -113,6 +113,7 @@ def user_messages(user_id: str):
 
 @admin_bp.get("/keys")
 @admin_required
+@limiter.exempt
 def keys():
     grouped = {provider: [] for provider in PROVIDERS}
     for row in list_keys():
@@ -122,15 +123,17 @@ def keys():
 
 @admin_bp.post("/keys")
 @admin_required
+@limiter.exempt
 def create_key():
     try:
         data = require_json(request.get_json(silent=True))
         provider = require_string(data, "provider", max_len=32)
-        key_value = require_string(data, "key", min_len=8, max_len=512)
+        key_value = require_string(data, "key", min_len=8, max_len=2048)
         label = optional_string(data, "label", 80)
         row = add_key(provider, key_value, label)
         return ok({"key": row.public_dict()}, 201)
     except Exception as exc:
+        db.session.rollback()
         return _error(exc)
 
 

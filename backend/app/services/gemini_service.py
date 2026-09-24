@@ -53,12 +53,12 @@ def _prepare_jpeg(image: Image.Image, max_side: int = _DESCRIBE_IMAGE_SIDE) -> b
         rgb.thumbnail((max_side, max_side))
     quality = 78
     buf = io.BytesIO()
-    rgb.save(buf, format="JPEG", quality=quality, optimize=True)
+    rgb.save(buf, format="JPEG", quality=quality)
     data = buf.getvalue()
     while len(data) > 1_200_000 and quality > 50:
         quality -= 8
         buf = io.BytesIO()
-        rgb.save(buf, format="JPEG", quality=quality, optimize=True)
+        rgb.save(buf, format="JPEG", quality=quality)
         data = buf.getvalue()
     return data
 

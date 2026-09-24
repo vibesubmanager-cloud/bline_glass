@@ -27,20 +27,28 @@ function showStatus(message, ok = false) {
   el.classList.toggle("ok", Boolean(ok) && Boolean(message));
 }
 
-async function adminApi(path, { method = "GET", body, isForm = false } = {}) {
+async function adminApi(path, { method = "GET", body, isForm = false, timeout = 20000 } = {}) {
   const headers = {};
   if (token()) headers.Authorization = `Bearer ${token()}`;
   if (!isForm && body !== undefined) headers["Content-Type"] = "application/json";
   const url = `${getApiBase()}${path}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
   let response;
   try {
     response = await fetch(url, {
       method,
       headers,
       body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
+      signal: controller.signal,
     });
-  } catch {
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("That request took too long. Wait a few seconds, then try again.");
+    }
     throw new Error("Could not reach the API. Wait a few seconds if Render is waking, then try again.");
+  } finally {
+    clearTimeout(timer);
   }
   const payload = await response.json().catch(() => null);
   if (response.status === 401) {
@@ -356,13 +364,17 @@ function bindDashboard() {
       const body = Object.fromEntries(new FormData(form).entries());
       body.provider = provider;
       showStatus("Saving key…");
+      const button = form.querySelector("button[type='submit']");
+      if (button) button.disabled = true;
       try {
-        await adminApi("/api/admin/keys", { method: "POST", body });
+        await adminApi("/api/admin/keys", { method: "POST", body, timeout: 20000 });
         form.reset();
         await loadKeys();
         showStatus("API key saved. Only the last four characters are shown.", true);
       } catch (error) {
         showStatus(error.message);
+      } finally {
+        if (button) button.disabled = false;
       }
     };
   });
@@ -398,7 +410,7 @@ function bindDashboard() {
     reply.textContent = "Testing Gemini with this photo…";
     showStatus("Testing Gemini…");
     try {
-      const result = await adminApi(`/api/admin/keys/${keyId}/test`, { method: "POST", body: payload, isForm: true });
+      const result = await adminApi(`/api/admin/keys/${keyId}/test`, { method: "POST", body: payload, isForm: true, timeout: 70000 });
       reply.textContent = result.reply || (result.ok ? "Gemini answered." : "Gemini did not answer.");
       showStatus(result.ok ? `Gemini replied in ${result.ms || "?"} ms.` : result.reply, result.ok);
       await loadKeys();
