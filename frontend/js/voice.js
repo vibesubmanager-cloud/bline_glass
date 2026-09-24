@@ -1,4 +1,5 @@
 import { getApiBase, getSettings, getToken } from "./config.js";
+import { camera } from "./camera.js";
 import { smallTalkReply } from "./intent.js?v=38";
 import { appState, STATES } from "./state.js";
 
@@ -792,7 +793,7 @@ class VoiceService {
     return Boolean(SpeechRecognition);
   }
 
-  startHoldListen({ language } = {}) {
+  async startHoldListen({ language } = {}) {
     if (!window.isSecureContext) {
       return Promise.reject(
         Object.assign(new Error("iPhone blocks the microphone on http. Open the https Safari address."), {
@@ -808,6 +809,11 @@ class VoiceService {
     this._pauseForMic();
     this.stopListening();
     this._usedMic = true;
+    try {
+      await camera.primeMicrophone();
+    } catch {
+      /* Speech recognition will request the microphone if needed */
+    }
     const settings = getSettings();
     this._holdText = "";
     this._holding = true;

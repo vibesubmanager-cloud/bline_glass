@@ -1,17 +1,24 @@
-const CONSTRAINTS = {
-  audio: false,
-  video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
-};
-
-const FALLBACK_CONSTRAINTS = { audio: false, video: true };
+const VIDEO = { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } };
+const VIDEO_ONLY = [
+  { audio: false, video: VIDEO },
+  { audio: false, video: { facingMode: "environment" } },
+  { audio: false, video: true },
+];
+const AUDIO_AND_VIDEO = [
+  { audio: true, video: VIDEO },
+  { audio: true, video: { facingMode: "environment" } },
+  { audio: true, video: true },
+  ...VIDEO_ONLY,
+];
 
 class CameraService {
   constructor() {
     this.stream = null;
     this.video = null;
+    this._micGranted = false;
   }
 
-  async start(videoEl) {
+  async start(videoEl, { includeAudio = false } = {}) {
     if (!window.isSecureContext) {
       throw Object.assign(
         new Error("iPhone blocks camera on http. Open this app in Safari using the https address."),
@@ -22,11 +29,12 @@ class CameraService {
       throw Object.assign(new Error("I can't access the camera."), { code: "CAMERA_UNAVAILABLE" });
     }
     this.video = videoEl || document.getElementById("camera-preview");
-    const attempts = [CONSTRAINTS, { audio: false, video: { facingMode: "environment" } }, FALLBACK_CONSTRAINTS];
+    const attempts = includeAudio ? AUDIO_AND_VIDEO : VIDEO_ONLY;
     let lastError;
     for (const options of attempts) {
       try {
         this.stream = await navigator.mediaDevices.getUserMedia(options);
+        if (options.audio) this._micGranted = true;
         lastError = null;
         break;
       } catch (error) {
@@ -36,6 +44,11 @@ class CameraService {
     if (!this.stream) {
       throw Object.assign(new Error("I can't access the camera."), { code: "CAMERA_UNAVAILABLE", cause: lastError });
     }
+    this.stream.getAudioTracks().forEach((track) => {
+      this._micGranted = true;
+      track.stop();
+      this.stream.removeTrack(track);
+    });
     if (this.video) {
       this.video.setAttribute("playsinline", "");
       this.video.muted = true;
@@ -55,6 +68,17 @@ class CameraService {
       return this.stream;
     }
     return this.start(videoEl);
+  }
+
+  async primeMicrophone() {
+    if (this._micGranted) return true;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw Object.assign(new Error("I can't access the microphone."), { code: "MIC_UNAVAILABLE" });
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((track) => track.stop());
+    this._micGranted = true;
+    return true;
   }
 
   async captureBlob(quality = 0.72, maxW = 960) {

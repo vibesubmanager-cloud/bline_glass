@@ -1,7 +1,7 @@
 import { getToken, pages, getSettings, getUser } from "./config.js";
 import { ApiError, isOnline, api } from "./api.js";
 import { appState, STATES } from "./state.js";
-import { voice } from "./voice.js?v=56";
+import { voice } from "./voice.js?v=57";
 import { camera } from "./camera.js";
 import { interpretCommand, isAffirmative, isNegative, HELP_TEXT, smallTalkReply } from "./intent.js?v=38";
 import { detectObjects, ensureOnDeviceYolo, resetOnDeviceYolo } from "./detection.js";
@@ -19,6 +19,7 @@ import { updateNavMap, clearNavMap, fitNavMap } from "./map.js";
 import { loadUnread, markMessagesRead, sendChatMessage, sendChatLocation } from "./messages.js";
 import { refreshBilling, canUseDescribe, PREMIUM_SPOKEN } from "./billing.js";
 import { applyAppLogo } from "./branding.js";
+import { grantDevices, gpsWasOk, isDeviceReady, locationLooksDenied, resumeDevices } from "./device-access.js";
 
 const zone = document.getElementById("interaction-zone");
 const statusEl = document.getElementById("status-text");
@@ -856,15 +857,18 @@ function showLocationBanner(helpText = "") {
 function markGps(on, position) {
   setGps(on);
   if (on && position?.coords) {
+    localStorage.setItem("AISIGHT_GPS_OK", "1");
     sessionStorage.setItem("AISIGHT_GPS_OK", "1");
   }
 }
 
 async function allowLocation() {
   try {
-    const pos = await requestLocationAccess();
+    const pos = await grantDevices(document.getElementById("camera-preview"));
     markGps(true, pos);
     hideLocationBanner();
+    setLive(true);
+    voice.unlock({ fromGesture: true });
     const pendingDest = sessionStorage.getItem("AI_SIGHT_NAV_DEST");
     if (pendingDest) {
       sessionStorage.removeItem("AI_SIGHT_NAV_DEST");
@@ -873,10 +877,8 @@ async function allowLocation() {
       await voice.speak(spoken);
       return;
     }
-    const lat = pos.coords.latitude.toFixed(4);
-    const lng = pos.coords.longitude.toFixed(4);
-    setStatus(`Location is on. ${lat}, ${lng}. Say take me to a place.`);
-    await voice.speak("Location is on. You can send it to a family member if you need help.");
+    setStatus("Camera, microphone, and location are on.");
+    await voice.speak("Camera, microphone, and location are on. Next time you open the app, they will start by themselves.");
   } catch (error) {
     markGps(false);
     showLocationBanner(error.message);
@@ -885,18 +887,41 @@ async function allowLocation() {
 }
 
 async function promptForLocation() {
-  if (sessionStorage.getItem("AISIGHT_GPS_OK") === "1") {
-    hideLocationBanner();
-    getCurrentPosition()
-      .then((pos) => markGps(true, pos))
-      .catch(() => {
-        sessionStorage.removeItem("AISIGHT_GPS_OK");
-        showLocationBanner("");
-      });
-    return;
+  hideLocationBanner();
+  const preview = document.getElementById("camera-preview");
+  const tryResume = async () => {
+    const { pos } = await resumeDevices(preview);
+    markGps(true, pos);
+    setLive(true);
+  };
+  if (isDeviceReady() || gpsWasOk()) {
+    try {
+      await tryResume();
+      return;
+    } catch (error) {
+      if (error?.code === "GPS_DENIED") {
+        showLocationBanner(error.message);
+        return;
+      }
+      try {
+        await camera.ensureStarted(preview);
+        setLive(true);
+      } catch {
+        setLive(false);
+      }
+      return;
+    }
   }
-  const state = await locationPermissionState();
-  if (state === "denied") {
+  try {
+    await camera.ensureStarted(preview);
+    setLive(true);
+    const { pos } = await resumeDevices(preview);
+    markGps(true, pos);
+    return;
+  } catch {
+    /* first visit still needs a tap on iPhone */
+  }
+  if (await locationLooksDenied()) {
     showLocationBanner(
       isStandaloneApp()
         ? "On iPhone: Settings, scroll to AI Sight, tap Location, choose While Using the App."
@@ -939,10 +964,6 @@ async function boot() {
   refreshBilling();
   announceUnread();
   setInterval(announceUnread, 5000);
-  camera
-    .ensureStarted(document.getElementById("camera-preview"))
-    .then(() => setLive(true))
-    .catch(() => setLive(false));
   if (!voice.listeningSupported()) fallbackForm?.classList.remove("hidden");
   navigation.onChange = (info) => {
     const remaining = info.user ? navigation.remainingDistance(info.user) : null;

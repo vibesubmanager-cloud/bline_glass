@@ -13,14 +13,14 @@
     <link rel="stylesheet" href="./css/main.css" />
     <script>
       const go = () => {
-        const token = sessionStorage.getItem("VIBE_EYE_TOKEN");
+        const token = localStorage.getItem("VIBE_EYE_TOKEN") || sessionStorage.getItem("VIBE_EYE_TOKEN");
         if (!token) {
           location.replace("./pages/welcome.html");
           return;
         }
         let role = "blind";
         try {
-          role = JSON.parse(sessionStorage.getItem("VIBE_EYE_USER") || "{}").role || "blind";
+          role = JSON.parse(localStorage.getItem("VIBE_EYE_USER") || sessionStorage.getItem("VIBE_EYE_USER") || "{}").role || "blind";
         } catch {
           role = "blind";
         }

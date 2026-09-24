@@ -1,5 +1,26 @@
 import { DEFAULT_API_BASE } from "./api-config.js";
 
+const TOKEN_KEY = "VIBE_EYE_TOKEN";
+const USER_KEY = "VIBE_EYE_USER";
+const SETTINGS_KEY = "VIBE_EYE_SETTINGS";
+const LINKED_KEY = "VIBE_EYE_LINKED_BLIND";
+const DEVICE_READY_KEY = "AISIGHT_DEVICE_READY";
+const GPS_OK_KEY = "AISIGHT_GPS_OK";
+
+function readStore(key) {
+  return localStorage.getItem(key) || sessionStorage.getItem(key);
+}
+
+function writeStore(key, value) {
+  localStorage.setItem(key, value);
+  sessionStorage.setItem(key, value);
+}
+
+function removeStore(key) {
+  localStorage.removeItem(key);
+  sessionStorage.removeItem(key);
+}
+
 export function getApiBase() {
   const stored = String(localStorage.getItem("VIBE_EYE_API_URL") || "").replace(/\/$/, "");
   if (stored) return stored;
@@ -17,27 +38,29 @@ export function setApiBase(url) {
 }
 
 export function getToken() {
-  return sessionStorage.getItem("VIBE_EYE_TOKEN");
+  return readStore(TOKEN_KEY);
 }
 
 export function setSession(token, user, settings, linkedBlind) {
-  if (token) sessionStorage.setItem("VIBE_EYE_TOKEN", token);
-  if (user) sessionStorage.setItem("VIBE_EYE_USER", JSON.stringify(user));
-  if (settings) sessionStorage.setItem("VIBE_EYE_SETTINGS", JSON.stringify(settings));
-  if (linkedBlind) sessionStorage.setItem("VIBE_EYE_LINKED_BLIND", JSON.stringify(linkedBlind));
-  else if (user && user.role !== "assistant") sessionStorage.removeItem("VIBE_EYE_LINKED_BLIND");
+  if (token) writeStore(TOKEN_KEY, token);
+  if (user) writeStore(USER_KEY, JSON.stringify(user));
+  if (settings) writeStore(SETTINGS_KEY, JSON.stringify(settings));
+  if (linkedBlind) writeStore(LINKED_KEY, JSON.stringify(linkedBlind));
+  else if (user && user.role !== "assistant") removeStore(LINKED_KEY);
 }
 
 export function clearSession() {
-  sessionStorage.removeItem("VIBE_EYE_TOKEN");
-  sessionStorage.removeItem("VIBE_EYE_USER");
-  sessionStorage.removeItem("VIBE_EYE_SETTINGS");
-  sessionStorage.removeItem("VIBE_EYE_LINKED_BLIND");
+  removeStore(TOKEN_KEY);
+  removeStore(USER_KEY);
+  removeStore(SETTINGS_KEY);
+  removeStore(LINKED_KEY);
+  removeStore(DEVICE_READY_KEY);
+  removeStore(GPS_OK_KEY);
 }
 
 export function getUser() {
   try {
-    return JSON.parse(sessionStorage.getItem("VIBE_EYE_USER") || "null");
+    return JSON.parse(readStore(USER_KEY) || "null");
   } catch {
     return null;
   }
@@ -45,7 +68,7 @@ export function getUser() {
 
 export function getSettings() {
   try {
-    return JSON.parse(sessionStorage.getItem("VIBE_EYE_SETTINGS") || "{}");
+    return JSON.parse(readStore(SETTINGS_KEY) || "{}");
   } catch {
     return {};
   }
@@ -53,7 +76,7 @@ export function getSettings() {
 
 export function getLinkedBlind() {
   try {
-    return JSON.parse(sessionStorage.getItem("VIBE_EYE_LINKED_BLIND") || "null");
+    return JSON.parse(readStore(LINKED_KEY) || "null");
   } catch {
     return null;
   }
@@ -91,3 +114,5 @@ export function registerUrl(role) {
   url.searchParams.set("role", "blind");
   return url.href;
 }
+
+export { DEVICE_READY_KEY, GPS_OK_KEY };
