@@ -1,7 +1,7 @@
 import { getToken, pages } from "./config.js";
 import { voice } from "./voice.js?v=44";
 import { recorder } from "./recorder.js";
-import { calls } from "./calls.js?v=14";
+import { calls, startOnHome } from "./calls.js?v=16";
 import {
   loadEmergencyMessages,
   loadGroupMessages,
@@ -214,7 +214,7 @@ async function startEmergencyCall({ video }) {
       await calls.acceptIncoming();
       return;
     }
-    const spoken = await calls.start("emergency", { video, emergency: true });
+    const spoken = await startOnHome("emergency", { video, emergency: true });
     showStatus(spoken);
     await voice.speak(spoken);
   } catch (error) {

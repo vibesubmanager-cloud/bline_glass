@@ -271,10 +271,18 @@ async function loadEmergencies() {
           const map =
             event.latitude != null && event.longitude != null
               ? `<p><a href="https://maps.google.com/?q=${event.latitude},${event.longitude}" target="_blank" rel="noopener">Open map</a></p>`
-              : "";
+              : (item.messages || []).find((msg) => msg.maps_url)
+                ? `<p><a href="${(item.messages || []).find((msg) => msg.maps_url).maps_url}" target="_blank" rel="noopener">Open map</a></p>`
+                : "";
           const notes = (item.messages || [])
-            .slice(0, 3)
-            .map((msg) => `<li>${msg.type || "text"}: ${msg.body || (msg.has_media ? "[photo or voice]" : "")}</li>`)
+            .slice(0, 4)
+            .map((msg) => {
+              const bits = [];
+              if (msg.type === "image" || msg.has_media) bits.push("camera photo");
+              if (msg.type === "location" || msg.maps_url) bits.push("map");
+              if (msg.body) bits.push(msg.body);
+              return `<li>${bits.join(" · ") || msg.type || "message"}</li>`;
+            })
             .join("");
           return `<article class="card nested">
             <p><strong>${person.name || "Someone"}</strong> · ${event.status || ""} · ${event.started_at || ""}</p>
@@ -299,7 +307,11 @@ async function loadEmergencies() {
         .map(
           (item) =>
             `<li${item.emergency ? " class='danger-text'" : ""}><strong>${item.from_name}</strong> → ${item.to_name}: ${
-              item.message?.body || item.message?.type || ""
+              item.message?.type === "image" || item.message?.has_media
+                ? "camera photo"
+                : item.message?.maps_url
+                  ? `<a href="${item.message.maps_url}" target="_blank" rel="noopener">map</a>`
+                  : item.message?.body || item.message?.type || ""
             }</li>`
         )
         .join("")}</ul>`;

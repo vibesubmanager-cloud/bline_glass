@@ -1,7 +1,7 @@
 import { api } from "./api.js";
 import { getSettings } from "./config.js";
 import { navigation, getCurrentPosition } from "./navigation.js";
-import { calls } from "./calls.js?v=14";
+import { startOnHome } from "./calls.js?v=16";
 import { voice } from "./voice.js?v=56";
 import { camera } from "./camera.js";
 import { sendChatMessage } from "./messages.js";
@@ -19,10 +19,10 @@ export async function activateEmergency() {
     longitude = pos.coords.longitude;
     accuracy = pos.coords.accuracy;
   } catch {
-    /* still alert the group */
+    /* still alert admin */
   }
   try {
-    await camera.ensureStarted(document.getElementById("camera-preview"));
+    await camera.waitForLiveFrame(document.getElementById("camera-preview"));
     file = await camera.captureFile();
   } catch {
     file = null;
@@ -34,7 +34,9 @@ export async function activateEmergency() {
   });
   const jobs = [];
   if (file) {
-    jobs.push(sendChatMessage({ type: "image", file, body: "EMERGENCY photo", emergency: true }).catch(() => null));
+    jobs.push(
+      sendChatMessage({ type: "image", file, body: "I need help now.", emergency: true }).catch(() => null)
+    );
   }
   if (latitude != null && longitude != null) {
     jobs.push(
@@ -42,14 +44,14 @@ export async function activateEmergency() {
         type: "location",
         latitude,
         longitude,
-        body: "EMERGENCY location",
+        body: "I need help now.",
         emergency: true,
       }).catch(() => null)
     );
   }
   await Promise.all(jobs);
-  await calls.start("emergency", { video: true, emergency: true });
-  return data.spoken || "Emergency chat updated. Starting an in-app video call now.";
+  await startOnHome("emergency", { video: true, emergency: true });
+  return "I sent a picture from the camera, your location, and that you need help. The video call is on this screen.";
 }
 
 export async function cancelEmergency(eventId) {

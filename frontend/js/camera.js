@@ -104,8 +104,44 @@ class CameraService {
     });
   }
 
+  async waitForLiveFrame(videoEl, ms = 4500) {
+    await this.ensureStarted(videoEl || document.getElementById("camera-preview"));
+    const video = this.video;
+    if (!video) {
+      throw Object.assign(new Error("The camera is not ready yet."), { code: "CAMERA_UNAVAILABLE" });
+    }
+    if (video.readyState >= 2 && video.videoWidth > 8) return;
+    await new Promise((resolve, reject) => {
+      let settled = false;
+      const fail = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(Object.assign(new Error("The camera is not ready yet."), { code: "CAMERA_UNAVAILABLE" }));
+      }, ms);
+      const check = () => {
+        if (settled) return true;
+        if (video.readyState >= 2 && video.videoWidth > 8) {
+          settled = true;
+          clearTimeout(fail);
+          resolve();
+          return true;
+        }
+        return false;
+      };
+      if (check()) return;
+      video.addEventListener("loadeddata", check);
+      video.addEventListener("playing", check);
+      const tick = () => {
+        if (settled) return;
+        if (check()) return;
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+
   async captureFile({ quality = 0.72, maxW = 960 } = {}) {
-    await this.ensureStarted(document.getElementById("camera-preview"));
+    await this.waitForLiveFrame(document.getElementById("camera-preview"));
     const blob = await this.captureBlob(quality, maxW);
     return new File([blob], "capture.jpg", { type: "image/jpeg" });
   }

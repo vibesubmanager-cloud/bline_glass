@@ -12,8 +12,8 @@ import { readScene, describeScene, askAboutScene } from "./vision.js?v=4";
 import { armVisionSpeaker, speakVision } from "./vision-speak.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { isStandaloneApp } from "./location.js";
-import { calls } from "./calls.js?v=14";
-import { activateEmergency } from "./emergency.js";
+import { calls, startOnHome, takeQueuedHomeCall } from "./calls.js?v=16";
+import { activateEmergency } from "./emergency.js?v=2";
 import { startMessageNotices } from "./notify.js";
 import { setListeningUI, setAiStatus, setLive, setGps, setOnline, setDetectHud, drawDetections, clearDetections, drawRoute, setNavPanel, setMapVisible } from "./overlay.js";
 import { walkingDirectionsOn } from "./shareLocation.js";
@@ -241,10 +241,10 @@ async function executeCommand(parsed, text) {
     return;
   }
   if (parsed.intent === "EMERGENCY_SEND_PHOTO") {
-    await voice.speak("Okay. Taking an emergency picture.");
+    await voice.speak("Okay. Taking a picture from the camera now.");
     try {
       const file = await camera.captureFile();
-      await sendChatAndSpeak({ type: "image", file, body: "EMERGENCY photo", emergency: true });
+      await sendChatAndSpeak({ type: "image", file, body: "I need help now.", emergency: true });
     } catch (error) {
       await voice.speak(error.message || "I could not take that picture.");
     }
@@ -257,7 +257,7 @@ async function executeCommand(parsed, text) {
         type: "location",
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
-        body: "EMERGENCY location",
+        body: "I need help now.",
         emergency: true,
       });
     } catch (error) {
@@ -299,7 +299,7 @@ async function executeCommand(parsed, text) {
     const target = parsed.slots.target || "group";
     const video = parsed.intent === "VIDEO_CALL";
     try {
-      const spoken = await calls.start(parsed.slots.broadcast ? "group" : target, { video });
+      const spoken = await startOnHome(parsed.slots.broadcast ? "group" : target, { video });
       await voice.speak(spoken);
     } catch (error) {
       await voice.speak(error.message || (video ? "I could not start that video call." : "I could not start that call."));
@@ -996,7 +996,18 @@ async function boot() {
   idleStatus();
   setOnline(navigator.onLine);
   voice.unlock();
-  promptForLocation();
+  promptForLocation().then(async () => {
+    const pending = takeQueuedHomeCall();
+    if (!pending) return;
+    try {
+      await calls.start(pending.target || "group", {
+        video: Boolean(pending.video),
+        emergency: Boolean(pending.emergency),
+      });
+    } catch (error) {
+      await voice.speak(error.message || "I could not start that in-app call.");
+    }
+  });
   calls.startPolling();
   refreshBilling();
   announceUnread();

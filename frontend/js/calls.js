@@ -1,7 +1,7 @@
 import { api } from "./api.js";
 import { voice } from "./voice.js?v=56";
 import { appState, STATES } from "./state.js";
-import { getToken, getUser, getSettings, setSession } from "./config.js";
+import { getToken, getUser, getSettings, pages } from "./config.js";
 import { camera } from "./camera.js";
 
 const IFRAME_ALLOW = "camera; microphone; display-capture; autoplay; clipboard-write; fullscreen";
@@ -73,6 +73,9 @@ class CallController {
     this._joined = false;
     this._spokeConnected = false;
     this._joinToken = 0;
+    this._emergencyCall = false;
+    this._hadRemote = false;
+    this._watchTimer = null;
   }
 
   startPolling() {
@@ -213,6 +216,9 @@ class CallController {
         startWithAudioMuted: false,
         startWithVideoMuted: !video,
         startAudioOnly: !video,
+        constraints: video
+          ? { video: { facingMode: { ideal: "environment" } }, audio: true }
+          : { video: false, audio: true },
         disableDeepLinking: true,
         deeplinking: {
           disabled: true,
@@ -260,11 +266,32 @@ class CallController {
     };
   }
 
+  _participantCount(api) {
+    try {
+      const count = api.getNumberOfParticipants();
+      if (typeof count === "number" && count >= 0) return count;
+    } catch {
+      /* ignore */
+    }
+    return 1;
+  }
+
+  _watchCallRoom(api, joinToken) {
+    clearInterval(this._watchTimer);
+    this._watchTimer = setInterval(() => {
+      if (this._joinToken !== joinToken || this._ending || !this._joined || !this._hadRemote) return;
+      if (this._participantCount(api) <= 1) this.end(true);
+    }, 1200);
+  }
+
   _bindJitsiLifecycle(api, joinToken) {
     api.addListener("participantJoined", () => {
       if (this._joinToken !== joinToken || this._ending) return;
       this._joined = true;
-      this._announceConnected();
+      if (this._participantCount(api) > 1) {
+        this._hadRemote = true;
+        this._announceConnected();
+      }
     });
     api.addListener("videoConferenceLeft", () => {
       if (this._joinToken !== joinToken || this._ending) return;
@@ -272,18 +299,13 @@ class CallController {
     });
     api.addListener("participantLeft", () => {
       if (this._joinToken !== joinToken || this._ending || !this._joined) return;
-      let count = 1;
-      try {
-        count = api.getNumberOfParticipants();
-      } catch {
-        count = 1;
-      }
-      if (count <= 1) this.end(true);
+      if (this._hadRemote && this._participantCount(api) <= 1) this.end(true);
     });
     api.addListener("readyToClose", () => {
       if (this._joinToken !== joinToken || this._ending) return;
       this.end(true);
     });
+    this._watchCallRoom(api, joinToken);
   }
 
   async _joinJitsi(jitsi, video) {
@@ -381,6 +403,8 @@ class CallController {
   }
 
   async _leaveJitsi() {
+    clearInterval(this._watchTimer);
+    this._watchTimer = null;
     this._joinToken += 1;
     const api = this._jitsi;
     this._jitsi = null;
@@ -403,6 +427,8 @@ class CallController {
   }
 
   async start(target, { video = false, emergency = false } = {}) {
+    this._emergencyCall = Boolean(emergency);
+    this._hadRemote = false;
     this.startPolling();
     if (video) {
       try {
@@ -424,6 +450,7 @@ class CallController {
     });
     this.currentCall = { ...data.call, peer_id: data.call?.callee_id };
     this.videoMode = video || ["video", "gvideo", "evideo"].includes(data.call?.call_type);
+    this._emergencyCall = Boolean(emergency) || Boolean(data.emergency);
     if (data.tel_url && !data.emergency) {
       location.href = data.tel_url;
       return data.spoken;
@@ -524,8 +551,9 @@ class CallController {
     const callId = this.currentCall?.id;
     const wasLive = Boolean(this.currentCall || this._incoming || this._joined);
     await this._leaveJitsi();
+    const preview = document.getElementById("camera-preview");
     if (notify && wasLive) {
-      voice.speak("Call ended.");
+      voice.speak(preview ? "Call ended. Camera is back." : "Call ended.");
     }
     if (notify && peerId && callId) {
       api("/api/calls/end", { method: "POST", body: { call_id: callId } }).catch(() => undefined);
@@ -538,15 +566,19 @@ class CallController {
     this.videoMode = false;
     this._lastOfferId = "";
     this._spokeConnected = false;
+    this._emergencyCall = false;
+    this._hadRemote = false;
     this.cameraEnabled = true;
     this.muted = false;
     this.updateBanner("");
-    const preview = document.getElementById("camera-preview");
     if (preview) {
       camera.ensureStarted(preview).catch(() => undefined);
     }
     if (appState.value === STATES.CALLING) appState.set(STATES.IDLE);
     this._ending = false;
+    if (wasLive && !preview) {
+      location.href = pages().home;
+    }
   }
 
   callingStatus() {
@@ -629,3 +661,30 @@ class CallController {
 }
 
 export const calls = new CallController();
+
+const HOME_CALL_KEY = "AISIGHT_HOME_CALL";
+
+export function takeQueuedHomeCall() {
+  const raw = sessionStorage.getItem(HOME_CALL_KEY) || sessionStorage.getItem("AISIGHT_HOME_EMERGENCY_CALL");
+  sessionStorage.removeItem(HOME_CALL_KEY);
+  sessionStorage.removeItem("AISIGHT_HOME_EMERGENCY_CALL");
+  if (!raw) return null;
+  if (raw === "video" || raw === "voice") {
+    return { target: "emergency", video: raw !== "voice", emergency: true };
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export async function startOnHome(target, { video = false, emergency = false } = {}) {
+  const payload = { target: target || "group", video: Boolean(video), emergency: Boolean(emergency) };
+  if (document.getElementById("camera-preview")) {
+    return calls.start(payload.target, payload);
+  }
+  sessionStorage.setItem(HOME_CALL_KEY, JSON.stringify(payload));
+  location.href = pages().home;
+  return "Connecting the call on the camera screen.";
+}

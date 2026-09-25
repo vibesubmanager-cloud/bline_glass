@@ -86,7 +86,7 @@
     </nav>
     <script type="module">
       import { api } from "../js/api.js";
-      import { calls } from "../js/calls.js?v=14";
+      import { calls, startOnHome } from "../js/calls.js?v=16";
       import { voice } from "../js/voice.js";
       import { getToken, getUser, getLinkedBlind, pages } from "../js/config.js";
       import { startMessageNotices } from "../js/notify.js";
@@ -278,7 +278,7 @@
         const delId = button.getAttribute("data-del");
         if (callName) {
           try {
-            const spoken = await calls.start(callName);
+            const spoken = await startOnHome(callName);
             await voice.speak(spoken);
           } catch (error) {
             status.textContent = error.message;
@@ -287,7 +287,7 @@
         }
         if (videoName) {
           try {
-            const spoken = await calls.start(videoName, { video: true });
+            const spoken = await startOnHome(videoName, { video: true });
             await voice.speak(spoken);
           } catch (error) {
             status.textContent = error.message;
