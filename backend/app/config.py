@@ -25,6 +25,8 @@ class Config:
     raw_db = os.getenv("DATABASE_URL", "sqlite:///vibe_eye.db")
     if raw_db.startswith("postgres://"):
         raw_db = raw_db.replace("postgres://", "postgresql://", 1)
+    if raw_db.startswith("postgresql://"):
+        raw_db = raw_db.replace("postgresql://", "postgresql+psycopg2://", 1)
     raw_db = raw_db.replace("&channel_binding=require", "").replace("channel_binding=require&", "")
     raw_db = raw_db.replace("channel_binding=require", "")
     if raw_db.endswith("?") or raw_db.endswith("&"):
