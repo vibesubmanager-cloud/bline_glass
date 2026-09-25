@@ -116,7 +116,7 @@ def meeting_token(room_name: str, user, *, video: bool) -> str:
                 "properties": {
                     "room_name": room_name,
                     "user_id": user.id,
-                    "user_name": (user.name or "AI Sight")[:40],
+                    "user_name": (user.name or "vibeEye")[:40],
                     "exp": exp,
                     "enable_screenshare": False,
                     "start_video_off": not video,

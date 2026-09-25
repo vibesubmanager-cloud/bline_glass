@@ -956,7 +956,7 @@ async function promptForLocation() {
   if (await locationLooksDenied()) {
     showLocationBanner(
       isStandaloneApp()
-        ? "On iPhone: Settings, scroll to AI Sight, tap Location, choose While Using the App."
+        ? "On iPhone: Settings, scroll to vibeEye, tap Location, choose While Using the App."
         : "On iPhone: Settings → Privacy & Security → Location Services On, then Settings → Safari → Location → Allow."
     );
     return;

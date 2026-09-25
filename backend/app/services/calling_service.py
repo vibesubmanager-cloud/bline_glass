@@ -159,13 +159,13 @@ def start_call(caller: User, contact: Contact, media: str = "audio") -> dict:
 
     if video and (not callee or callee.id == caller.id):
         raise CallingServiceError(
-            f"{contact.name} cannot video call yet. They need an AI Sight account, like a family assistant.",
+            f"{contact.name} cannot video call yet. They need an vibeEye account, like a family assistant.",
             "VIDEO_UNAVAILABLE",
         )
 
     if (not callee or callee.id == caller.id) and not contact.phone:
         raise CallingServiceError(
-            "That contact has no phone number and is not a Vibe Eye user.",
+            "That contact has no phone number and is not a vibeEye user.",
             "CALL_FAILED",
         )
 

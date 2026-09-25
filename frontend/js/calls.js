@@ -10,7 +10,7 @@ function callingIdentity() {
   const user = getUser() || {};
   const settings = getSettings() || {};
   return {
-    displayName: String(user.name || "AI Sight").trim() || "AI Sight",
+    displayName: String(user.name || "vibeEye").trim() || "vibeEye",
     email: String(user.email || "").trim(),
     configured: Boolean(settings.calling_configured),
   };
@@ -164,7 +164,7 @@ class CallController {
       voice.speak(
         emergency
           ? `Emergency ${kind} from ${signal.from_name || "someone who needs help"}. Say call to answer.`
-          : `Incoming ${kind} from ${signal.from_name || "a Vibe Eye user"}. Say call to answer, or stop to decline.`
+          : `Incoming ${kind} from ${signal.from_name || "a vibeEye user"}. Say call to answer, or stop to decline.`
       );
       return;
     }

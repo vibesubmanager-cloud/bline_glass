@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta http-equiv="Cache-Control" content="no-store" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit-cover" />
-    <title>Settings — AI Sight</title>
+    <title>Settings — vibeEye</title>
     <link rel="stylesheet" href="../css/main.css?v=29" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
@@ -42,7 +42,7 @@
         <strong>Calling</strong>
         <p>
           Configure voice and video calling once. After that, say call or video call a person.
-          You stay signed in to AI Sight. Calls do not open a Jitsi login page or ask for your email again.
+          You stay signed in to vibeEye. Calls do not open a Jitsi login page or ask for your email again.
         </p>
         <p id="calling-status" class="status-bar" role="status">Checking calling…</p>
         <div class="auth-actions">
@@ -73,7 +73,7 @@
       </article>
       <article class="card iphone-help" aria-label="Location">
         <strong>Location and map</strong>
-        <p>Use Safari on the https page, tap Allow location, then Add to Home Screen. A home-screen app has its own GPS switch: Settings → AI Sight → Location → While Using the App.</p>
+        <p>Use Safari on the https page, tap Allow location, then Add to Home Screen. A home-screen app has its own GPS switch: Settings → vibeEye → Location → While Using the App.</p>
         <p>Also turn on Settings → Privacy & Security → Location Services. Chrome on iPhone is less reliable; Safari is the one to save to the home screen.</p>
         <p>For App Store and Play Store later, wrap this same app as a native shell. Then the phone GPS is used automatically.</p>
         <button class="btn primary" id="allow-location" type="button">Allow location</button>
@@ -138,7 +138,7 @@
         <p id="gemini-test-result" class="api-test-result" aria-live="polite"></p>
       </article>
       <article class="card" aria-label="About">
-        <strong>AI Sight</strong>
+        <strong>vibeEye</strong>
         <p>See more. Live better. Assistive vision for blind and visually impaired users.</p>
       </article>
       <button class="btn danger" id="logout" type="button">Sign out</button>
@@ -200,7 +200,7 @@
             : "Calling is ready.";
         } else {
           el.textContent = info.email
-            ? `Calling is not configured. Your AI Sight account is ${info.email}. Tap Configure calling once.`
+            ? `Calling is not configured. Your vibeEye account is ${info.email}. Tap Configure calling once.`
             : "Calling is not configured. Tap Configure calling once.";
         }
         return info;
@@ -257,7 +257,7 @@
         ["voice", "Voice. Hold the screen to speak. Double tap for object detection."],
         ["detect", "Detection. You see a chair and a person in front of you."],
         ["describe", "Describe. Okay. Looking in front of you. There is a table and a doorway ahead."],
-        ["read", "Reading. The text says: Welcome to AI Sight."],
+        ["read", "Reading. The text says: Welcome to vibeEye."],
         ["directions", "Directions. In 50 meters, turn left. Continue straight."],
         ["call", "Calling. Connecting voice call."],
       ];

@@ -121,7 +121,7 @@ def resolve_peer(user: User, target: str | None, recipient_id: str | None = None
         raise MessageError(str(exc), exc.code) from exc
     if not contact.linked_user_id:
         raise MessageError(
-            f"{contact.name} does not have an AI Sight account yet, so I cannot send an in-app message.",
+            f"{contact.name} does not have an vibeEye account yet, so I cannot send an in-app message.",
             "NO_APP_ACCOUNT",
         )
     peer = db.session.get(User, contact.linked_user_id)
@@ -175,7 +175,7 @@ def _resolve_send_peers(sender: User, target: str | None, recipient_id: str | No
                 peers.append((peer, contact))
         if not peers:
             raise MessageError(
-                "Your group is not signed in to AI Sight yet, so I cannot deliver that.",
+                "Your group is not signed in to vibeEye yet, so I cannot deliver that.",
                 "NO_APP_ACCOUNT",
             )
         return peers
@@ -200,7 +200,7 @@ def _resolve_send_peers(sender: User, target: str | None, recipient_id: str | No
             peers.append((peer, contact))
     if not peers:
         raise MessageError(
-            "Your group is not signed in to AI Sight yet, so I cannot deliver that.",
+            "Your group is not signed in to vibeEye yet, so I cannot deliver that.",
             "NO_APP_ACCOUNT",
         )
     return peers

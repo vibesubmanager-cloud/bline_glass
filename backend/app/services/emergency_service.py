@@ -84,7 +84,7 @@ def activate_emergency(user: User, latitude=None, longitude=None, accuracy=None,
     location_text = ""
     if event.location_shared:
         location_text = f" Location: https://maps.google.com/?q={event.latitude},{event.longitude}"
-    body = f"Vibe Eye emergency alert from {user.name}.{location_text}"
+    body = f"vibeEye emergency alert from {user.name}.{location_text}"
     for contact in contacts:
         if contact.phone and _send_sms(contact.phone, body):
             sms_sent.append(contact.id)

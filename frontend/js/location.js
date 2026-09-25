@@ -24,9 +24,9 @@ function permissionHelp(kind) {
   const home = isStandaloneApp();
   if (kind === "denied") {
     if (home) {
-      return "This home screen app has its own location switch. On iPhone: Settings, scroll down to AI Sight, tap Location, choose While Using the App, then open the app again.";
+      return "This home screen app has its own location switch. On iPhone: Settings, scroll down to vibeEye, tap Location, choose While Using the App, then open the app again.";
     }
-    return "On iPhone: Settings → Privacy & Security → Location Services must be On. Then Settings → Safari → Location → Allow. If you added this to the home screen, use Settings → AI Sight → Location instead of Safari.";
+    return "On iPhone: Settings → Privacy & Security → Location Services must be On. Then Settings → Safari → Location → Allow. If you added this to the home screen, use Settings → vibeEye → Location instead of Safari.";
   }
   if (kind === "timeout") {
     return "GPS timed out. Keep Location Services on, stand near a window, and tap Allow location again.";

@@ -152,7 +152,7 @@ def cancel_subscription(user: User) -> User:
                 requests.post(
                     f"{_paypal_base()}/v1/billing/subscriptions/{user.paypal_subscription_id}/cancel",
                     headers=_paypal_headers(token),
-                    json={"reason": "Cancelled in AI Sight"},
+                    json={"reason": "Cancelled in vibeEye"},
                     timeout=HTTP_TIMEOUT,
                 )
     except Exception:
@@ -212,7 +212,7 @@ def _safe_return_url(raw: str) -> str:
 def _stripe_checkout(user: User, settings, return_url: str) -> str:
     secret = first_secret("stripe_secret")
     interval = "year" if settings.premium_interval == "year" else "month"
-    name = settings.premium_name or "AI Sight Premium"
+    name = settings.premium_name or "vibeEye Premium"
     data = {
         "mode": "subscription",
         "success_url": f"{return_url}?billing=success&session_id={{CHECKOUT_SESSION_ID}}",
@@ -308,7 +308,7 @@ def _paypal_checkout(user: User, settings, return_url: str) -> str:
             "plan_id": plan_id,
             "custom_id": user.id,
             "application_context": {
-                "brand_name": "AI Sight",
+                "brand_name": "vibeEye",
                 "user_action": "SUBSCRIBE_NOW",
                 "return_url": f"{return_url}?billing=paypal",
                 "cancel_url": f"{return_url}?billing=cancel",
@@ -339,7 +339,7 @@ def _ensure_paypal_plan(token: str, settings) -> str:
         f"{_paypal_base()}/v1/catalogs/products",
         headers=_paypal_headers(token),
         json={
-            "name": settings.premium_name or "AI Sight Premium",
+            "name": settings.premium_name or "vibeEye Premium",
             "type": "SERVICE",
             "description": settings.premium_tagline or "Describe and Read",
         },
@@ -402,7 +402,7 @@ def _confirm_paypal(user: User, subscription_id: str) -> None:
         activate = requests.post(
             f"{_paypal_base()}/v1/billing/subscriptions/{subscription_id}/activate",
             headers=_paypal_headers(token),
-            json={"reason": "Activated in AI Sight"},
+            json={"reason": "Activated in vibeEye"},
             timeout=HTTP_TIMEOUT,
         )
         if activate.status_code < 400:

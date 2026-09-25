@@ -1,6 +1,6 @@
 {
   "appId": "app.aisight.mobile",
-  "appName": "AI Sight",
+  "appName": "vibeEye",
   "webDir": "frontend",
   "ios": {
     "contentInset": "automatic"

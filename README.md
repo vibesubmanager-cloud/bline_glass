@@ -1,4 +1,4 @@
-# Vibe Eye
+# vibeEye
 
 Assistive AI for blind and visually impaired users. The primary interaction is:
 
@@ -93,7 +93,7 @@ Tap the large center control, then say:
 | What color is this shirt? | Gemini visual question |
 | Take me to Sharda University | Walking route + spoken turn-by-turn |
 | Where am I? / How far? / Next turn / Repeat / Stop navigation | Navigation helpers |
-| Call John / Call my brother | WebRTC if they use Vibe Eye, otherwise the phone dialer |
+| Call John / Call my brother | WebRTC if they use vibeEye, otherwise the phone dialer |
 | Emergency | Location (only with permission) + notify/call emergency contact |
 | Help | Spoken command list |
 

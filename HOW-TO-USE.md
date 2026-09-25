@@ -1,9 +1,9 @@
-# How to use AI Sight
+# How to use vibeEye
 
 **Booklet source for print, Braille, and illustration.**  
 This file is the full user guide. Give it to another AI or designer to turn into a printed booklet, large-print pages, or Braille. Keep the steps and command phrases exactly as written.
 
-**App name:** AI Sight  
+**App name:** vibeEye  
 **Who it is for:** Blind and visually impaired people, plus family or caregivers who help them.  
 **Tagline:** See more. Live better.
 
@@ -13,7 +13,7 @@ This file is the full user guide. Give it to another AI or designer to turn into
 
 Use this document as the only source of truth.
 
-- Cover title: **How to use AI Sight**
+- Cover title: **How to use vibeEye**
 - Subtitle: **A spoken camera companion for daily life**
 - Audience: the person using the glasses or phone, and the family member who sets it up once
 - Tone: calm, short sentences, present tense, no slang
@@ -27,9 +27,9 @@ Use this document as the only source of truth.
 
 ---
 
-## 1. What AI Sight does
+## 1. What vibeEye does
 
-AI Sight is a camera app that talks.
+vibeEye is a camera app that talks.
 
 It can:
 
@@ -57,22 +57,22 @@ There are two kinds of account:
 **Do this (iPhone):**
 
 1. Open **Safari** (not Chrome).
-2. Open the AI Sight website your helper gave you.
+2. Open the vibeEye website your helper gave you.
 3. Sign in (or create the account first — chapter 3).
 4. Tap the Share button, then **Add to Home Screen**.
-5. Name it **AI Sight**.
+5. Name it **vibeEye**.
 6. Open it from the home-screen icon after that.
 
 **Do this (Android):**
 
 1. Open Chrome.
-2. Open the AI Sight website.
+2. Open the vibeEye website.
 3. Use the browser menu **Add to Home screen** / **Install app**.
 4. Open it from the home-screen icon.
 
 **Need internet** for describe, read, calls, messages, and maps. Object detection can keep working on the phone after it is downloaded once.
 
-**Illustration:** phone home screen with one AI Sight icon. Caption: “Open this icon every time.”
+**Illustration:** phone home screen with one vibeEye icon. Caption: “Open this icon every time.”
 
 ---
 
@@ -128,7 +128,7 @@ The first time the camera opens, the app asks:
 
 After that, they start by themselves whenever you open the app, until you sign out.
 
-**iPhone home-screen app:** if location never turns on, go to iPhone **Settings → AI Sight → Location → While Using the App**. Also turn on **Settings → Privacy & Security → Location Services**.
+**iPhone home-screen app:** if location never turns on, go to iPhone **Settings → vibeEye → Location → While Using the App**. Also turn on **Settings → Privacy & Security → Location Services**.
 
 **GPS pill** on the camera: yellow/on when location is working.
 
@@ -154,7 +154,7 @@ The app may say: *Hold the screen to speak. Double tap for object detection.*
 
 ### Top of the camera
 
-- **Logo** (left): AI Sight. Admin can replace this picture.
+- **Logo** (left): vibeEye. Admin can replace this picture.
 - **Profile** (right): opens Profile.
 - **GPS**: location on or off.
 - **DET**: object detection. It should not spin “LOAD” every time after detection is already on the phone.
@@ -285,7 +285,7 @@ If you hear the test, that part of the speaker is working.
 
 ## 12. Calling the group (voice and video)
 
-Calls stay **inside AI Sight**. You do not log in to another website.
+Calls stay **inside vibeEye**. You do not log in to another website.
 
 Contacts is **one group**, not one person at a time. When you call, the same call **rings everyone** in the group. Anyone who is free can **pick up** and join. More than one person can be in the call.
 
@@ -294,7 +294,7 @@ Contacts is **one group**, not one person at a time. When you call, the same cal
 1. Open **Settings**.
 2. Find **Calling**.
 3. Tap **Configure calling**.
-4. Stay signed in to AI Sight. Do this once.
+4. Stay signed in to vibeEye. Do this once.
 
 You can also hold the camera and:
 
@@ -574,7 +574,7 @@ Hold, speak, let go.
 | Problem | Try |
 | --- | --- |
 | App looks old | Settings → **New update**. Wait for the site to update, then reopen. |
-| Camera / mic / GPS ask every time | Allow once. Stay signed in. Do not sign out. iPhone: Settings → AI Sight → Location. |
+| Camera / mic / GPS ask every time | Allow once. Stay signed in. Do not sign out. iPhone: Settings → vibeEye → Location. |
 | Detection always loading | Settings → download YOLO on Wi‑Fi. Double tap only after it is on the phone. |
 | Describe / read too slow | Point the camera, hold still, wait for “Okay…”. Need internet. Try again. Check Premium if asked. |
 | Describe / read in the earpiece | Volume up, ring switch on, Bluetooth connected. New update. Test describe in Settings. |
@@ -591,7 +591,7 @@ Hold, speak, let go.
 
 ## 22. Safety notes for the booklet
 
-- AI Sight helps; it can be wrong. Cross-check streets and medicines with a person when you can.
+- vibeEye helps; it can be wrong. Cross-check streets and medicines with a person when you can.
 - Object detection names common objects; it is not a medical or legal reader.
 - Describe and read need a clear photo and internet.
 - Emergency is family and admin you chose, not a government emergency service unless you dial them yourself. Plain **emergency** / **SOS** sends a video call, message, photo, and map together.
@@ -623,7 +623,7 @@ Hold, speak, let go.
 
 ## 24. Short script a helper can read aloud (5 minutes)
 
-“This is AI Sight. The whole screen is a button. Hold it and talk, then let go. Double tap to hear objects. Say what is in front of me to hear a description. Say read this for a page. Family is one group. Say call, or say send a message, send a photo, or send a map — that goes to everyone, and anyone free can pick up the call. The second button on the bottom is Emergency. If you only say emergency or SOS, it video-calls the group and admin, and it sends a message, a photo, and a map all at once. Say emergency send a message if you only want a text. Walking is by voice: take me to the market. If something is stuck, open Settings and tap New update. I will add your family in Contacts and we will allow camera, microphone, and location once.”
+“This is vibeEye. The whole screen is a button. Hold it and talk, then let go. Double tap to hear objects. Say what is in front of me to hear a description. Say read this for a page. Family is one group. Say call, or say send a message, send a photo, or send a map — that goes to everyone, and anyone free can pick up the call. The second button on the bottom is Emergency. If you only say emergency or SOS, it video-calls the group and admin, and it sends a message, a photo, and a map all at once. Say emergency send a message if you only want a text. Walking is by voice: take me to the market. If something is stuck, open Settings and tap New update. I will add your family in Contacts and we will allow camera, microphone, and location once.”
 
 ---
 

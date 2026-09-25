@@ -31,7 +31,7 @@ export async function startMessageNotices({ speak, href = "./contacts.html" } = 
         showBanner(text, href);
         try {
           if (window.Notification && Notification.permission === "granted") {
-            new Notification("AI Sight", { body: text, tag: id });
+            new Notification("vibeEye", { body: text, tag: id });
           }
         } catch {
           /* ignore */

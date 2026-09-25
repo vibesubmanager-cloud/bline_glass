@@ -172,7 +172,7 @@ def share_location(user: User, target: str | None, latitude: float, longitude: f
     spoken = f"Done. I have sent your location to {who}."
     if place:
         spoken = f"Done. I have sent your location to {who} so they can help you get to {place}."
-    spoken += " They will see it in AI Sight."
+    spoken += " They will see it in vibeEye."
     if sms_sent:
         spoken += " A text message was also sent."
 

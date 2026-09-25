@@ -1,4 +1,4 @@
-# Deploy AI Sight
+# Deploy vibeEye
 
 Split:
 

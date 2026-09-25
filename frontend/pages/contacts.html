@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Contacts — AI Sight</title>
+    <title>Contacts — vibeEye</title>
     <link rel="stylesheet" href="../css/main.css?v=29" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
@@ -267,8 +267,8 @@
           } else if (card?.dataset.chat) {
             location.href = `${pages().chat}?with=${encodeURIComponent(card.dataset.chat)}`;
           } else if (event.target.closest(".contact-item")) {
-            status.textContent = "That person does not have an AI Sight account yet, so chat is not available.";
-            await voice.speak("That person does not have an AI Sight account yet. Add them as an assistant first.");
+            status.textContent = "That person does not have an vibeEye account yet, so chat is not available.";
+            await voice.speak("That person does not have an vibeEye account yet. Add them as an assistant first.");
           }
           return;
         }

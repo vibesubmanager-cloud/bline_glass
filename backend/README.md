@@ -1,6 +1,6 @@
-# Vibe Eye backend
+# vibeEye backend
 
-Flask API for Vibe Eye. Run from this directory:
+Flask API for vibeEye. Run from this directory:
 
 ```bash
 python -m venv .venv
