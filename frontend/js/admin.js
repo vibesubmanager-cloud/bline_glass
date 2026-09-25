@@ -27,7 +27,7 @@ function showStatus(message, ok = false) {
   el.classList.toggle("ok", Boolean(ok) && Boolean(message));
 }
 
-async function adminApi(path, { method = "GET", body, isForm = false, timeout = 20000 } = {}) {
+async function adminApi(path, { method = "GET", body, isForm = false, timeout = 45000 } = {}) {
   const headers = {};
   if (token()) headers.Authorization = `Bearer ${token()}`;
   if (!isForm && body !== undefined) headers["Content-Type"] = "application/json";
@@ -244,8 +244,13 @@ function fillKeySelect(selectId, rows, emptyLabel) {
   }
 }
 
+let emergencyLoading = false;
+
 async function loadEmergencies() {
-  const data = await adminApi("/api/admin/emergencies");
+  if (emergencyLoading) return;
+  emergencyLoading = true;
+  try {
+  const data = await adminApi("/api/admin/emergencies", { timeout: 60000 });
   const box = document.getElementById("emergency-box");
   const alerts = document.getElementById("message-alert-box");
   if (box) {
@@ -299,6 +304,9 @@ async function loadEmergencies() {
         )
         .join("")}</ul>`;
     }
+  }
+  } finally {
+    emergencyLoading = false;
   }
 }
 

@@ -99,10 +99,12 @@ def users():
 @admin_bp.get("/emergency")
 @admin_bp.get("/alerts")
 @admin_required
+@limiter.exempt
 def emergencies():
     try:
         return ok({"emergencies": list_emergencies(), "messages": list_message_alerts()})
     except Exception as exc:
+        db.session.rollback()
         return _error(exc)
 
 

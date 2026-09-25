@@ -65,94 +65,122 @@ def list_users(search: str = "", role: str = "") -> list[dict]:
     return [_user_summary(user) for user in rows]
 
 
-def list_emergencies(limit: int = 40) -> list[dict]:
-    admin_ids = [row.id for row in User.query.filter_by(role="admin", is_active=True).all()]
-    events = EmergencyEvent.query.order_by(EmergencyEvent.started_at.desc()).limit(max(1, min(limit, 80))).all()
+def _admin_ids() -> list[str]:
+    return [row.id for row in User.query.filter_by(role="admin", is_active=True).all()]
+
+
+def list_emergencies(limit: int = 20) -> list[dict]:
+    limit = max(1, min(limit, 20))
+    admin_ids = _admin_ids()
+    events = EmergencyEvent.query.order_by(EmergencyEvent.started_at.desc()).limit(limit).all()
     live_calls = (
         CallSession.query.filter(CallSession.call_type.in_(["evideo", "ewebrtc"]))
         .filter(CallSession.status.in_(["ringing", "active"]))
         .order_by(CallSession.started_at.desc())
+        .limit(limit)
         .all()
     )
-    seen_users = set()
-    items = []
 
-    def _messages_for(user_id: str) -> list:
-        query = Message.query.filter(Message.sender_id == user_id)
-        if admin_ids:
-            query = query.filter(Message.recipient_id.in_(admin_ids))
-        return query.order_by(Message.created_at.desc()).limit(6).all()
-
-    def _call_for(user_id: str, preferred: CallSession | None = None) -> CallSession | None:
-        if preferred:
-            return preferred
-        return (
-            CallSession.query.filter_by(caller_id=user_id)
-            .filter(CallSession.call_type.in_(["evideo", "ewebrtc"]))
-            .order_by(CallSession.started_at.desc())
-            .first()
-        )
-
-    def _pack(user_id: str, event: EmergencyEvent | None, call: CallSession | None) -> dict:
-        person = db.session.get(User, user_id)
-        last_messages = _messages_for(user_id)
-        return {
-            "event": event.public_dict() if event else {"status": call.status if call else "open", "started_at": call.started_at.isoformat() if call and call.started_at else None},
-            "user": person.public_dict() if person else {},
-            "call": call.public_dict() if call else None,
-            "jitsi": {"domain": "meet.jit.si", "room": call.jitsi_room_name, "video": True}
-            if call and call.jitsi_room_name
-            else None,
-            "messages": [row.public_dict(user_id) for row in last_messages],
-        }
+    ordered: list[str] = []
+    seen: set[str] = set()
+    event_by_user: dict[str, EmergencyEvent] = {}
+    call_by_user: dict[str, CallSession] = {}
 
     for call in live_calls:
-        if call.caller_id in seen_users:
-            continue
-        seen_users.add(call.caller_id)
-        event = (
-            EmergencyEvent.query.filter_by(user_id=call.caller_id)
-            .order_by(EmergencyEvent.started_at.desc())
-            .first()
-        )
-        items.append(_pack(call.caller_id, event, call))
+        call_by_user[call.caller_id] = call
+        if call.caller_id not in seen:
+            seen.add(call.caller_id)
+            ordered.append(call.caller_id)
 
     for event in events:
-        if event.user_id in seen_users:
-            continue
-        seen_users.add(event.user_id)
-        items.append(_pack(event.user_id, event, _call_for(event.user_id)))
+        event_by_user.setdefault(event.user_id, event)
+        if event.user_id not in seen:
+            seen.add(event.user_id)
+            ordered.append(event.user_id)
 
-    if len(items) < limit and admin_ids:
+    if len(ordered) < limit and admin_ids:
         extra = (
             Message.query.filter(Message.recipient_id.in_(admin_ids))
             .order_by(Message.created_at.desc())
-            .limit(40)
+            .limit(30)
             .all()
         )
+        extra_ids = [row.sender_id for row in extra if row.sender_id not in seen]
+        extra_people = User.query.filter(User.id.in_(extra_ids)).all() if extra_ids else []
+        extra_map = {user.id: user for user in extra_people}
         for row in extra:
-            if row.sender_id in seen_users:
+            if row.sender_id in seen:
                 continue
-            sender = db.session.get(User, row.sender_id)
+            sender = extra_map.get(row.sender_id)
             if not sender or sender.role == "admin":
                 continue
-            seen_users.add(row.sender_id)
-            items.append(_pack(row.sender_id, None, _call_for(row.sender_id)))
-            if len(items) >= limit:
+            seen.add(row.sender_id)
+            ordered.append(row.sender_id)
+            if len(ordered) >= limit:
                 break
+
+    if not ordered:
+        return []
+
+    people = {user.id: user for user in User.query.filter(User.id.in_(ordered)).all()}
+    missing = [uid for uid in ordered if uid not in call_by_user]
+    if missing:
+        recent_calls = (
+            CallSession.query.filter(CallSession.caller_id.in_(missing))
+            .filter(CallSession.call_type.in_(["evideo", "ewebrtc"]))
+            .order_by(CallSession.started_at.desc())
+            .all()
+        )
+        for call in recent_calls:
+            call_by_user.setdefault(call.caller_id, call)
+
+    msg_query = Message.query.filter(Message.sender_id.in_(ordered))
+    if admin_ids:
+        msg_query = msg_query.filter(Message.recipient_id.in_(admin_ids))
+    recent_messages = msg_query.order_by(Message.created_at.desc()).limit(80).all()
+    messages_by_user: dict[str, list[Message]] = {}
+    for row in recent_messages:
+        bucket = messages_by_user.setdefault(row.sender_id, [])
+        if len(bucket) < 4:
+            bucket.append(row)
+
+    items = []
+    for user_id in ordered:
+        person = people.get(user_id)
+        event = event_by_user.get(user_id)
+        call = call_by_user.get(user_id)
+        last_messages = messages_by_user.get(user_id, [])
+        items.append(
+            {
+                "event": event.public_dict()
+                if event
+                else {
+                    "status": call.status if call else "open",
+                    "started_at": call.started_at.isoformat() if call and call.started_at else None,
+                },
+                "user": person.public_dict() if person else {},
+                "call": call.public_dict() if call else None,
+                "jitsi": {"domain": "meet.jit.si", "room": call.jitsi_room_name, "video": True}
+                if call and call.jitsi_room_name
+                else None,
+                "messages": [row.public_dict(user_id) for row in last_messages],
+            }
+        )
     return items
 
 
-def list_message_alerts(limit: int = 25) -> list[dict]:
-    admin_ids = [row.id for row in User.query.filter_by(role="admin", is_active=True).all()]
+def list_message_alerts(limit: int = 20) -> list[dict]:
+    admin_ids = _admin_ids()
     query = Message.query
     if admin_ids:
         query = query.filter(or_(Message.recipient_id.in_(admin_ids), Message.sender_id.in_(admin_ids)))
-    rows = query.order_by(Message.created_at.desc()).limit(max(1, min(limit, 40))).all()
+    rows = query.order_by(Message.created_at.desc()).limit(max(1, min(limit, 20))).all()
+    user_ids = {row.sender_id for row in rows} | {row.recipient_id for row in rows}
+    people = {user.id: user for user in User.query.filter(User.id.in_(user_ids)).all()} if user_ids else {}
     items = []
     for row in rows:
-        sender = db.session.get(User, row.sender_id)
-        recipient = db.session.get(User, row.recipient_id)
+        sender = people.get(row.sender_id)
+        recipient = people.get(row.recipient_id)
         body = row.body or ""
         items.append(
             {
