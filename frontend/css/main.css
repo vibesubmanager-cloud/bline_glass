@@ -827,10 +827,10 @@ body.has-dock .app-shell {
   min-width: 0;
 }
 
-.add-toggle {
+.chat-call-actions {
+  display: flex;
+  gap: 8px;
   flex-shrink: 0;
-  font-size: 1.6rem;
-  line-height: 1;
 }
 
 .brand-kicker {

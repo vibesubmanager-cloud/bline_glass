@@ -1,6 +1,7 @@
 import { getToken, pages } from "./config.js";
 import { voice } from "./voice.js?v=44";
 import { recorder } from "./recorder.js";
+import { calls } from "./calls.js?v=14";
 import {
   loadGroupMessages,
   loadThread,
@@ -13,7 +14,8 @@ import { startMessageNotices } from "./notify.js";
 
 const params = new URLSearchParams(location.search);
 const peerId = params.get("with") || "";
-const groupMode = params.get("group") === "1";
+const emergencyMode = /emergency/i.test(location.pathname) || params.get("emergency") === "1";
+const groupMode = params.get("group") === "1" || emergencyMode;
 const title = document.getElementById("chat-title");
 const status = document.getElementById("chat-status");
 const thread = document.getElementById("chat-thread");
@@ -97,8 +99,8 @@ async function renderMessages(messages) {
 
 async function refresh() {
   const data = groupMode ? await loadGroupMessages() : await loadThread(peerId);
-  peerName = data.peer?.name || (groupMode ? "Family group" : "Them");
-  title.textContent = peerName;
+  peerName = data.peer?.name || (emergencyMode ? "Emergency chat" : groupMode ? "Family group" : "Them");
+  if (!emergencyMode) title.textContent = peerName;
   const messages = data.messages || [];
   const ids = messages.map((item) => item.id).join(",");
   if (ids === lastIds) return;
@@ -123,7 +125,11 @@ async function refresh() {
 async function handleSend(payload) {
   try {
     showStatus("Sending…");
-    const result = await sendChatMessage({ recipientId: groupMode ? "" : peerId, ...payload });
+    const result = await sendChatMessage({
+      recipientId: groupMode ? "" : peerId,
+      emergency: emergencyMode,
+      ...payload,
+    });
     input.value = "";
     const spoken = result.spoken || "Done. I have sent it.";
     showStatus(spoken);
@@ -153,7 +159,7 @@ fileInput.addEventListener("change", async () => {
 document.getElementById("chat-location").addEventListener("click", async () => {
   try {
     showStatus("Sending location…");
-    const result = await sendChatLocation({ recipientId: groupMode ? "" : peerId });
+    const result = await sendChatLocation({ recipientId: groupMode ? "" : peerId, emergency: emergencyMode });
     const spoken = result.spoken || "Done. I have sent your location.";
     showStatus(spoken);
     await voice.speak(spoken);
@@ -189,4 +195,37 @@ refresh().catch(async (error) => {
 setInterval(() => {
   refresh().catch(() => undefined);
 }, 5000);
-startMessageNotices({ speak: true, href: groupMode ? "./chat.html?group=1" : `${pages().chat}?with=${encodeURIComponent(peerId)}` });
+startMessageNotices({
+  speak: true,
+  href: emergencyMode ? pages().emergency : groupMode ? "./chat.html?group=1" : `${pages().chat}?with=${encodeURIComponent(peerId)}`,
+});
+
+async function startEmergencyCall({ video }) {
+  try {
+    if (calls._incoming) {
+      await calls.acceptIncoming();
+      return;
+    }
+    const spoken = await calls.start("emergency", { video, emergency: true });
+    showStatus(spoken);
+    await voice.speak(spoken);
+  } catch (error) {
+    showStatus(error.message);
+    await voice.speak(error.message || "I could not start that in-app call.");
+  }
+}
+
+document.getElementById("em-call")?.addEventListener("click", () => startEmergencyCall({ video: false }));
+document.getElementById("em-video")?.addEventListener("click", () => startEmergencyCall({ video: true }));
+document.getElementById("call-answer")?.addEventListener("click", () => calls.acceptIncoming());
+document.getElementById("call-decline")?.addEventListener("click", () => calls.rejectIncoming());
+document.getElementById("call-end")?.addEventListener("click", () => calls.end(true));
+document.getElementById("call-mute")?.addEventListener("click", () => {
+  const muted = calls.toggleMute();
+  voice.speak(muted ? "Microphone muted." : "Microphone unmuted.");
+});
+document.getElementById("call-camera")?.addEventListener("click", () => {
+  const enabled = calls.toggleCamera();
+  voice.speak(enabled ? "Camera turned on." : "Camera turned off.");
+});
+if (emergencyMode) calls.startPolling();

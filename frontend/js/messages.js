@@ -10,6 +10,7 @@ export async function sendChatMessage({
   file,
   latitude,
   longitude,
+  emergency = false,
 } = {}) {
   if (file || type === "image" || type === "voice") {
     const form = new FormData();
@@ -17,6 +18,7 @@ export async function sendChatMessage({
     if (recipientId) form.append("recipient_id", recipientId);
     form.append("type", type);
     if (body) form.append("body", body);
+    if (emergency) form.append("emergency", "1");
     if (latitude != null) form.append("latitude", String(latitude));
     if (longitude != null) form.append("longitude", String(longitude));
     if (file) form.append("file", file);
@@ -31,11 +33,12 @@ export async function sendChatMessage({
       body: body || "",
       latitude,
       longitude,
+      emergency: Boolean(emergency),
     },
   });
 }
 
-export async function sendChatLocation({ target, recipientId } = {}) {
+export async function sendChatLocation({ target, recipientId, emergency = false } = {}) {
   const pos = await getCurrentPosition();
   return sendChatMessage({
     target,
@@ -43,6 +46,7 @@ export async function sendChatLocation({ target, recipientId } = {}) {
     type: "location",
     latitude: pos.coords.latitude,
     longitude: pos.coords.longitude,
+    emergency,
   });
 }
 

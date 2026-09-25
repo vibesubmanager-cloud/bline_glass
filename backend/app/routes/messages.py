@@ -75,6 +75,7 @@ def send():
             upload = request.files.get("file")
             media_bytes = upload.read() if upload and upload.filename else None
             media_mime = upload.mimetype if upload else None
+            emergency = str(request.form.get("emergency") or "").lower() in {"1", "true", "yes"}
         else:
             data = require_json(request.get_json(silent=True))
             target = optional_string(data, "target", 120)
@@ -86,6 +87,7 @@ def send():
                 latitude, longitude = validate_lat_lng(data.get("latitude"), data.get("longitude"))
             media_bytes = None
             media_mime = None
+            emergency = bool(data.get("emergency"))
         payload = create_message(
             g.current_user,
             target=target,
@@ -96,6 +98,7 @@ def send():
             longitude=longitude,
             media_bytes=media_bytes,
             media_mime=media_mime,
+            emergency=emergency,
         )
         return ok(payload, 201)
     except (MessageError, ValidationError) as exc:

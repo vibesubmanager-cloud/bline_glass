@@ -97,7 +97,11 @@ def family_user_ids(owner_id: str) -> list[str]:
 
 
 def ring_user_ids(caller: User, emergency: bool = False) -> list[str]:
-    ids = family_user_ids(caller.id)
+    owner_id = caller.linked_blind_user_id if caller.role == "assistant" and caller.linked_blind_user_id else caller.id
+    ids = family_user_ids(owner_id)
+    if caller.role == "assistant" and owner_id not in ids and owner_id != caller.id:
+        ids.insert(0, owner_id)
+    ids = [item for item in ids if item != caller.id]
     if emergency:
         for admin_id in _admin_ids():
             if admin_id not in ids and admin_id != caller.id:
@@ -110,8 +114,13 @@ def can_join_call(session: CallSession, user_id: str) -> bool:
         return True
     if not _is_group_session(session):
         return False
-    if user_id in family_user_ids(session.caller_id):
-        return True
+    caller = db.session.get(User, session.caller_id)
+    owners = [session.caller_id]
+    if caller and caller.role == "assistant" and caller.linked_blind_user_id:
+        owners.append(caller.linked_blind_user_id)
+    for owner_id in owners:
+        if user_id == owner_id or user_id in family_user_ids(owner_id):
+            return True
     if (session.call_type or "").startswith("e") and user_id in _admin_ids():
         return True
     return False
@@ -196,26 +205,11 @@ def start_call(caller: User, contact: Contact, media: str = "audio") -> dict:
 def start_group_call(caller: User, media: str = "audio", emergency: bool = False) -> dict:
     video = (media or "audio").strip().lower() == "video" or emergency
     targets = ring_user_ids(caller, emergency=emergency)
-    phones = [
-        contact.phone
-        for contact in Contact.query.filter_by(user_id=caller.id).all()
-        if contact.phone
-    ]
-    if not targets and not phones:
+    if not targets:
         raise CallingServiceError(
-            "Add family in Contacts first, so the group can answer.",
+            "Add family who can sign in to vibeEye, so the in-app video call can ring them.",
             "CONTACT_NOT_FOUND",
         )
-    if not targets:
-        return {
-            "call": {"id": None, "call_type": "tel", "callee_id": None},
-            "contact": {"name": "your family group"},
-            "jitsi": None,
-            "tel_url": f"tel:{phones[0]}",
-            "ring_user_ids": [],
-            "group": True,
-            "emergency": emergency,
-        }
     call_type = ("e" if emergency else "g") + ("video" if video else "webrtc")
     session = CallSession(
         caller_id=caller.id,

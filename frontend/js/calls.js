@@ -424,7 +424,7 @@ class CallController {
     });
     this.currentCall = { ...data.call, peer_id: data.call?.callee_id };
     this.videoMode = video || ["video", "gvideo", "evideo"].includes(data.call?.call_type);
-    if (data.tel_url) {
+    if (data.tel_url && !data.emergency) {
       location.href = data.tel_url;
       return data.spoken;
     }

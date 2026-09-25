@@ -398,25 +398,28 @@ To hear the map again: **Say this:** `show the map`
 
 ## 15. Emergency (the most important help)
 
-The second dock button is **Emergency** (triangle). You can tap it, or speak.
+The second dock button is **Emergency** (triangle). **Tapping it does not start a call.** It opens **Emergency chat**.
 
-### If you only say emergency (or SOS)
+In Emergency chat you can:
+
+- Send **text**, a **voice note**, a **photo**, or a **map**, like the family group chat
+- Tap **voice call** or **video call** at the top when you want to call. That uses the **in-app video call**, not a phone number.
+
+### If a blind person only says emergency (or SOS)
 
 **Say this:** `emergency`  
 **Say this:** `SOS`
 
-Do **not** add “send a message” or “send a photo” here. Plain **emergency** / **SOS** does **everything at once**, instantly:
+Do **not** add “send a message” or “send a photo” here. Plain **emergency** / **SOS** does **everything at once**, instantly, **in Emergency chat**:
 
-1. Starts an **emergency video call** to the family group **and admin**. Anyone who is free can pick up.
-2. Sends an **emergency message**.
-3. Sends a **photo** from the camera.
-4. Sends a **map** (your location), if GPS is allowed.
-
-If the in-app call cannot start, it can fall back to the phone **tel:** dialer.
+1. Starts an **in-app video call** to the family group **and admin**. Anyone who is free can pick up. It does **not** open the phone dialer.
+2. Sends an **emergency text** to Emergency chat.
+3. Sends a **photo** to Emergency chat.
+4. Sends a **map** to Emergency chat, if GPS is allowed.
 
 ### If you want only one thing
 
-These do **not** start the full SOS blast. They send **one** thing to emergency / the group:
+These do **not** start the full SOS blast. They send **one** thing to Emergency chat:
 
 **Say this:** `emergency send a message`  
 Then say the words when it asks.
@@ -428,15 +431,14 @@ Then say the words when it asks.
 
 ### Where family and admin see it
 
-- **Family / assistants:** the call rings them. Messages and maps show in the group chat. They get **notifications**.
-- **Emergency page** (triangle on the dock): same group tools — message, call, video, map — plus **Emergency now** for the full SOS.
-- **Admin:** open **Emergency**. See the live call, join the video, read the message, photo, and map.
+- **Family / assistants:** open Emergency chat. The call rings them in the app. They get **notifications**.
+- **Admin:** open **Emergency**. Join the in-app video, read the message, photo, and map.
 
 **Settings:** **Share location during emergency** — leave on unless a helper has a reason to turn it off.
 
 This does not replace local emergency numbers (police, ambulance). Family should still save those on the phone.
 
-**Illustration:** simple SOS word and a triangle icon, not graphic images. Caption: “Say emergency. Call, message, photo, and map go out together.”
+**Illustration:** simple SOS word and a triangle icon, not graphic images. Caption: “Tap Emergency to open chat. Say emergency to video-call in the app.”
 
 ---
 

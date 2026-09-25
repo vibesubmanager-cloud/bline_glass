@@ -237,14 +237,14 @@ async function executeCommand(parsed, text) {
       await voice.speak("Okay. I will not send that.");
       return;
     }
-    await sendChatAndSpeak({ type: "text", body: `EMERGENCY. ${body}` });
+    await sendChatAndSpeak({ type: "text", body: `EMERGENCY. ${body}`, emergency: true });
     return;
   }
   if (parsed.intent === "EMERGENCY_SEND_PHOTO") {
     await voice.speak("Okay. Taking an emergency picture.");
     try {
       const file = await camera.captureFile();
-      await sendChatAndSpeak({ type: "image", file, body: "EMERGENCY photo" });
+      await sendChatAndSpeak({ type: "image", file, body: "EMERGENCY photo", emergency: true });
     } catch (error) {
       await voice.speak(error.message || "I could not take that picture.");
     }
@@ -258,6 +258,7 @@ async function executeCommand(parsed, text) {
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
         body: "EMERGENCY location",
+        emergency: true,
       });
     } catch (error) {
       await voice.speak(error.message || "I could not send that map.");
@@ -1000,7 +1001,7 @@ async function boot() {
   refreshBilling();
   announceUnread();
   setInterval(announceUnread, 5000);
-  startMessageNotices({ speak: false, href: "./contacts.html?group=1" });
+  startMessageNotices({ speak: false, href: pages().emergency });
   if (!voice.listeningSupported()) fallbackForm?.classList.remove("hidden");
   navigation.onChange = (info) => {
     const remaining = info.user ? navigation.remainingDistance(info.user) : null;
@@ -1042,14 +1043,6 @@ async function boot() {
   });
   document.getElementById("nav-close")?.addEventListener("pointerdown", (event) => {
     event.stopPropagation();
-  });
-  document.getElementById("dock-emergency")?.addEventListener("click", async () => {
-    try {
-      const spoken = await activateEmergency();
-      await voice.speak(spoken);
-    } catch (error) {
-      await voice.speak(error.message || "I could not start emergency.");
-    }
   });
   document.getElementById("dest-close")?.addEventListener("click", closeDestSheet);
   document.getElementById("dest-form")?.addEventListener("submit", async (event) => {

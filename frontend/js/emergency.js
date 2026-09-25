@@ -4,7 +4,7 @@ import { navigation, getCurrentPosition } from "./navigation.js";
 import { calls } from "./calls.js?v=14";
 import { voice } from "./voice.js?v=56";
 import { camera } from "./camera.js";
-import { sendChatLocation, sendChatMessage } from "./messages.js";
+import { sendChatMessage } from "./messages.js";
 
 export async function activateEmergency() {
   voice.unlock({ fromGesture: true });
@@ -34,7 +34,7 @@ export async function activateEmergency() {
   });
   const jobs = [];
   if (file) {
-    jobs.push(sendChatMessage({ type: "image", file, body: "EMERGENCY photo" }).catch(() => null));
+    jobs.push(sendChatMessage({ type: "image", file, body: "EMERGENCY photo", emergency: true }).catch(() => null));
   }
   if (latitude != null && longitude != null) {
     jobs.push(
@@ -43,17 +43,13 @@ export async function activateEmergency() {
         latitude,
         longitude,
         body: "EMERGENCY location",
+        emergency: true,
       }).catch(() => null)
     );
   }
   await Promise.all(jobs);
-  try {
-    await calls.start("emergency", { video: true, emergency: true });
-  } catch {
-    const phone = data.primary_contact?.phone;
-    if (phone) location.href = `tel:${phone}`;
-  }
-  return data.spoken || "Emergency sent to your group. Video call, message, photo, and map are going out now.";
+  await calls.start("emergency", { video: true, emergency: true });
+  return data.spoken || "Emergency chat updated. Starting an in-app video call now.";
 }
 
 export async function cancelEmergency(eventId) {

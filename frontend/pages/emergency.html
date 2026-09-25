@@ -3,39 +3,49 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#04070d" />
     <title>Emergency — vibeEye</title>
-    <link rel="stylesheet" href="../css/main.css?v=30" />
+    <link rel="stylesheet" href="../css/main.css?v=31" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
   </head>
-  <body class="page-panel has-dock">
-    <main class="app-shell">
+  <body class="page-panel has-dock chat-page">
+    <main class="app-shell chat-shell">
       <header class="brand contacts-head">
         <div class="brand-copy">
-          <h1>Emergency</h1>
-          <p id="emergency-lede">Say emergency or SOS to video-call the group and admin, and send a message, photo, and map at once.</p>
+          <p class="brand-kicker">Emergency</p>
+          <h1 id="chat-title">Emergency chat</h1>
+        </div>
+        <div class="chat-call-actions">
+          <button class="btn icon-btn primary" id="em-call" type="button" aria-label="Voice call">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15c4-4 8-4 12 0"/></svg>
+          </button>
+          <button class="btn icon-btn" id="em-video" type="button" aria-label="Video call">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="11" height="10" rx="2"/><path d="M14 10l7-3v10l-7-3z"/></svg>
+          </button>
         </div>
       </header>
-      <p id="emergency-status" class="status-bar" role="status" aria-live="polite"></p>
-      <article class="contact-item group-card emergency">
-        <div class="avatar" aria-hidden="true">!</div>
-        <div>
-          <strong>Emergency group</strong>
-          <p>Admins and family. Anyone who is free can pick up.</p>
+      <p id="chat-status" class="status-bar" role="status" aria-live="polite">Text, voice note, photo, or map. Use call or video call when you are ready.</p>
+      <section id="chat-thread" class="chat-thread" aria-label="Emergency messages"></section>
+      <form id="chat-form" class="chat-composer">
+        <div class="chat-bar">
+          <button class="btn icon-btn chat-tool" id="chat-photo" type="button" aria-label="Send a picture">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="8" cy="11" r="1.5"/><path d="M21 16l-5-5-7 7"/></svg>
+          </button>
+          <button class="btn icon-btn chat-tool" id="chat-voice" type="button" aria-label="Record a voice note">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg>
+          </button>
+          <button class="btn icon-btn chat-tool" id="chat-location" type="button" aria-label="Send location">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-7 7-12a7 7 0 10-14 0c0 5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
+          </button>
+          <label class="sr-only" for="chat-input">Message</label>
+          <input id="chat-input" name="body" type="text" placeholder="Emergency message" autocomplete="off" />
+          <button class="chat-send" id="chat-send" type="submit" aria-label="Send">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l18-9-7 18-2-7-9-2z"/></svg>
+          </button>
         </div>
-        <button class="btn icon-btn primary" id="em-call" type="button" aria-label="Voice call emergency group">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15c4-4 8-4 12 0"/></svg>
-        </button>
-        <button class="btn icon-btn" id="em-video" type="button" aria-label="Video call emergency group">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="11" height="10" rx="2"/><path d="M14 10l7-3v10l-7-3z"/></svg>
-        </button>
-        <a class="btn icon-btn" id="em-chat" href="./chat.html?group=1" aria-label="Open emergency messages">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v10H8l-4 4z"/></svg>
-        </a>
-      </article>
-      <button class="btn danger" id="em-sos" type="button">Emergency now</button>
-      <p class="muted">Blind users: say emergency to do everything at once. Say emergency send a message, emergency send a photo, or emergency send a map for one action.</p>
-      <video id="camera-preview" class="hidden" playsinline muted autoplay></video>
+        <input id="chat-file" class="sr-only" type="file" accept="image/*" capture="environment" />
+      </form>
       <section id="call-overlay" class="call-overlay hidden" aria-label="Call">
         <p id="call-status-text">Calling</p>
         <div id="jitsi-container" class="jitsi-container" aria-hidden="true"></div>
@@ -67,64 +77,6 @@
       <a class="dock-btn" href="./plans.html" aria-label="Plans"><svg viewBox="0 0 24 24"><path d="M12 3l2.15 5.2 5.6.5-4.25 3.7 1.3 5.5L12 15.3 7.2 17.9l1.3-5.5L4.25 8.7l5.6-.5z"/></svg></a>
       <a class="dock-btn" href="./settings.html" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg></a>
     </nav>
-    <script type="module">
-      import { calls } from "../js/calls.js?v=14";
-      import { voice } from "../js/voice.js";
-      import { getToken, getUser, pages } from "../js/config.js";
-      import { activateEmergency } from "../js/emergency.js";
-      import { startMessageNotices } from "../js/notify.js";
-      if (!getToken()) location.href = pages().welcome;
-      const status = document.getElementById("emergency-status");
-      const user = getUser() || {};
-      const isAssistant = user.role === "assistant";
-      if (isAssistant) {
-        document.getElementById("emergency-lede").textContent =
-          "When someone you help says emergency, the call and messages show here. Answer to join.";
-        document.getElementById("em-sos")?.classList.add("hidden");
-        document.getElementById("em-call")?.classList.add("hidden");
-        document.getElementById("em-video")?.classList.add("hidden");
-      }
-      async function speakStatus(text) {
-        status.textContent = text;
-        await voice.speak(text);
-      }
-      document.getElementById("em-sos")?.addEventListener("click", async () => {
-        try {
-          const spoken = await activateEmergency();
-          await speakStatus(spoken);
-        } catch (error) {
-          await speakStatus(error.message || "I could not start emergency.");
-        }
-      });
-      document.getElementById("em-call")?.addEventListener("click", async () => {
-        try {
-          const spoken = await calls.start(isAssistant ? "group" : "emergency", { emergency: !isAssistant });
-          await speakStatus(spoken);
-        } catch (error) {
-          await speakStatus(error.message);
-        }
-      });
-      document.getElementById("em-video")?.addEventListener("click", async () => {
-        try {
-          const spoken = await calls.start(isAssistant ? "group" : "emergency", { video: true, emergency: !isAssistant });
-          await speakStatus(spoken);
-        } catch (error) {
-          await speakStatus(error.message);
-        }
-      });
-      document.getElementById("call-answer")?.addEventListener("click", () => calls.acceptIncoming());
-      document.getElementById("call-decline")?.addEventListener("click", () => calls.rejectIncoming());
-      document.getElementById("call-end")?.addEventListener("click", () => calls.end(true));
-      document.getElementById("call-mute")?.addEventListener("click", () => {
-        const muted = calls.toggleMute();
-        voice.speak(muted ? "Microphone muted." : "Microphone unmuted.");
-      });
-      document.getElementById("call-camera")?.addEventListener("click", () => {
-        const enabled = calls.toggleCamera();
-        voice.speak(enabled ? "Camera turned on." : "Camera turned off.");
-      });
-      calls.startPolling();
-      startMessageNotices({ speak: true, href: "./chat.html?group=1" });
-    </script>
+    <script type="module" src="../js/chatPage.js?v=7"></script>
   </body>
 </html>

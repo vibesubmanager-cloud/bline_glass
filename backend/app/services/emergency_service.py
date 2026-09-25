@@ -76,6 +76,7 @@ def activate_emergency(user: User, latitude=None, longitude=None, accuracy=None,
             target="",
             msg_type="text",
             body="EMERGENCY. I need help now.",
+            emergency=True,
         )
     except Exception as exc:
         log_error("EMERGENCY_CHAT_ERROR", exc)

@@ -217,9 +217,14 @@ def create_message(
     longitude: float | None = None,
     media_bytes: bytes | None = None,
     media_mime: str | None = None,
+    emergency: bool = False,
 ) -> dict:
     pairs = list(_resolve_send_peers(sender, target, recipient_id))
-    emergency_flag = (body or "").upper().startswith("EMERGENCY") or "emergency" in (body or "").lower()
+    emergency_flag = (
+        emergency
+        or (body or "").upper().startswith("EMERGENCY")
+        or "emergency" in (body or "").lower()
+    )
     if emergency_flag:
         seen = {peer.id for peer, _contact in pairs}
         for admin in User.query.filter_by(role="admin", is_active=True).all():

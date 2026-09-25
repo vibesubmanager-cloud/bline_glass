@@ -36,7 +36,7 @@ def start():
             "contacts",
             "",
         }
-        if g.current_user.role != "assistant" and (group or emergency or not data.get("contact_id")):
+        if emergency or group or (g.current_user.role != "assistant" and not data.get("contact_id")):
             payload = start_group_call(g.current_user, media=media, emergency=emergency)
             record_usage("CALL_STARTED", g.current_user.id)
             payload["spoken"] = payload.get("spoken") or "Calling your group. Anyone who is free can pick up."
