@@ -251,16 +251,17 @@ async function loadEmergencies() {
   if (box) {
     const rows = data.emergencies || [];
     if (!rows.length) {
-      box.innerHTML = "<p class='muted'>No emergency calls yet.</p>";
+      box.innerHTML = "<p class='muted'>No emergency calls or admin messages yet.</p>";
     } else {
       box.innerHTML = rows
         .map((item) => {
           const person = item.user || {};
           const event = item.event || {};
           const call = item.call || {};
-          const room = item.jitsi?.room;
+          const room = item.jitsi?.room || call.jitsi_room_name;
+          const live = call.status === "ringing" || call.status === "active";
           const join = room
-            ? `<p><a href="https://meet.jit.si/${encodeURIComponent(room)}" target="_blank" rel="noopener">Join video call</a></p>`
+            ? `<p><button class="btn primary small" type="button" data-join-call="${call.id || ""}" data-room="${room}">${live ? "Join in-app call" : "Open call room"}</button></p>`
             : "";
           const map =
             event.latitude != null && event.longitude != null
@@ -268,7 +269,7 @@ async function loadEmergencies() {
               : "";
           const notes = (item.messages || [])
             .slice(0, 3)
-            .map((msg) => `<li>${msg.type || "text"}: ${msg.body || ""}</li>`)
+            .map((msg) => `<li>${msg.type || "text"}: ${msg.body || (msg.has_media ? "[photo or voice]" : "")}</li>`)
             .join("");
           return `<article class="card nested">
             <p><strong>${person.name || "Someone"}</strong> · ${event.status || ""} · ${event.started_at || ""}</p>
@@ -278,12 +279,16 @@ async function loadEmergencies() {
           </article>`;
         })
         .join("");
+      box.querySelectorAll("[data-join-call]").forEach((button) => {
+        button.onclick = () =>
+          joinAdminCall(button.dataset.joinCall, button.dataset.room).catch((error) => showStatus(error.message));
+      });
     }
   }
   if (alerts) {
     const rows = data.messages || [];
     if (!rows.length) {
-      alerts.innerHTML = "<p class='muted'>No messages yet.</p>";
+      alerts.innerHTML = "<p class='muted'>No admin emergency messages yet.</p>";
     } else {
       alerts.innerHTML = `<ul>${rows
         .map(
@@ -294,6 +299,54 @@ async function loadEmergencies() {
         )
         .join("")}</ul>`;
     }
+  }
+}
+
+async function joinAdminCall(callId, room) {
+  let roomName = room;
+  if (callId) {
+    try {
+      const data = await adminApi("/api/calls/accept", { method: "POST", body: { call_id: callId } });
+      roomName = data.jitsi?.room || roomName;
+    } catch {
+      /* room link still works */
+    }
+  }
+  if (!roomName) throw new Error("That call room is not ready yet.");
+  const overlay = document.getElementById("admin-call-overlay");
+  const host = document.getElementById("admin-jitsi");
+  const status = document.getElementById("admin-call-status");
+  if (!overlay || !host) {
+    window.open(`https://meet.jit.si/${encodeURIComponent(roomName)}`, "_blank", "noopener");
+    return;
+  }
+  overlay.classList.remove("hidden");
+  if (status) status.textContent = "Emergency call connected. Stay if you are free.";
+  host.innerHTML = "";
+  const frame = document.createElement("iframe");
+  frame.src = `https://meet.jit.si/${encodeURIComponent(roomName)}#config.prejoinPageEnabled=false`;
+  frame.allow = "camera; microphone; display-capture; autoplay; fullscreen";
+  frame.allowFullscreen = true;
+  host.appendChild(frame);
+}
+
+function leaveAdminCall() {
+  const overlay = document.getElementById("admin-call-overlay");
+  const host = document.getElementById("admin-jitsi");
+  if (host) host.innerHTML = "";
+  overlay?.classList.add("hidden");
+}
+
+async function pollAdminCalls() {
+  try {
+    const data = await adminApi("/api/calls/poll");
+    for (const signal of data.signals || []) {
+      if (signal.signal_type === "ring") {
+        showStatus(`Emergency call from ${signal.from_name || "someone who needs help"}. Open Emergency to join.`, true);
+      }
+    }
+  } catch {
+    /* keep the emergencies list working even if poll fails */
   }
 }
 
@@ -508,10 +561,12 @@ function bindDashboard() {
   document.getElementById("refresh-emergency")?.addEventListener("click", () => {
     loadEmergencies().catch((error) => showStatus(error.message));
   });
+  document.getElementById("admin-call-end")?.addEventListener("click", leaveAdminCall);
   setInterval(() => {
     const section = document.getElementById("section-emergency");
     if (section && !section.classList.contains("hidden")) {
       loadEmergencies().catch(() => undefined);
+      pollAdminCalls();
     }
   }, 8000);
   document.getElementById("user-search").onkeydown = (event) => {

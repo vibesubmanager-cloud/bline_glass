@@ -131,6 +131,8 @@ def resolve_peer(user: User, target: str | None, recipient_id: str | None = None
 
 
 def _are_linked(user: User, peer: User) -> bool:
+    if user.role == "admin" or peer.role == "admin":
+        return True
     if user.role == "assistant" and user.linked_blind_user_id == peer.id:
         return True
     if peer.role == "assistant" and peer.linked_blind_user_id == user.id:
@@ -206,6 +208,19 @@ def _resolve_send_peers(sender: User, target: str | None, recipient_id: str | No
     return peers
 
 
+def _admin_peer_pairs(sender: User) -> list[tuple[User, Contact | None]]:
+    pairs = []
+    for admin in User.query.filter_by(role="admin", is_active=True).all():
+        if admin.id != sender.id:
+            pairs.append((admin, None))
+    if not pairs:
+        raise MessageError(
+            "Emergency admin is not available yet.",
+            "NO_APP_ACCOUNT",
+        )
+    return pairs
+
+
 def create_message(
     sender: User,
     *,
@@ -219,18 +234,15 @@ def create_message(
     media_mime: str | None = None,
     emergency: bool = False,
 ) -> dict:
-    pairs = list(_resolve_send_peers(sender, target, recipient_id))
     emergency_flag = (
         emergency
         or (body or "").upper().startswith("EMERGENCY")
         or "emergency" in (body or "").lower()
     )
     if emergency_flag:
-        seen = {peer.id for peer, _contact in pairs}
-        for admin in User.query.filter_by(role="admin", is_active=True).all():
-            if admin.id != sender.id and admin.id not in seen:
-                pairs.append((admin, None))
-                seen.add(admin.id)
+        pairs = _admin_peer_pairs(sender)
+    else:
+        pairs = list(_resolve_send_peers(sender, target, recipient_id))
     msg_type = (msg_type or "text").lower()
     if msg_type not in {"text", "location", "image", "voice"}:
         raise MessageError("That message type is not supported.", "VALIDATION_ERROR")
@@ -251,6 +263,10 @@ def create_message(
             raise MessageError("I did not receive that recording or picture.", "VALIDATION_ERROR")
         if len(media_bytes) > MAX_MEDIA_BYTES:
             raise MessageError("That file is too large. Keep it under 5 MB.", "IMAGE_TOO_LARGE")
+        body = body or (f"EMERGENCY {msg_type}" if emergency_flag else "")
+
+    if emergency_flag and not (body or "").upper().startswith("EMERGENCY"):
+        body = f"EMERGENCY. {body or msg_type}"
 
     stored_mime = None
     ext = ".webm"
@@ -287,10 +303,10 @@ def create_message(
     db.session.commit()
     log_event("MESSAGE_SENT", message_id=created[0][0].id, type=msg_type, count=len(created))
     contacts = [contact for _message, _peer, contact in created if contact]
-    who = contact_names(contacts) if contacts else created[0][1].name
+    who = "emergency admin" if emergency_flag else (contact_names(contacts) if contacts else created[0][1].name)
     spoken = _spoken_for(created[0][0], who)
     first_message, first_peer, first_contact = created[0]
-    peer_name = first_contact.name if first_contact else first_peer.name
+    peer_name = "Emergency admin" if emergency_flag else (first_contact.name if first_contact else first_peer.name)
     return {
         "message": first_message.public_dict(sender.id),
         "peer": {"id": first_peer.id, "name": peer_name},
@@ -366,6 +382,58 @@ def list_group_messages(user: User, limit: int = 120) -> dict:
         data["from_name"] = "You" if row.sender_id == user.id else names.get(other, "Family")
         messages.append(data)
     return {"peer": {"id": "group", "name": "Family group"}, "messages": messages}
+
+
+def _admin_ids() -> list[str]:
+    return [row.id for row in User.query.filter_by(role="admin", is_active=True).all()]
+
+
+def list_emergency_messages(user: User, limit: int = 120) -> dict:
+    admin_ids = _admin_ids()
+    if not admin_ids:
+        return {"peer": {"id": "emergency", "name": "Emergency admin"}, "messages": []}
+    if user.role == "admin":
+        rows = (
+            Message.query.filter(or_(Message.sender_id == user.id, Message.recipient_id == user.id))
+            .order_by(Message.created_at.asc())
+            .limit(max(1, min(limit, 200)))
+            .all()
+        )
+    else:
+        rows = (
+            Message.query.filter(
+                or_(
+                    db.and_(Message.sender_id == user.id, Message.recipient_id.in_(admin_ids)),
+                    db.and_(Message.recipient_id == user.id, Message.sender_id.in_(admin_ids)),
+                )
+            )
+            .order_by(Message.created_at.asc())
+            .limit(max(1, min(limit, 200)))
+            .all()
+        )
+    now = datetime.now(timezone.utc)
+    unread = [row for row in rows if row.recipient_id == user.id and row.read_at is None]
+    for row in unread:
+        row.read_at = now
+    if unread:
+        db.session.commit()
+    unique = []
+    seen_out = set()
+    for row in rows:
+        if row.sender_id == user.id:
+            key = (row.type, row.body or "", row.media_filename or "", row.maps_url or "")
+            if key in seen_out:
+                continue
+            seen_out.add(key)
+        unique.append(row)
+    messages = []
+    for row in unique:
+        data = row.public_dict(user.id)
+        other = row.recipient_id if row.sender_id == user.id else row.sender_id
+        peer = db.session.get(User, other)
+        data["from_name"] = "You" if row.sender_id == user.id else (peer.name if peer else "Emergency")
+        messages.append(data)
+    return {"peer": {"id": "emergency", "name": "Emergency admin"}, "messages": messages}
 
 
 def family_peer_ids(user: User) -> list[str]:
@@ -463,7 +531,9 @@ def mark_read(user: User, message_ids: list[str]) -> int:
 
 def get_owned_media(user: User, message_id: str):
     message = db.session.get(Message, message_id)
-    if not message or user.id not in {message.sender_id, message.recipient_id}:
+    if not message:
+        raise MessageError("Message not found.", "NOT_FOUND")
+    if user.id not in {message.sender_id, message.recipient_id} and user.role != "admin":
         raise MessageError("Message not found.", "NOT_FOUND")
     if not message.media_filename:
         raise MessageError("That message has no file.", "NOT_FOUND")

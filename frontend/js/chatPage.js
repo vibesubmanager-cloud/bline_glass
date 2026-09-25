@@ -3,6 +3,7 @@ import { voice } from "./voice.js?v=44";
 import { recorder } from "./recorder.js";
 import { calls } from "./calls.js?v=14";
 import {
+  loadEmergencyMessages,
   loadGroupMessages,
   loadThread,
   markMessagesRead,
@@ -15,7 +16,7 @@ import { startMessageNotices } from "./notify.js";
 const params = new URLSearchParams(location.search);
 const peerId = params.get("with") || "";
 const emergencyMode = /emergency/i.test(location.pathname) || params.get("emergency") === "1";
-const groupMode = params.get("group") === "1" || emergencyMode;
+const groupMode = params.get("group") === "1";
 const title = document.getElementById("chat-title");
 const status = document.getElementById("chat-status");
 const thread = document.getElementById("chat-thread");
@@ -25,7 +26,7 @@ const fileInput = document.getElementById("chat-file");
 const voiceBtn = document.getElementById("chat-voice");
 
 if (!getToken()) location.href = pages().welcome;
-if (!peerId && !groupMode) location.href = pages().contacts;
+if (!peerId && !groupMode && !emergencyMode) location.href = pages().contacts;
 
 const mediaUrls = new Map();
 let lastIds = "";
@@ -98,8 +99,12 @@ async function renderMessages(messages) {
 }
 
 async function refresh() {
-  const data = groupMode ? await loadGroupMessages() : await loadThread(peerId);
-  peerName = data.peer?.name || (emergencyMode ? "Emergency chat" : groupMode ? "Family group" : "Them");
+  const data = emergencyMode
+    ? await loadEmergencyMessages()
+    : groupMode
+      ? await loadGroupMessages()
+      : await loadThread(peerId);
+  peerName = data.peer?.name || (emergencyMode ? "Emergency admin" : groupMode ? "Family group" : "Them");
   if (!emergencyMode) title.textContent = peerName;
   const messages = data.messages || [];
   const ids = messages.map((item) => item.id).join(",");
@@ -126,7 +131,7 @@ async function handleSend(payload) {
   try {
     showStatus("Sending…");
     const result = await sendChatMessage({
-      recipientId: groupMode ? "" : peerId,
+      recipientId: emergencyMode || groupMode ? "" : peerId,
       emergency: emergencyMode,
       ...payload,
     });
@@ -159,7 +164,10 @@ fileInput.addEventListener("change", async () => {
 document.getElementById("chat-location").addEventListener("click", async () => {
   try {
     showStatus("Sending location…");
-    const result = await sendChatLocation({ recipientId: groupMode ? "" : peerId, emergency: emergencyMode });
+    const result = await sendChatLocation({
+      recipientId: emergencyMode || groupMode ? "" : peerId,
+      emergency: emergencyMode,
+    });
     const spoken = result.spoken || "Done. I have sent your location.";
     showStatus(spoken);
     await voice.speak(spoken);

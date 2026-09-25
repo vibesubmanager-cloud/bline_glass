@@ -34,7 +34,7 @@ class CallSession(db.Model):
             "call_type": self.call_type,
             "status": self.status,
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "ended_at": self.ended_at.isoformat() if self.ended_at else None,
+            "jitsi_room_name": self.jitsi_room_name,
         }
 
 

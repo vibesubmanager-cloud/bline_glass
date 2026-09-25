@@ -398,28 +398,28 @@ To hear the map again: **Say this:** `show the map`
 
 ## 15. Emergency (the most important help)
 
-The second dock button is **Emergency** (triangle). **Tapping it does not start a call.** It opens **Emergency chat**.
+The second dock button is **Emergency** (triangle). **Tapping it does not start a call.** It opens **Emergency chat with admin**.
 
 In Emergency chat you can:
 
-- Send **text**, a **voice note**, a **photo**, or a **map**, like the family group chat
-- Tap **voice call** or **video call** at the top when you want to call. That uses the **in-app video call**, not a phone number.
+- Send **text**, a **voice note**, a **photo**, or a **map** to **admin**
+- Tap **voice call** or **video call** at the top when you want to call **admin**. That uses the **in-app video call**, not a phone number. Family is not the emergency desk.
 
 ### If a blind person only says emergency (or SOS)
 
 **Say this:** `emergency`  
 **Say this:** `SOS`
 
-Do **not** add “send a message” or “send a photo” here. Plain **emergency** / **SOS** does **everything at once**, instantly, **in Emergency chat**:
+Do **not** add “send a message” or “send a photo” here. Plain **emergency** / **SOS** does **everything at once**, instantly, **to admin**:
 
-1. Starts an **in-app video call** to the family group **and admin**. Anyone who is free can pick up. It does **not** open the phone dialer.
-2. Sends an **emergency text** to Emergency chat.
-3. Sends a **photo** to Emergency chat.
-4. Sends a **map** to Emergency chat, if GPS is allowed.
+1. Starts an **in-app video call** to **admin**. It does **not** open the phone dialer.
+2. Sends an **emergency text** to admin.
+3. Sends a **photo** to admin.
+4. Sends a **map** to admin, if GPS is allowed.
 
 ### If you want only one thing
 
-These do **not** start the full SOS blast. They send **one** thing to Emergency chat:
+These do **not** start the full SOS blast. They send **one** thing to admin:
 
 **Say this:** `emergency send a message`  
 Then say the words when it asks.
@@ -429,16 +429,16 @@ Then say the words when it asks.
 **Say this:** `emergency send a map`  
 **Say this:** `emergency send location`
 
-### Where family and admin see it
+### Where admin sees it
 
-- **Family / assistants:** open Emergency chat. The call rings them in the app. They get **notifications**.
-- **Admin:** open **Emergency**. Join the in-app video, read the message, photo, and map.
+- **Admin:** open **Emergency**. Join the in-app video, read the message, photo, and map. Admin is the emergency desk.
+- Family group chat stays for everyday calls and messages. It is not emergency.
 
 **Settings:** **Share location during emergency** — leave on unless a helper has a reason to turn it off.
 
-This does not replace local emergency numbers (police, ambulance). Family should still save those on the phone.
+This does not replace local emergency numbers (police, ambulance).
 
-**Illustration:** simple SOS word and a triangle icon, not graphic images. Caption: “Tap Emergency to open chat. Say emergency to video-call in the app.”
+**Illustration:** simple SOS word and a triangle icon, not graphic images. Caption: “Tap Emergency to open admin chat. Say emergency to video-call admin.”
 
 ---
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from app.extensions import db
-from app.models.contact import Contact
 from app.models.emergency import EmergencyEvent
 from app.models.user import User
 from app.utils.logging import log_error, log_event
@@ -42,16 +41,10 @@ def activate_emergency(user: User, latitude=None, longitude=None, accuracy=None,
     if settings and share_location is None:
         allowed = bool(settings.share_location_in_emergency)
 
-    contacts = (
-        Contact.query.filter_by(user_id=user.id, is_emergency_contact=True)
-        .order_by(Contact.updated_at.desc())
-        .all()
-    )
-    if not contacts:
-        contacts = Contact.query.filter_by(user_id=user.id).all()
-    if not contacts:
+    admins = User.query.filter_by(role="admin", is_active=True).all()
+    if not admins:
         raise EmergencyServiceError(
-            "You don't have an emergency contact yet. Add one in contacts.",
+            "Emergency admin is not available yet.",
             "NO_EMERGENCY_CONTACT",
         )
 
@@ -62,11 +55,11 @@ def activate_emergency(user: User, latitude=None, longitude=None, accuracy=None,
         accuracy_meters=accuracy if allowed else None,
         location_shared=bool(allowed and latitude is not None),
         status="activated",
-        notified_contact_ids=[c.id for c in contacts],
+        notified_contact_ids=[],
     )
     db.session.add(event)
     db.session.commit()
-    log_event("EMERGENCY_ACTIVATED", event_id=event.id, contacts=len(contacts))
+    log_event("EMERGENCY_ACTIVATED", event_id=event.id, contacts=len(admins))
 
     try:
         from app.services.message_service import create_message
@@ -81,22 +74,12 @@ def activate_emergency(user: User, latitude=None, longitude=None, accuracy=None,
     except Exception as exc:
         log_error("EMERGENCY_CHAT_ERROR", exc)
 
-    sms_sent = []
-    location_text = ""
-    if event.location_shared:
-        location_text = f" Location: https://maps.google.com/?q={event.latitude},{event.longitude}"
-    body = f"vibeEye emergency alert from {user.name}.{location_text}"
-    for contact in contacts:
-        if contact.phone and _send_sms(contact.phone, body):
-            sms_sent.append(contact.id)
-
-    primary = contacts[0]
     return {
         "event": event.public_dict(),
-        "contacts": [c.public_dict() for c in contacts],
-        "primary_contact": primary.public_dict(),
-        "sms_sent": sms_sent,
-        "spoken": _spoken_summary(primary, event.location_shared, bool(sms_sent)),
+        "contacts": [],
+        "primary_contact": {"name": "Emergency admin"},
+        "sms_sent": [],
+        "spoken": _spoken_summary(event.location_shared),
     }
 
 
@@ -111,12 +94,10 @@ def cancel_emergency(user: User, event_id: str) -> dict:
     return {"event": event.public_dict(), "spoken": "Emergency cancelled."}
 
 
-def _spoken_summary(primary: Contact, location_shared: bool, sms: bool) -> str:
-    parts = [f"Emergency activated. I will contact {primary.name}."]
+def _spoken_summary(location_shared: bool) -> str:
+    parts = ["Emergency activated. I am contacting emergency admin."]
     if location_shared:
-        parts.append("Your location will be shared with your emergency contact.")
+        parts.append("Your location will be shared with admin.")
     else:
         parts.append("Location was not shared.")
-    if sms:
-        parts.append("A text message was sent.")
     return " ".join(parts)

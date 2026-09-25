@@ -99,7 +99,7 @@
 
         <section id="section-emergency" class="hidden">
           <h2>Emergency</h2>
-          <p class="muted">When a blind person says emergency or SOS, the video call, message, photo, and map show here. Join the call if you are free.</p>
+          <p class="muted">Admin is the emergency desk. Video, voice, text, photo, and map from a blind person land here. Join the in-app call if you are free.</p>
           <div class="toolbar">
             <button class="btn ghost" id="refresh-emergency" type="button">Refresh</button>
           </div>
@@ -266,6 +266,11 @@
         </section>
       </main>
     </div>
-    <script type="module" src="../js/admin.js?v=9"></script>
+    <section id="admin-call-overlay" class="admin-call-overlay hidden" aria-label="Emergency call">
+      <p id="admin-call-status">Connecting emergency call…</p>
+      <div id="admin-jitsi" class="admin-jitsi"></div>
+      <button class="btn danger" id="admin-call-end" type="button">Leave call</button>
+    </section>
+    <script type="module" src="../js/admin.js?v=10"></script>
   </body>
 </html>

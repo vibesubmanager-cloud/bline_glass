@@ -95,9 +95,15 @@ def users():
 
 
 @admin_bp.get("/emergencies")
+@admin_bp.get("/emergencies/")
+@admin_bp.get("/emergency")
+@admin_bp.get("/alerts")
 @admin_required
 def emergencies():
-    return ok({"emergencies": list_emergencies(), "messages": list_message_alerts()})
+    try:
+        return ok({"emergencies": list_emergencies(), "messages": list_message_alerts()})
+    except Exception as exc:
+        return _error(exc)
 
 
 @admin_bp.get("/users/<user_id>")

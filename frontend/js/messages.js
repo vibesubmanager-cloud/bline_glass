@@ -62,6 +62,10 @@ export async function loadGroupMessages() {
   return api("/api/messages?group=1");
 }
 
+export async function loadEmergencyMessages() {
+  return api("/api/messages?emergency=1");
+}
+
 export async function loadUnread() {
   return api("/api/messages/unread");
 }

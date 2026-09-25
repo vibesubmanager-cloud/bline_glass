@@ -142,6 +142,8 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
             _ensure_api_key_table,
             _ensure_call_columns,
             _ensure_app_settings,
+            _ensure_emergency_table,
+            _ensure_call_signal_table,
         ):
             try:
                 step()
@@ -305,3 +307,25 @@ def _ensure_app_settings() -> None:
                 db.session.execute(text(f"ALTER TABLE app_settings ADD COLUMN {name} {definition}"))
         db.session.commit()
     get_settings()
+
+
+def _ensure_emergency_table() -> None:
+    from sqlalchemy import inspect
+
+    from app.models.emergency import EmergencyEvent
+
+    inspector = inspect(db.engine)
+    if "emergency_events" not in inspector.get_table_names():
+        EmergencyEvent.__table__.create(bind=db.engine, checkfirst=True)
+
+
+def _ensure_call_signal_table() -> None:
+    from sqlalchemy import inspect
+
+    from app.models.call import CallSession, CallSignal
+
+    inspector = inspect(db.engine)
+    if "call_sessions" not in inspector.get_table_names():
+        CallSession.__table__.create(bind=db.engine, checkfirst=True)
+    if "call_signals" not in inspector.get_table_names():
+        CallSignal.__table__.create(bind=db.engine, checkfirst=True)

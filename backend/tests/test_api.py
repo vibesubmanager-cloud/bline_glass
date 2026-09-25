@@ -87,10 +87,24 @@ def test_calling_configured_setting(auth_client):
     assert me.get_json()["data"]["settings"]["calling_configured"] is True
 
 
-def test_emergency_without_contacts(auth_client):
+def test_emergency_without_contacts(auth_client, app):
     response = auth_client.post("/api/emergency/activate", json={})
-    assert response.status_code == 400
-    assert response.get_json()["error"]["code"] == "NO_EMERGENCY_CONTACT"
+    assert response.status_code == 200
+    spoken = response.get_json()["data"]["spoken"]
+    assert "admin" in spoken.lower()
+
+
+def test_admin_emergencies_endpoint(auth_client, client, app):
+    auth_client.post("/api/emergency/activate", json={})
+    login = client.post("/api/admin/login", json={"username": "admin", "password": "AdminSight1!"})
+    assert login.status_code == 200
+    token = login.get_json()["data"]["token"]
+    response = client.get("/api/admin/emergencies", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert "emergencies" in payload
+    assert "messages" in payload
+    assert payload["emergencies"] or payload["messages"]
 
 
 def test_share_location_to_brother(auth_client):

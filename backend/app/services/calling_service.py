@@ -97,16 +97,13 @@ def family_user_ids(owner_id: str) -> list[str]:
 
 
 def ring_user_ids(caller: User, emergency: bool = False) -> list[str]:
+    if emergency:
+        return [admin_id for admin_id in _admin_ids() if admin_id != caller.id]
     owner_id = caller.linked_blind_user_id if caller.role == "assistant" and caller.linked_blind_user_id else caller.id
     ids = family_user_ids(owner_id)
     if caller.role == "assistant" and owner_id not in ids and owner_id != caller.id:
         ids.insert(0, owner_id)
-    ids = [item for item in ids if item != caller.id]
-    if emergency:
-        for admin_id in _admin_ids():
-            if admin_id not in ids and admin_id != caller.id:
-                ids.append(admin_id)
-    return ids
+    return [item for item in ids if item != caller.id]
 
 
 def can_join_call(session: CallSession, user_id: str) -> bool:
@@ -114,6 +111,8 @@ def can_join_call(session: CallSession, user_id: str) -> bool:
         return True
     if not _is_group_session(session):
         return False
+    if (session.call_type or "").startswith("e"):
+        return user_id in _admin_ids() or user_id == session.caller_id
     caller = db.session.get(User, session.caller_id)
     owners = [session.caller_id]
     if caller and caller.role == "assistant" and caller.linked_blind_user_id:
@@ -121,8 +120,6 @@ def can_join_call(session: CallSession, user_id: str) -> bool:
     for owner_id in owners:
         if user_id == owner_id or user_id in family_user_ids(owner_id):
             return True
-    if (session.call_type or "").startswith("e") and user_id in _admin_ids():
-        return True
     return False
 
 
@@ -207,6 +204,9 @@ def start_group_call(caller: User, media: str = "audio", emergency: bool = False
     targets = ring_user_ids(caller, emergency=emergency)
     if not targets:
         raise CallingServiceError(
+            "Emergency admin is not available. Set an admin account on the server.",
+            "CONTACT_NOT_FOUND",
+        ) if emergency else CallingServiceError(
             "Add family who can sign in to vibeEye, so the in-app video call can ring them.",
             "CONTACT_NOT_FOUND",
         )
@@ -222,8 +222,20 @@ def start_group_call(caller: User, media: str = "audio", emergency: bool = False
     db.session.add(session)
     db.session.commit()
     log_event("GROUP_CALL_STARTED", call_id=session.id, call_type=call_type, rings=len(targets))
-    label = "emergency" if emergency else "your family group"
-    spoken = "Starting an emergency video call to your group and admin." if emergency else (
+    for uid in targets:
+        post_signal(
+            uid,
+            {
+                "from_user_id": caller.id,
+                "from_name": caller.name,
+                "call_id": session.id,
+                "signal_type": "ring",
+                "media": "video" if video else "audio",
+                "emergency": emergency,
+            },
+        )
+    label = "emergency admin" if emergency else "your family group"
+    spoken = "Starting an emergency video call to admin." if emergency else (
         "Starting a video call to your group." if video else "Calling your group. Anyone who is free can pick up."
     )
     return {
