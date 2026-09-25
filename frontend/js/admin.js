@@ -244,15 +244,72 @@ function fillKeySelect(selectId, rows, emptyLabel) {
   }
 }
 
+async function loadEmergencies() {
+  const data = await adminApi("/api/admin/emergencies");
+  const box = document.getElementById("emergency-box");
+  const alerts = document.getElementById("message-alert-box");
+  if (box) {
+    const rows = data.emergencies || [];
+    if (!rows.length) {
+      box.innerHTML = "<p class='muted'>No emergency calls yet.</p>";
+    } else {
+      box.innerHTML = rows
+        .map((item) => {
+          const person = item.user || {};
+          const event = item.event || {};
+          const call = item.call || {};
+          const room = item.jitsi?.room;
+          const join = room
+            ? `<p><a href="https://meet.jit.si/${encodeURIComponent(room)}" target="_blank" rel="noopener">Join video call</a></p>`
+            : "";
+          const map =
+            event.latitude != null && event.longitude != null
+              ? `<p><a href="https://maps.google.com/?q=${event.latitude},${event.longitude}" target="_blank" rel="noopener">Open map</a></p>`
+              : "";
+          const notes = (item.messages || [])
+            .slice(0, 3)
+            .map((msg) => `<li>${msg.type || "text"}: ${msg.body || ""}</li>`)
+            .join("");
+          return `<article class="card nested">
+            <p><strong>${person.name || "Someone"}</strong> · ${event.status || ""} · ${event.started_at || ""}</p>
+            <p>Call ${call.status || "none"} ${call.call_type || ""}</p>
+            ${join}${map}
+            ${notes ? `<ul>${notes}</ul>` : ""}
+          </article>`;
+        })
+        .join("");
+    }
+  }
+  if (alerts) {
+    const rows = data.messages || [];
+    if (!rows.length) {
+      alerts.innerHTML = "<p class='muted'>No messages yet.</p>";
+    } else {
+      alerts.innerHTML = `<ul>${rows
+        .map(
+          (item) =>
+            `<li${item.emergency ? " class='danger-text'" : ""}><strong>${item.from_name}</strong> → ${item.to_name}: ${
+              item.message?.body || item.message?.type || ""
+            }</li>`
+        )
+        .join("")}</ul>`;
+    }
+  }
+}
+
 function showSection(name) {
   document.querySelectorAll(".nav-btn").forEach((item) => {
     item.classList.toggle("active", item.dataset.section === name);
   });
   document.getElementById("section-users").classList.toggle("hidden", name !== "users");
+  document.getElementById("section-emergency")?.classList.toggle("hidden", name !== "emergency");
   document.getElementById("section-subscription")?.classList.toggle("hidden", name !== "subscription");
   document.getElementById("section-branding")?.classList.toggle("hidden", name !== "branding");
   document.getElementById("section-keys").classList.toggle("hidden", name !== "keys");
   document.getElementById("section-test").classList.toggle("hidden", name !== "test");
+  if (name === "emergency") {
+    return loadEmergencies().catch((error) => showStatus(error.message));
+  }
   if (name === "keys" || name === "test") {
     return loadKeys().catch((error) => showStatus(error.message));
   }
@@ -448,6 +505,15 @@ function bindDashboard() {
     location.replace("./admin-login.html");
   };
   document.getElementById("refresh-users").onclick = () => loadUsers().catch((error) => showStatus(error.message));
+  document.getElementById("refresh-emergency")?.addEventListener("click", () => {
+    loadEmergencies().catch((error) => showStatus(error.message));
+  });
+  setInterval(() => {
+    const section = document.getElementById("section-emergency");
+    if (section && !section.classList.contains("hidden")) {
+      loadEmergencies().catch(() => undefined);
+    }
+  }, 8000);
   document.getElementById("user-search").onkeydown = (event) => {
     if (event.key === "Enter") loadUsers().catch((error) => showStatus(error.message));
   };

@@ -12,8 +12,9 @@ import { readScene, describeScene, askAboutScene } from "./vision.js?v=4";
 import { armVisionSpeaker, speakVision } from "./vision-speak.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { isStandaloneApp } from "./location.js";
-import { calls } from "./calls.js?v=13";
+import { calls } from "./calls.js?v=14";
 import { activateEmergency } from "./emergency.js";
+import { startMessageNotices } from "./notify.js";
 import { setListeningUI, setAiStatus, setLive, setGps, setOnline, setDetectHud, drawDetections, clearDetections, drawRoute, setNavPanel, setMapVisible } from "./overlay.js";
 import { walkingDirectionsOn } from "./shareLocation.js";
 import { updateNavMap, clearNavMap, fitNavMap } from "./map.js";
@@ -229,6 +230,40 @@ async function executeCommand(parsed, text) {
     await voice.speak(spoken);
     return;
   }
+  if (parsed.intent === "EMERGENCY_SEND_MESSAGE") {
+    let body = parsed.slots.body;
+    if (!body) body = await listenForNext("Okay. Say the emergency message.");
+    if (!body || isNegative(body)) {
+      await voice.speak("Okay. I will not send that.");
+      return;
+    }
+    await sendChatAndSpeak({ type: "text", body: `EMERGENCY. ${body}` });
+    return;
+  }
+  if (parsed.intent === "EMERGENCY_SEND_PHOTO") {
+    await voice.speak("Okay. Taking an emergency picture.");
+    try {
+      const file = await camera.captureFile();
+      await sendChatAndSpeak({ type: "image", file, body: "EMERGENCY photo" });
+    } catch (error) {
+      await voice.speak(error.message || "I could not take that picture.");
+    }
+    return;
+  }
+  if (parsed.intent === "EMERGENCY_SEND_LOCATION") {
+    try {
+      const pos = await getCurrentPosition();
+      await sendChatAndSpeak({
+        type: "location",
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        body: "EMERGENCY location",
+      });
+    } catch (error) {
+      await voice.speak(error.message || "I could not send that map.");
+    }
+    return;
+  }
   if (parsed.intent === "WHERE_AM_I") {
     const spoken = await navigation.whereAmI();
     await voice.speak(spoken);
@@ -260,17 +295,13 @@ async function executeCommand(parsed, text) {
       await calls.acceptIncoming();
       return;
     }
-    const target = parsed.slots.target;
+    const target = parsed.slots.target || "group";
     const video = parsed.intent === "VIDEO_CALL";
-    if (!target || parsed.slots.broadcast) {
-      await voice.speak(video ? "Who should I video call?" : "Who should I voice call?");
-      return;
-    }
     try {
-      const spoken = await calls.start(target, { video });
+      const spoken = await calls.start(parsed.slots.broadcast ? "group" : target, { video });
       await voice.speak(spoken);
     } catch (error) {
-      await voice.speak(error.message || (video ? "Who should I video call?" : "Who should I voice call?"));
+      await voice.speak(error.message || (video ? "I could not start that video call." : "I could not start that call."));
     }
     return;
   }
@@ -969,6 +1000,7 @@ async function boot() {
   refreshBilling();
   announceUnread();
   setInterval(announceUnread, 5000);
+  startMessageNotices({ speak: false, href: "./contacts.html?group=1" });
   if (!voice.listeningSupported()) fallbackForm?.classList.remove("hidden");
   navigation.onChange = (info) => {
     const remaining = info.user ? navigation.remainingDistance(info.user) : null;
@@ -1011,20 +1043,13 @@ async function boot() {
   document.getElementById("nav-close")?.addEventListener("pointerdown", (event) => {
     event.stopPropagation();
   });
-  document.getElementById("dock-nav")?.addEventListener("click", () => {
-    if (navigation.active) {
-      setMapVisible(true);
-      setNavPanel(true, { instruction: navigation.nextInstruction(), meta: navigation.briefStatus() });
-      setTimeout(() => fitNavMap(), 120);
-      voice.speak(navigation.briefStatus());
-      return;
+  document.getElementById("dock-emergency")?.addEventListener("click", async () => {
+    try {
+      const spoken = await activateEmergency();
+      await voice.speak(spoken);
+    } catch (error) {
+      await voice.speak(error.message || "I could not start emergency.");
     }
-    if (!walkingDirectionsOn()) {
-      pendingLocationShare = {};
-      voice.speak("Walking directions are off. Can I send your location to a family member? Say yes, or say send this to my brother.");
-      return;
-    }
-    openDestSheet();
   });
   document.getElementById("dest-close")?.addEventListener("click", closeDestSheet);
   document.getElementById("dest-form")?.addEventListener("submit", async (event) => {

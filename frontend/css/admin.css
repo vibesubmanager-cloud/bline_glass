@@ -333,3 +333,6 @@ code { background: var(--chip); padding: 2px 6px; border-radius: 6px; }
   .sidebar { flex-direction: row; flex-wrap: wrap; }
   .sign-out { margin-top: 0; }
 }
+
+.nested { margin: 0 0 12px; padding: 12px; }
+.danger-text { color: var(--danger); font-weight: 600; }

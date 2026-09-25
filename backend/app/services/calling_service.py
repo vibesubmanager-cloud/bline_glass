@@ -72,9 +72,54 @@ class CallingServiceError(RuntimeError):
         self.code = code
 
 
+def _is_group_session(session: CallSession) -> bool:
+    kind = session.call_type or ""
+    return kind.startswith("g") or kind.startswith("e")
+
+
+def _admin_ids() -> list[str]:
+    return [row.id for row in User.query.filter_by(role="admin", is_active=True).all()]
+
+
+def family_user_ids(owner_id: str) -> list[str]:
+    ids = []
+    seen = set()
+    for contact in Contact.query.filter_by(user_id=owner_id).all():
+        uid = contact.linked_user_id
+        if uid and uid != owner_id and uid not in seen:
+            seen.add(uid)
+            ids.append(uid)
+    for helper in User.query.filter_by(role="assistant", linked_blind_user_id=owner_id, is_active=True).all():
+        if helper.id != owner_id and helper.id not in seen:
+            seen.add(helper.id)
+            ids.append(helper.id)
+    return ids
+
+
+def ring_user_ids(caller: User, emergency: bool = False) -> list[str]:
+    ids = family_user_ids(caller.id)
+    if emergency:
+        for admin_id in _admin_ids():
+            if admin_id not in ids and admin_id != caller.id:
+                ids.append(admin_id)
+    return ids
+
+
+def can_join_call(session: CallSession, user_id: str) -> bool:
+    if user_id in {session.caller_id, session.callee_id}:
+        return True
+    if not _is_group_session(session):
+        return False
+    if user_id in family_user_ids(session.caller_id):
+        return True
+    if (session.call_type or "").startswith("e") and user_id in _admin_ids():
+        return True
+    return False
+
+
 def require_call_party(call_id: str, user_id: str) -> CallSession:
     session = db.session.get(CallSession, call_id)
-    if not session or user_id not in {session.caller_id, session.callee_id}:
+    if not session or not can_join_call(session, user_id):
         raise CallingServiceError("Call not found.", "CALL_NOT_FOUND")
     return session
 
@@ -100,7 +145,7 @@ def _jitsi_payload(session: CallSession) -> dict:
     return {
         "domain": JITSI_DOMAIN,
         "room": session.jitsi_room_name,
-        "video": session.call_type == "video",
+        "video": (session.call_type or "") in {"video", "gvideo", "evideo"},
     }
 
 
@@ -144,6 +189,58 @@ def start_call(caller: User, contact: Contact, media: str = "audio") -> dict:
         "contact": contact.public_dict(),
         "jitsi": _jitsi_payload(session) if session.jitsi_room_name else None,
         "tel_url": f"tel:{contact.phone}" if contact.phone and call_type == "tel" else None,
+        "ring_user_ids": [callee.id] if callee and callee.id != caller.id and call_type in {"webrtc", "video"} else [],
+    }
+
+
+def start_group_call(caller: User, media: str = "audio", emergency: bool = False) -> dict:
+    video = (media or "audio").strip().lower() == "video" or emergency
+    targets = ring_user_ids(caller, emergency=emergency)
+    phones = [
+        contact.phone
+        for contact in Contact.query.filter_by(user_id=caller.id).all()
+        if contact.phone
+    ]
+    if not targets and not phones:
+        raise CallingServiceError(
+            "Add family in Contacts first, so the group can answer.",
+            "CONTACT_NOT_FOUND",
+        )
+    if not targets:
+        return {
+            "call": {"id": None, "call_type": "tel", "callee_id": None},
+            "contact": {"name": "your family group"},
+            "jitsi": None,
+            "tel_url": f"tel:{phones[0]}",
+            "ring_user_ids": [],
+            "group": True,
+            "emergency": emergency,
+        }
+    call_type = ("e" if emergency else "g") + ("video" if video else "webrtc")
+    session = CallSession(
+        caller_id=caller.id,
+        callee_id=targets[0],
+        contact_id=None,
+        call_type=call_type,
+        status="ringing",
+        jitsi_room_name=_new_jitsi_room(),
+    )
+    db.session.add(session)
+    db.session.commit()
+    log_event("GROUP_CALL_STARTED", call_id=session.id, call_type=call_type, rings=len(targets))
+    label = "emergency" if emergency else "your family group"
+    spoken = "Starting an emergency video call to your group and admin." if emergency else (
+        "Starting a video call to your group." if video else "Calling your group. Anyone who is free can pick up."
+    )
+    return {
+        "call": session.public_dict(),
+        "contact": {"name": label},
+        "jitsi": _jitsi_payload(session),
+        "tel_url": None,
+        "ring_user_ids": targets,
+        "group": True,
+        "emergency": emergency,
+        "spoken": spoken,
     }
 
 
@@ -156,8 +253,10 @@ def accept_call(call_id: str, user: User) -> dict:
 
 def set_call_status(call_id: str, user_id: str, status: str) -> CallSession:
     session = db.session.get(CallSession, call_id)
-    if not session or user_id not in {session.caller_id, session.callee_id}:
+    if not session or not can_join_call(session, user_id):
         raise CallingServiceError("Call not found.", "CALL_NOT_FOUND")
+    if status == "rejected" and _is_group_session(session) and user_id != session.caller_id:
+        return session
     session.status = status
     if status in {"ended", "rejected", "missed", "failed"}:
         session.ended_at = datetime.now(timezone.utc)

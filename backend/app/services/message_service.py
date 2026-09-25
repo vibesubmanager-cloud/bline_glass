@@ -159,6 +159,27 @@ def _resolve_send_peers(sender: User, target: str | None, recipient_id: str | No
     if sender.role == "assistant" and not (target or "").strip():
         return [resolve_peer(sender, None, None)]
 
+    if sender.role != "assistant" and not recipient_id:
+        contacts = list_user_contacts(sender)
+        if not contacts:
+            raise MessageError(
+                "You don't have a contact yet. Add a family member in contacts first.",
+                "CONTACT_NOT_FOUND",
+            )
+        peers = []
+        for contact in contacts:
+            if not contact.linked_user_id:
+                continue
+            peer = db.session.get(User, contact.linked_user_id)
+            if peer and peer.id != sender.id:
+                peers.append((peer, contact))
+        if not peers:
+            raise MessageError(
+                "Your group is not signed in to AI Sight yet, so I cannot deliver that.",
+                "NO_APP_ACCOUNT",
+            )
+        return peers
+
     contacts = list_user_contacts(sender)
     if not contacts:
         raise MessageError(
@@ -197,7 +218,14 @@ def create_message(
     media_bytes: bytes | None = None,
     media_mime: str | None = None,
 ) -> dict:
-    pairs = _resolve_send_peers(sender, target, recipient_id)
+    pairs = list(_resolve_send_peers(sender, target, recipient_id))
+    emergency_flag = (body or "").upper().startswith("EMERGENCY") or "emergency" in (body or "").lower()
+    if emergency_flag:
+        seen = {peer.id for peer, _contact in pairs}
+        for admin in User.query.filter_by(role="admin", is_active=True).all():
+            if admin.id != sender.id and admin.id not in seen:
+                pairs.append((admin, None))
+                seen.add(admin.id)
     msg_type = (msg_type or "text").lower()
     if msg_type not in {"text", "location", "image", "voice"}:
         raise MessageError("That message type is not supported.", "VALIDATION_ERROR")
@@ -286,6 +314,71 @@ def list_thread(user: User, recipient_id: str, limit: int = 80) -> dict:
     }
 
 
+def list_group_messages(user: User, limit: int = 120) -> dict:
+    if user.role == "assistant" and user.linked_blind_user_id:
+        return list_thread(user, user.linked_blind_user_id, limit=limit)
+    peer_ids = family_peer_ids(user)
+    if not peer_ids:
+        return {"peer": {"id": "group", "name": "Family group"}, "messages": []}
+    rows = (
+        Message.query.filter(
+            or_(
+                db.and_(Message.sender_id == user.id, Message.recipient_id.in_(peer_ids)),
+                db.and_(Message.recipient_id == user.id, Message.sender_id.in_(peer_ids)),
+            )
+        )
+        .order_by(Message.created_at.asc())
+        .limit(max(1, min(limit, 200)))
+        .all()
+    )
+    now = datetime.now(timezone.utc)
+    unread = [row for row in rows if row.recipient_id == user.id and row.read_at is None]
+    for row in unread:
+        row.read_at = now
+    if unread:
+        db.session.commit()
+    unique = []
+    seen_out = set()
+    for row in rows:
+        if row.sender_id == user.id:
+            key = (row.type, row.body or "", row.media_filename or "", row.maps_url or "")
+            if key in seen_out:
+                continue
+            seen_out.add(key)
+        unique.append(row)
+    rows = unique
+    names = {}
+    for row in rows:
+        other = row.recipient_id if row.sender_id == user.id else row.sender_id
+        if other not in names:
+            contact = Contact.query.filter_by(user_id=user.id, linked_user_id=other).first()
+            peer = db.session.get(User, other)
+            names[other] = contact.name if contact else (peer.name if peer else "Family")
+    messages = []
+    for row in rows:
+        data = row.public_dict(user.id)
+        other = row.recipient_id if row.sender_id == user.id else row.sender_id
+        data["from_name"] = "You" if row.sender_id == user.id else names.get(other, "Family")
+        messages.append(data)
+    return {"peer": {"id": "group", "name": "Family group"}, "messages": messages}
+
+
+def family_peer_ids(user: User) -> list[str]:
+    ids = []
+    seen = set()
+    for contact in list_user_contacts(user):
+        uid = contact.linked_user_id
+        if uid and uid != user.id and uid not in seen:
+            seen.add(uid)
+            ids.append(uid)
+    if user.role != "assistant":
+        for helper in User.query.filter_by(role="assistant", linked_blind_user_id=user.id, is_active=True).all():
+            if helper.id not in seen:
+                seen.add(helper.id)
+                ids.append(helper.id)
+    return ids
+
+
 def list_conversations(user: User) -> list[dict]:
     rows = (
         Message.query.filter(or_(Message.sender_id == user.id, Message.recipient_id == user.id))
@@ -337,11 +430,15 @@ def unread_messages(user: User) -> list[dict]:
             preview = "sent a voice note"
         elif row.type == "location":
             preview = "sent a location"
+        emergency = "emergency" in (row.body or "").lower() or (row.body or "").upper().startswith("EMERGENCY")
+        spoken = (
+            f"Emergency message from {name}. {preview}" if emergency else f"New message from {name}. {preview}"
+        )
         items.append(
             {
                 "message": row.public_dict(user.id),
                 "from_name": name,
-                "spoken": f"New message from {name}. {preview}".strip(),
+                "spoken": spoken.strip(),
             }
         )
     return items

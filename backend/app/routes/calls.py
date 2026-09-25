@@ -11,10 +11,12 @@ from app.services.calling_service import (
     resolve_contact_for_call,
     set_call_status,
     start_call,
+    start_group_call,
 )
 from app.services.usage_service import record_usage
 from app.utils.responses import fail, ok
 from app.utils.security import login_required
+from app.services.share_location_service import is_broadcast_target
 from app.utils.validation import ValidationError, require_json, require_string
 
 calls_bp = Blueprint("calls", __name__)
@@ -25,6 +27,20 @@ calls_bp = Blueprint("calls", __name__)
 def start():
     try:
         data = require_json(request.get_json(silent=True))
+        media = "video" if str(data.get("media") or "").lower() == "video" else "audio"
+        target = str(data.get("target") or "").strip()
+        emergency = bool(data.get("emergency")) or target.lower() in {"emergency", "sos"}
+        group = bool(data.get("group")) or emergency or is_broadcast_target(target) or target.lower() in {
+            "group",
+            "family",
+            "contacts",
+            "",
+        }
+        if g.current_user.role != "assistant" and (group or emergency or not data.get("contact_id")):
+            payload = start_group_call(g.current_user, media=media, emergency=emergency)
+            record_usage("CALL_STARTED", g.current_user.id)
+            payload["spoken"] = payload.get("spoken") or "Calling your group. Anyone who is free can pick up."
+            return ok(payload)
         if data.get("contact_id"):
             contact = Contact.query.filter_by(id=data["contact_id"], user_id=g.current_user.id).first()
             if not contact:
@@ -32,7 +48,6 @@ def start():
         else:
             target = require_string(data, "target", min_len=1, max_len=120)
             contact = resolve_contact_for_call(g.current_user.id, target)
-        media = "video" if str(data.get("media") or "").lower() == "video" else "audio"
         payload = start_call(g.current_user, contact, media=media)
     except ValidationError as exc:
         return fail(exc.code, exc.message, 400)

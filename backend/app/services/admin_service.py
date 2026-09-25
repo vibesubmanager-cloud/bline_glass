@@ -65,6 +65,56 @@ def list_users(search: str = "", role: str = "") -> list[dict]:
     return [_user_summary(user) for user in rows]
 
 
+def list_emergencies(limit: int = 40) -> list[dict]:
+    rows = EmergencyEvent.query.order_by(EmergencyEvent.started_at.desc()).limit(max(1, min(limit, 80))).all()
+    items = []
+    for event in rows:
+        person = db.session.get(User, event.user_id)
+        call = (
+            CallSession.query.filter_by(caller_id=event.user_id)
+            .filter(CallSession.call_type.in_(["evideo", "ewebrtc"]))
+            .order_by(CallSession.started_at.desc())
+            .first()
+        )
+        last_messages = (
+            Message.query.filter(
+                or_(Message.sender_id == event.user_id, Message.recipient_id == event.user_id)
+            )
+            .order_by(Message.created_at.desc())
+            .limit(4)
+            .all()
+        )
+        items.append(
+            {
+                "event": event.public_dict(),
+                "user": person.public_dict() if person else {},
+                "call": call.public_dict() if call else None,
+                "jitsi": {"domain": "meet.jit.si", "room": call.jitsi_room_name, "video": True}
+                if call and call.jitsi_room_name
+                else None,
+                "messages": [row.public_dict(event.user_id) for row in last_messages],
+            }
+        )
+    return items
+
+
+def list_message_alerts(limit: int = 25) -> list[dict]:
+    rows = Message.query.order_by(Message.created_at.desc()).limit(max(1, min(limit, 40))).all()
+    items = []
+    for row in rows:
+        sender = db.session.get(User, row.sender_id)
+        recipient = db.session.get(User, row.recipient_id)
+        items.append(
+            {
+                "message": row.public_dict(row.sender_id),
+                "from_name": sender.name if sender else "Someone",
+                "to_name": recipient.name if recipient else "Someone",
+                "emergency": "emergency" in (row.body or "").lower(),
+            }
+        )
+    return items
+
+
 def get_user_or_404(user_id: str) -> User:
     user = db.session.get(User, user_id)
     if not user or user.role == "admin":

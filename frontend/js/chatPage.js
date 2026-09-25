@@ -2,15 +2,18 @@ import { getToken, pages } from "./config.js";
 import { voice } from "./voice.js?v=44";
 import { recorder } from "./recorder.js";
 import {
+  loadGroupMessages,
   loadThread,
   markMessagesRead,
   mediaObjectUrl,
   sendChatLocation,
   sendChatMessage,
 } from "./messages.js";
+import { startMessageNotices } from "./notify.js";
 
 const params = new URLSearchParams(location.search);
 const peerId = params.get("with") || "";
+const groupMode = params.get("group") === "1";
 const title = document.getElementById("chat-title");
 const status = document.getElementById("chat-status");
 const thread = document.getElementById("chat-thread");
@@ -20,7 +23,7 @@ const fileInput = document.getElementById("chat-file");
 const voiceBtn = document.getElementById("chat-voice");
 
 if (!getToken()) location.href = pages().welcome;
-if (!peerId) location.href = pages().contacts;
+if (!peerId && !groupMode) location.href = pages().contacts;
 
 const mediaUrls = new Map();
 let lastIds = "";
@@ -44,7 +47,7 @@ async function makeBubble(message) {
   bubble.dataset.id = message.id;
   const label = document.createElement("p");
   label.className = "chat-meta";
-  label.textContent = message.mine ? "You" : peerName;
+  label.textContent = message.mine ? "You" : message.from_name || peerName;
   bubble.appendChild(label);
   if (message.type === "image" && message.has_media) {
     const img = document.createElement("img");
@@ -93,8 +96,8 @@ async function renderMessages(messages) {
 }
 
 async function refresh() {
-  const data = await loadThread(peerId);
-  peerName = data.peer?.name || "Them";
+  const data = groupMode ? await loadGroupMessages() : await loadThread(peerId);
+  peerName = data.peer?.name || (groupMode ? "Family group" : "Them");
   title.textContent = peerName;
   const messages = data.messages || [];
   const ids = messages.map((item) => item.id).join(",");
@@ -120,7 +123,7 @@ async function refresh() {
 async function handleSend(payload) {
   try {
     showStatus("Sending…");
-    const result = await sendChatMessage({ recipientId: peerId, ...payload });
+    const result = await sendChatMessage({ recipientId: groupMode ? "" : peerId, ...payload });
     input.value = "";
     const spoken = result.spoken || "Done. I have sent it.";
     showStatus(spoken);
@@ -150,7 +153,7 @@ fileInput.addEventListener("change", async () => {
 document.getElementById("chat-location").addEventListener("click", async () => {
   try {
     showStatus("Sending location…");
-    const result = await sendChatLocation({ recipientId: peerId });
+    const result = await sendChatLocation({ recipientId: groupMode ? "" : peerId });
     const spoken = result.spoken || "Done. I have sent your location.";
     showStatus(spoken);
     await voice.speak(spoken);
@@ -186,3 +189,4 @@ refresh().catch(async (error) => {
 setInterval(() => {
   refresh().catch(() => undefined);
 }, 5000);
+startMessageNotices({ speak: true, href: groupMode ? "./chat.html?group=1" : `${pages().chat}?with=${encodeURIComponent(peerId)}` });

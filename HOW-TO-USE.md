@@ -23,7 +23,7 @@ Use this document as the only source of truth.
 - Suggested print: A5 or A4, high contrast, sans-serif, 16 pt body / 22 pt headings
 - Suggested Braille: one chapter per section below
 
-**Illustration notes for every chapter:** dark indoor/outdoor scenes, a person holding a phone at chest height with the back camera facing forward, simple icons (camera, mic, map pin, two people, star, gear). No scary emergency photos. Show Bluetooth earbuds only where the speaker chapter says so.
+**Illustration notes for every chapter:** dark indoor/outdoor scenes, a person holding a phone at chest height with the back camera facing forward, simple icons (camera, mic, emergency triangle, two people as a group, star, gear). No scary emergency photos. Show Bluetooth earbuds only where the speaker chapter says so.
 
 ---
 
@@ -36,10 +36,10 @@ It can:
 1. **See objects** in front of the camera and say what they are (object detection).
 2. **Describe** the scene in a few spoken sentences.
 3. **Read** a page, sign, menu, or screen out loud.
-4. **Call** family with voice or video, inside the app.
-5. **Message** family (text, photo, voice note, map).
-6. **Guide walking** to a place, if walking directions are turned on.
-7. **Call for help** in an emergency.
+4. **Call** the family **group** with voice or video. The call rings everyone. Anyone who is free can pick up.
+5. **Message** the group (text, photo, voice note, map). One send goes to everybody.
+6. **Guide walking** to a place by voice, if walking directions are turned on.
+7. **Emergency:** say **emergency** or **SOS** to video-call the group and admin, and send a message, photo, and map at once.
 
 The person using it mostly **holds the screen and speaks**. Family can also tap buttons.
 
@@ -99,7 +99,7 @@ The app gives you a **System ID** and a **QR code** (also in Settings). Family n
 
 The blind person can also create an assistant from **Contacts** by tapping **+** and filling in their name, username, email, phone, password, and relationship.
 
-**Illustration:** two phones side by side. Left: camera. Right: contacts list. Caption: “Blind person uses the camera. Family uses Contacts.”
+**Illustration:** two phones side by side. Left: camera. Right: family group. Caption: “Blind person uses the camera. Family is one group.”
 
 ---
 
@@ -162,11 +162,13 @@ The app may say: *Hold the screen to speak. Double tap for object detection.*
 ### Bottom dock (left to right)
 
 1. **Camera** (circle) — this home screen  
-2. **Navigation** (arrow) — walking / destination  
-3. **Contacts** (two people) — people, chat, call  
+2. **Emergency** (triangle) — SOS: video call, message, photo, and map, all at once  
+3. **Contacts** (two people) — the family **group**, chat, call  
 4. **Profile** (person) — your details  
 5. **Plans** (star) — Free vs Premium  
 6. **Settings** (gear) — calling, updates, voice  
+
+Walking is **not** a dock button. Ask by voice: `take me to the market`.  
 
 **Illustration:** full-screen camera. Caption callouts: “Hold to talk” in the middle, “Double tap = detect” , dock labeled 1–6.
 
@@ -176,7 +178,7 @@ The app may say: *Hold the screen to speak. Double tap for object detection.*
 
 **Hold the glass or the phone screen. Speak clearly. Let go.**
 
-Use the person’s **name as saved in Contacts** (for example “my brother”, “Mama”, or “Ravi”).
+Calls and messages go to the **family group**. You can still say a name, but the app sends or rings **everyone together**.
 
 If it did not hear you, hold again and say it shorter.
 
@@ -281,9 +283,11 @@ If you hear the test, that part of the speaker is working.
 
 ---
 
-## 12. Calling (voice and video)
+## 12. Calling the group (voice and video)
 
 Calls stay **inside AI Sight**. You do not log in to another website.
+
+Contacts is **one group**, not one person at a time. When you call, the same call **rings everyone** in the group. Anyone who is free can **pick up** and join. More than one person can be in the call.
 
 ### One-time setup (helper)
 
@@ -300,60 +304,64 @@ You can also hold the camera and:
 
 **Test calling** and **Test video calling** are in Settings.
 
-### Every day
+### Every day (blind person)
 
-**Say this:** `call my brother`  
-**Say this:** `voice call Mama`  
-**Say this:** `video call Ravi`
+**Say this:** `call`  
+**Say this:** `call my group`  
+**Say this:** `video call`  
+**Say this:** `video call Mama`
 
-Use the name as it is in Contacts.
-
-On **Contacts**, each person has buttons to **voice call** or **video call**. Tap the person to open chat.
+On **Contacts**, open **Family group**. Use **voice call** or **video call** there. That rings the whole group.
 
 ### During a call
 
 On the call screen:
 
 - **Green tick** — answer  
-- **X** — decline  
+- **X** — decline (the call can keep ringing other people)  
 - **Mic** — mute  
 - **Camera** — turn video on or off  
-- **Red hang up** — end the call on **both** sides  
+- **Red hang up** — end the call on **your** side  
 
 **Say this:** `stop` (ends the call if one is happening)
 
-Incoming calls can reach you while the app is open.
+Incoming calls can reach you while the app is open. The app can also show a **message notification** when someone writes.
 
-**Illustration:** call bar with hang-up in red. Caption: “Hang up ends both sides.”
+**Illustration:** several phones ringing at once, one shared call. Caption: “Anyone who is free can pick up.”
 
 ---
 
-## 13. Contacts, chat, photos, maps
+## 13. Contacts: one group for messages and calls
 
 Open **Contacts** from the dock (two people).
 
-- Tap **+** to add an assistant (blind-person account).
-- Tap a person to open **Chat**.
-- Chat tools: picture, voice note, location pin, typed message, send.
+This is **not** one-by-one chatting as the main way. The main card is **Family group**.
 
-From the **camera**, you can speak instead:
+- Tap **Family group** to open the shared chat.
+- Chat tools: picture, voice note, location pin, typed message, send. Each send goes to **everybody** in the group.
+- Voice call and video call on the group card **ring everyone**. Anyone free can pick up.
+- Tap **+** to add an assistant (name, username, email, phone, password, relationship). They join the same group.
 
-**Say this:** `send a message to my brother`  
-Then say the message when it asks.
+From the **camera**, you can speak. Each of these is **one action** (not emergency-all-at-once):
 
-**Say this:** `send a photo to Mama`  
+**Say this:** `send a message`  
+Then say the message when it asks. It goes to the group.
+
+**Say this:** `send a photo`  
 **Say this:** `send a map`  
-**Say this:** `send my location to my brother`  
-**Say this:** `send a voice note to Ravi`  
+**Say this:** `send my location`  
+**Say this:** `send a voice note`  
 **Say this:** `read my messages`  
 **Say this:** `any new messages`
 
-If you do not say a name, some send commands go to **everyone** in contacts. Prefer saying the name.
+You may still say a name (`send a message to my brother`). The app still delivers to the **group**.
+
+When a message arrives, the app **speaks it** and can show a **notification** for the blind person, the assistant, and admin.
 
 **Say this:** `delete contact Ravi`  
 (It will ask you to confirm.)
 
-**Illustration:** contacts list with call and chat.
+**Illustration:** one group card named Family group, with call, video, and chat. Caption: “One group. Everyone gets it.”
 
 ---
 
@@ -376,9 +384,9 @@ If they are **on**:
 **Say this:** `show the map`  
 **Say this:** `stop` (stops navigation)
 
-You can also tap the **Navigation** dock button, type a place, and tap **Start navigation**. There is **Stop** and **Repeat** on that page.
+Ask for walking with your **voice**. The dock map icon is now **Emergency**, not navigation.
 
-The map can sit on the camera. Close it with the **×** or:
+The map can sit on the camera during a route. Close it with the **×** or:
 
 **Say this:** `close the map` (or the app’s close-map command)
 
@@ -388,27 +396,47 @@ To hear the map again: **Say this:** `show the map`
 
 ---
 
-## 15. Emergency
+## 15. Emergency (the most important help)
+
+The second dock button is **Emergency** (triangle). You can tap it, or speak.
+
+### If you only say emergency (or SOS)
 
 **Say this:** `emergency`  
 **Say this:** `SOS`
 
-(The app treats emergency / SOS as a help command.)
+Do **not** add “send a message” or “send a photo” here. Plain **emergency** / **SOS** does **everything at once**, instantly:
 
-What happens:
+1. Starts an **emergency video call** to the family group **and admin**. Anyone who is free can pick up.
+2. Sends an **emergency message**.
+3. Sends a **photo** from the camera.
+4. Sends a **map** (your location), if GPS is allowed.
 
-1. It says it is getting your location.
-2. It can share location with emergency people if that setting is on (default on).
-3. It tries to **call** your primary emergency contact inside the app.
-4. If the in-app call cannot start, it can fall back to the phone **tel:** dialer.
+If the in-app call cannot start, it can fall back to the phone **tel:** dialer.
+
+### If you want only one thing
+
+These do **not** start the full SOS blast. They send **one** thing to emergency / the group:
+
+**Say this:** `emergency send a message`  
+Then say the words when it asks.
+
+**Say this:** `emergency send a photo`  
+**Say this:** `emergency send a picture`  
+**Say this:** `emergency send a map`  
+**Say this:** `emergency send location`
+
+### Where family and admin see it
+
+- **Family / assistants:** the call rings them. Messages and maps show in the group chat. They get **notifications**.
+- **Emergency page** (triangle on the dock): same group tools — message, call, video, map — plus **Emergency now** for the full SOS.
+- **Admin:** open **Emergency**. See the live call, join the video, read the message, photo, and map.
 
 **Settings:** **Share location during emergency** — leave on unless a helper has a reason to turn it off.
 
-Emergency people are added at registration and shown on **Profile**.
-
 This does not replace local emergency numbers (police, ambulance). Family should still save those on the phone.
 
-**Illustration:** simple SOS word, not graphic images.
+**Illustration:** simple SOS word and a triangle icon, not graphic images. Caption: “Say emergency. Call, message, photo, and map go out together.”
 
 ---
 
@@ -486,18 +514,29 @@ Open the **gear**.
 
 ---
 
-## 19. Assistant day-to-day
+## 19. Assistant and admin day-to-day
+
+### Assistant (family)
 
 1. Sign in as **Assistant**.
-2. You see **Contacts** and the linked person.
-3. Open chat, send texts, photos, voice notes, maps.
-4. Voice-call or video-call from the contact buttons.
-5. Open **Profile** to see health notes and System ID.
-6. You do not use the live detection camera the same way; the **blind person’s phone** is the camera.
+2. You see **Contacts** and the person you help.
+3. When they call the **group**, your phone rings. **Answer** if you are free. Other family can join the same call.
+4. Open chat for the group: texts, photos, voice notes, maps.
+5. You get **message notifications** (spoken and on screen) for ordinary messages and for emergency.
+6. Open the **Emergency** dock button to watch for SOS. Answer the video call there.
+7. Open **Profile** to see health notes and System ID.
+8. You do not use the live detection camera the same way; the **blind person’s phone** is the camera.
 
-Keep the app open or return to it so you can receive calls and messages.
+Keep the app open or return to it so you can receive group calls and messages.
 
-**Illustration:** family member at a table with chat on the phone.
+### Admin
+
+1. Sign in on the **Admin** page.
+2. Open **Emergency**.
+3. When a blind person says **emergency** or **SOS**, you see the event: video call to join, message, photo, and map.
+4. Message notifications also list recent group and emergency chats.
+
+**Illustration:** family member answering a group call; a second panel labeled Admin Emergency.
 
 ---
 
@@ -512,16 +551,19 @@ Hold, speak, let go.
 | Stop detection / call / route | `stop` |
 | Describe the view | `what is in front of me` |
 | Read a page | `read this` |
-| Call | `call my brother` |
-| Video call | `video call Mama` |
+| Call the group | `call` or `call my group` |
+| Video call the group | `video call` |
 | Set up calling | `open calling settings` |
-| Message | `send a message to Ravi` |
-| Photo | `send a photo to Mama` |
-| Map | `send my location to my brother` |
+| Message the group | `send a message` |
+| Photo to the group | `send a photo` |
+| Map to the group | `send a map` |
 | Hear messages | `read my messages` |
 | Walk there | `take me to the market` (if walking directions are on) |
 | Where am I | `where am I` |
-| Emergency | `emergency` |
+| Full emergency (call + message + photo + map) | `emergency` or `SOS` |
+| Emergency message only | `emergency send a message` |
+| Emergency photo only | `emergency send a photo` |
+| Emergency map only | `emergency send a map` |
 | Repeat last speech | `repeat` (if supported) |
 | Open settings | `settings` |
 
@@ -536,9 +578,11 @@ Hold, speak, let go.
 | Detection always loading | Settings → download YOLO on Wi‑Fi. Double tap only after it is on the phone. |
 | Describe / read too slow | Point the camera, hold still, wait for “Okay…”. Need internet. Try again. Check Premium if asked. |
 | Describe / read in the earpiece | Volume up, ring switch on, Bluetooth connected. New update. Test describe in Settings. |
-| Call does not start | Settings → Configure calling (once). Both people signed in. Internet on. |
-| Hang up did not end their side | Use the red hang-up in the app, not only the phone’s side button. |
-| Map / GPS missing | Allow location. Safari home screen. Walking directions switch. |
+| Call does not start | Settings → Configure calling (once). Family signed in. Internet on. Group rings everyone. |
+| Hang up did not end their side | Use the red hang-up. Other people in the group may still be on the call. |
+| Map / GPS missing | Allow location. Safari home screen. Walking is by voice (`take me to…`). Emergency dock is SOS, not the map. |
+| Emergency did not reach anyone | Add family as assistants in Contacts. Keep their app open. Admin should watch **Emergency**. |
+| No message notification | Keep the app open. Allow notifications if the phone asks. |
 | Cannot hear anything | Test speaker in Settings. Unmute the phone. |
 | Signed out by accident | Sign in again. Allow camera, mic, location once more if asked. |
 | Assistant cannot link | Use the exact System ID or QR from the blind person’s Settings. |
@@ -550,7 +594,7 @@ Hold, speak, let go.
 - AI Sight helps; it can be wrong. Cross-check streets and medicines with a person when you can.
 - Object detection names common objects; it is not a medical or legal reader.
 - Describe and read need a clear photo and internet.
-- Emergency contact is family you chose, not a government emergency service unless you dial them yourself.
+- Emergency is family and admin you chose, not a government emergency service unless you dial them yourself. Plain **emergency** / **SOS** sends a video call, message, photo, and map together.
 - Keep the phone charged. Use a neck strap or glasses mount so the camera points forward.
 
 ---
@@ -564,13 +608,13 @@ Hold, speak, let go.
 5. Camera gestures + dock (1 page, big diagram)  
 6. Detection (1 page)  
 7. Describe + Read (1 page)  
-8. Calling (1 page)  
-9. Contacts and messages (1 page)  
-10. Navigation (1 page)  
-11. Emergency (½ page)  
+8. Calling the group (1 page)  
+9. Contacts group and messages (1 page)  
+10. Walking by voice (1 page)  
+11. Emergency SOS vs one send (1 page)  
 12. Plans (½ page)  
 13. Settings (1 page)  
-14. Family / assistant (1 page)  
+14. Family, notifications, and admin Emergency (1 page)  
 15. Back cover: command table  
 
 **Color:** dark background, light text, yellow for GPS/detect, red only for hang-up and emergency.
@@ -579,7 +623,7 @@ Hold, speak, let go.
 
 ## 24. Short script a helper can read aloud (5 minutes)
 
-“This is AI Sight. The whole screen is a button. Hold it and talk, then let go. Double tap to hear objects. Say what is in front of me to hear a description. Say read this for a page. Say call and a name for family. Hang up with the red button. If something is stuck, open Settings and tap New update. I will add your family in Contacts and we will allow camera, microphone, and location once.”
+“This is AI Sight. The whole screen is a button. Hold it and talk, then let go. Double tap to hear objects. Say what is in front of me to hear a description. Say read this for a page. Family is one group. Say call, or say send a message, send a photo, or send a map — that goes to everyone, and anyone free can pick up the call. The second button on the bottom is Emergency. If you only say emergency or SOS, it video-calls the group and admin, and it sends a message, a photo, and a map all at once. Say emergency send a message if you only want a text. Walking is by voice: take me to the market. If something is stuck, open Settings and tap New update. I will add your family in Contacts and we will allow camera, microphone, and location once.”
 
 ---
 

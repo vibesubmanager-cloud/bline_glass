@@ -3,7 +3,16 @@ from flask import Blueprint, g, request
 from app.extensions import db, limiter
 from app.models.api_key import ApiKey
 from app.models.user import User, UserSettings
-from app.services.admin_service import AdminError, get_user_or_404, list_thread, list_users, update_user, user_detail
+from app.services.admin_service import (
+    AdminError,
+    get_user_or_404,
+    list_emergencies,
+    list_message_alerts,
+    list_thread,
+    list_users,
+    update_user,
+    user_detail,
+)
 from app.services.identity_service import display_name
 from app.services.key_store import (
     KeyStoreError,
@@ -83,6 +92,12 @@ def users():
     search = (request.args.get("q") or "").strip()
     role = (request.args.get("role") or "").strip().lower()
     return ok({"users": list_users(search, role)})
+
+
+@admin_bp.get("/emergencies")
+@admin_required
+def emergencies():
+    return ok({"emergencies": list_emergencies(), "messages": list_message_alerts()})
 
 
 @admin_bp.get("/users/<user_id>")

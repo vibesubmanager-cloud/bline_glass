@@ -5,6 +5,7 @@ from app.services.message_service import (
     create_message,
     get_owned_media,
     list_conversations,
+    list_group_messages,
     list_thread,
     mark_read,
     unread_messages,
@@ -33,6 +34,8 @@ def conversations():
     try:
         if with_id:
             return ok(list_thread(g.current_user, with_id))
+        if (request.args.get("group") or "").strip() in {"1", "true", "yes"}:
+            return ok(list_group_messages(g.current_user))
         return ok({"conversations": list_conversations(g.current_user)})
     except MessageError as exc:
         return _fail(exc)

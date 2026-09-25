@@ -176,8 +176,8 @@ def test_call_jitsi_unique_rooms_without_api_key(client):
     call = payload["call"]
     jitsi = payload["jitsi"]
     blob = str(payload)
-    assert call["call_type"] == "video"
-    assert call["callee_id"] == user_b
+    assert call["call_type"] in {"video", "gvideo"}
+    assert user_b in (payload.get("ring_user_ids") or []) or call["callee_id"] == user_b
     assert jitsi["domain"] == "meet.jit.si"
     assert jitsi["room"].startswith("aidobot-call-")
     assert jitsi["room"] != "aidobot"

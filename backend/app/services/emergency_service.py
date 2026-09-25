@@ -68,6 +68,18 @@ def activate_emergency(user: User, latitude=None, longitude=None, accuracy=None,
     db.session.commit()
     log_event("EMERGENCY_ACTIVATED", event_id=event.id, contacts=len(contacts))
 
+    try:
+        from app.services.message_service import create_message
+
+        create_message(
+            user,
+            target="",
+            msg_type="text",
+            body="EMERGENCY. I need help now.",
+        )
+    except Exception as exc:
+        log_error("EMERGENCY_CHAT_ERROR", exc)
+
     sms_sent = []
     location_text = ""
     if event.location_shared:

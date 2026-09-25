@@ -78,8 +78,9 @@ def extract_additional_slots(intent: str, text: str, slots: dict) -> dict:
             slots["target"] = target
         elif "target" in slots:
             slots.pop("target", None)
-    if intent == "SEND_MESSAGE" and not slots.get("body"):
-        body = _message_body(text, slots.get("target"))
+    if intent in {"SEND_MESSAGE", "EMERGENCY_SEND_MESSAGE"} and not slots.get("body"):
+        cleaned = re.sub(r"\bemergency\b|\bsos\b", " ", text, flags=re.I) if intent.startswith("EMERGENCY") else text
+        body = _message_body(cleaned, slots.get("target"))
         if body:
             slots["body"] = body
     return slots
@@ -168,6 +169,16 @@ def match_keyword_command(text: str) -> ParsedIntent | None:
     cleaned = (text or "").strip()
     if not cleaned:
         return None
+    emergency = bool(re.search(r"\bemergency\b|\bsos\b", cleaned, re.I))
+    sending = bool(_HAS_SEND.search(cleaned))
+    if emergency and sending:
+        if _PHOTO_RE.search(cleaned):
+            return ParsedIntent("EMERGENCY_SEND_PHOTO", 0.98, original_text=cleaned)
+        if _MAP_RE.search(cleaned):
+            return ParsedIntent("EMERGENCY_SEND_LOCATION", 0.98, original_text=cleaned)
+        return ParsedIntent("EMERGENCY_SEND_MESSAGE", 0.98, original_text=cleaned)
+    if emergency:
+        return ParsedIntent("EMERGENCY", 0.98, original_text=cleaned)
     if _READ_MSGS_RE.search(cleaned):
         return ParsedIntent("READ_MESSAGES", 0.95, original_text=cleaned)
     sending = bool(_HAS_SEND.search(cleaned))

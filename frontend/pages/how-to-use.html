@@ -38,9 +38,9 @@
           <a href="#describe">Describe</a>
           <a href="#read">Read</a>
           <a href="#call">Call</a>
-          <a href="#people">People</a>
-          <a href="#map">Map</a>
-          <a href="#emergency">Help</a>
+          <a href="#people">Group</a>
+          <a href="#map">Walk</a>
+          <a href="#emergency">Emergency</a>
           <a href="#commands">Say this</a>
         </nav>
       </div>
@@ -69,7 +69,7 @@
       <div id="lessons">
         <article class="how-to-lesson" id="start">
           <h2>What this app is</h2>
-          <p>AI Sight is a talking camera. It sits on your phone or glasses. It can name objects, describe what is in front of you, read a page, call family, send messages, and help in an emergency.</p>
+          <p>AI Sight is a talking camera. It sits on your phone or glasses. It can name objects, describe what is in front of you, read a page, call your family as one group, send messages to everyone, and start an emergency.</p>
           <p>You mostly use your voice. Family can also tap buttons for you.</p>
           <button class="btn primary" type="button" data-speak="start">Hear this</button>
         </article>
@@ -95,7 +95,7 @@
             <li><strong>Hold</strong> the screen, speak, then <strong>let go</strong>.</li>
             <li><strong>Double tap</strong> starts or stops object detection.</li>
           </ul>
-          <p>When it hears you, it says Listening. At the top: logo, profile, GPS, DET. At the bottom, six buttons from left to right: Camera, Navigation, Contacts, Profile, Plans, Settings.</p>
+          <p>When it hears you, it says Listening. At the top: logo, profile, GPS, DET. At the bottom, six buttons from left to right: Camera, Emergency, Contacts, Profile, Plans, Settings. Walking is not a button. Say take me to a place.</p>
           <button class="btn primary" type="button" data-speak="camera">Hear this</button>
         </article>
 
@@ -134,25 +134,25 @@
         </article>
 
         <article class="how-to-lesson" id="call">
-          <h2>Voice call and video call</h2>
-          <p>A helper opens Settings once and taps <strong>Configure calling</strong>. After that, calls stay inside AI Sight. Hang up with the red button. That ends both sides.</p>
+          <h2>Call the family group</h2>
+          <p>Family is one group. When you call, the call rings everyone. Anyone who is free can pick up. More than one person can join. A helper opens Settings once and taps <strong>Configure calling</strong>.</p>
           <div class="say-row">
-            <button class="btn" type="button" data-say="call my brother">call my brother</button>
-            <button class="btn" type="button" data-say="video call Mama">video call Mama</button>
+            <button class="btn" type="button" data-say="call">call</button>
+            <button class="btn" type="button" data-say="video call">video call</button>
             <button class="btn" type="button" data-say="open calling settings">open calling settings</button>
             <button class="btn" type="button" data-say="stop">stop</button>
           </div>
-          <p>Use the name as it is saved in Contacts. Green answers. X declines. Mic mutes. Camera turns video on or off.</p>
+          <p>On Contacts, tap Family group, then voice call or video call. Green answers. X declines that person. The call can still ring other people. Mic mutes. Camera turns video on or off.</p>
           <button class="btn primary" type="button" data-speak="call">Hear this</button>
         </article>
 
         <article class="how-to-lesson" id="people">
-          <h2>Contacts and messages</h2>
-          <p>The two-people button is Contacts. Tap a person for chat: text, photo, voice note, map. From the camera you can also say:</p>
+          <h2>Group messages, photo, and map</h2>
+          <p>The two-people button is Contacts. The main card is Family group. Send a message, photo, or map — each one goes to everybody. That is one action at a time. New messages speak out and show a notification for you, for family, and for admin.</p>
           <div class="say-row">
-            <button class="btn" type="button" data-say="send a message to my brother">send a message to my brother</button>
-            <button class="btn" type="button" data-say="send a photo to Mama">send a photo to Mama</button>
-            <button class="btn" type="button" data-say="send my location to my brother">send my location to my brother</button>
+            <button class="btn" type="button" data-say="send a message">send a message</button>
+            <button class="btn" type="button" data-say="send a photo">send a photo</button>
+            <button class="btn" type="button" data-say="send a map">send a map</button>
             <button class="btn" type="button" data-say="read my messages">read my messages</button>
           </div>
           <button class="btn primary" type="button" data-speak="people">Hear this</button>
@@ -160,7 +160,7 @@
 
         <article class="how-to-lesson" id="map">
           <h2>Walking and the map</h2>
-          <p>Walking directions stay off until a helper turns them on in Settings. If they are off, the app can send your location to family instead.</p>
+          <p>Walking directions stay off until a helper turns them on in Settings. If they are off, the app can send your location to the group instead. Ask by voice. The second dock button is Emergency, not a map.</p>
           <div class="say-row">
             <button class="btn" type="button" data-say="take me to the market">take me to the market</button>
             <button class="btn" type="button" data-say="where am I">where am I</button>
@@ -174,9 +174,14 @@
 
         <article class="how-to-lesson" id="emergency">
           <h2>Emergency</h2>
-          <p>Say <strong class="say">emergency</strong> or <strong class="say">SOS</strong>. The app tries your location and calls your emergency person. This does not replace police or ambulance on the phone.</p>
+          <p>The second button on the bottom is Emergency. If you only say <strong class="say">emergency</strong> or <strong class="say">SOS</strong>, the app does everything at once: video call to the group and admin, plus a message, a photo, and a map. Anyone who is free can pick up. Family and admin get notifications. This does not replace police or ambulance on the phone.</p>
+          <p>If you want only one thing, say emergency and the action:</p>
           <div class="say-row">
             <button class="btn" type="button" data-say="emergency">emergency</button>
+            <button class="btn" type="button" data-say="SOS">SOS</button>
+            <button class="btn" type="button" data-say="emergency send a message">emergency send a message</button>
+            <button class="btn" type="button" data-say="emergency send a photo">emergency send a photo</button>
+            <button class="btn" type="button" data-say="emergency send a map">emergency send a map</button>
           </div>
           <button class="btn primary" type="button" data-speak="emergency">Hear this</button>
         </article>
@@ -206,11 +211,14 @@
               <tr><td>Stop</td><td><button class="btn" type="button" data-say="stop">stop</button></td></tr>
               <tr><td>Describe</td><td><button class="btn" type="button" data-say="what is in front of me">what is in front of me</button></td></tr>
               <tr><td>Read</td><td><button class="btn" type="button" data-say="read this">read this</button></td></tr>
-              <tr><td>Call</td><td><button class="btn" type="button" data-say="call my brother">call my brother</button></td></tr>
-              <tr><td>Video</td><td><button class="btn" type="button" data-say="video call Mama">video call Mama</button></td></tr>
-              <tr><td>Message</td><td><button class="btn" type="button" data-say="send a message to my brother">send a message</button></td></tr>
+              <tr><td>Call the group</td><td><button class="btn" type="button" data-say="call">call</button></td></tr>
+              <tr><td>Video the group</td><td><button class="btn" type="button" data-say="video call">video call</button></td></tr>
+              <tr><td>Message the group</td><td><button class="btn" type="button" data-say="send a message">send a message</button></td></tr>
+              <tr><td>Photo the group</td><td><button class="btn" type="button" data-say="send a photo">send a photo</button></td></tr>
+              <tr><td>Map the group</td><td><button class="btn" type="button" data-say="send a map">send a map</button></td></tr>
               <tr><td>Where I am</td><td><button class="btn" type="button" data-say="where am I">where am I</button></td></tr>
-              <tr><td>Emergency</td><td><button class="btn" type="button" data-say="emergency">emergency</button></td></tr>
+              <tr><td>Full emergency</td><td><button class="btn" type="button" data-say="emergency">emergency</button></td></tr>
+              <tr><td>Emergency photo only</td><td><button class="btn" type="button" data-say="emergency send a photo">emergency send a photo</button></td></tr>
             </tbody>
           </table>
           <button class="btn primary" type="button" data-speak="commands">Hear this</button>
@@ -224,6 +232,6 @@
       </p>
     </main>
     <audio id="tts-player" playsinline webkit-playsinline hidden></audio>
-    <script src="../js/how-to.js?v=1"></script>
+    <script src="../js/how-to.js?v=2"></script>
   </body>
 </html>

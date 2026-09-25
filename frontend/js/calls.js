@@ -155,9 +155,16 @@ class CallController {
       this.videoMode = this._isVideoSignal(signal);
       this._incoming = signal;
       const kind = this.videoMode ? "video call" : "voice call";
-      this.updateBanner(`Incoming ${kind} from ${signal.from_name || "a contact"}`);
+      const emergency = Boolean(signal.emergency);
+      this.updateBanner(
+        emergency
+          ? `Emergency ${kind} from ${signal.from_name || "someone who needs help"}`
+          : `Incoming ${kind} from ${signal.from_name || "a contact"}`
+      );
       voice.speak(
-        `Incoming ${kind} from ${signal.from_name || "a Vibe Eye user"}. Say call to answer, or stop to decline.`
+        emergency
+          ? `Emergency ${kind} from ${signal.from_name || "someone who needs help"}. Say call to answer.`
+          : `Incoming ${kind} from ${signal.from_name || "a Vibe Eye user"}. Say call to answer, or stop to decline.`
       );
       return;
     }
@@ -395,7 +402,7 @@ class CallController {
     return wasJoined;
   }
 
-  async start(target, { video = false } = {}) {
+  async start(target, { video = false, emergency = false } = {}) {
     this.startPolling();
     if (video) {
       try {
@@ -408,25 +415,35 @@ class CallController {
     await this._connectSocket();
     const data = await api("/api/calls/start", {
       method: "POST",
-      body: { target, media: video ? "video" : "audio" },
+      body: {
+        target,
+        media: video ? "video" : "audio",
+        emergency: Boolean(emergency),
+        group: Boolean(emergency) || target === "group" || target === "emergency",
+      },
     });
     this.currentCall = { ...data.call, peer_id: data.call?.callee_id };
-    this.videoMode = data.call?.call_type === "video" || video;
+    this.videoMode = video || ["video", "gvideo", "evideo"].includes(data.call?.call_type);
     if (data.tel_url) {
       location.href = data.tel_url;
       return data.spoken;
     }
-    if (!data.call.callee_id) {
+    const ringIds = (data.ring_user_ids || []).filter(Boolean);
+    if (!ringIds.length && data.call?.callee_id) ringIds.push(data.call.callee_id);
+    if (!data.call?.id || !ringIds.length) {
       return data.spoken;
     }
     appState.set(STATES.CALLING);
     this.updateBanner(this.videoMode ? `Video calling ${data.contact.name}` : `Voice calling ${data.contact.name}`);
-    await this._sendSignal({
-      target_user_id: data.call.callee_id,
-      call_id: data.call.id,
-      signal_type: "ring",
-      media: this.videoMode ? "video" : "audio",
-    });
+    for (const id of ringIds) {
+      await this._sendSignal({
+        target_user_id: id,
+        call_id: data.call.id,
+        signal_type: "ring",
+        media: this.videoMode ? "video" : "audio",
+        emergency: Boolean(data.emergency),
+      });
+    }
     try {
       await this._joinJitsi(data.jitsi, this.videoMode);
       this.updateBanner(this.videoMode ? `Video calling ${data.contact.name}` : `Voice calling ${data.contact.name}`);

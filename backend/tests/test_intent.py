@@ -189,3 +189,21 @@ def test_describe_what_you_see_right_now():
 def test_read_what_you_see_is_describe():
     parsed = parse_intent("Can you read what you see in front of you right now?")
     assert parsed["intent"] == "DESCRIBE"
+
+
+def test_sos_is_full_emergency():
+    assert parse_intent("SOS")["intent"] == "EMERGENCY"
+    assert parse_intent("emergency")["intent"] == "EMERGENCY"
+
+
+def test_emergency_send_message():
+    parsed = parse_intent("emergency send a message I fell")
+    assert parsed["intent"] == "EMERGENCY_SEND_MESSAGE"
+
+
+def test_emergency_send_photo():
+    assert parse_intent("emergency send a photo")["intent"] == "EMERGENCY_SEND_PHOTO"
+
+
+def test_emergency_send_map():
+    assert parse_intent("emergency send a map")["intent"] == "EMERGENCY_SEND_LOCATION"

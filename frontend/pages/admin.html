@@ -11,6 +11,7 @@
       <aside class="sidebar">
         <h1>AI Sight Admin</h1>
         <button class="nav-btn active" data-section="users" type="button">Users</button>
+        <button class="nav-btn" data-section="emergency" type="button">Emergency</button>
         <button class="nav-btn" data-section="subscription" type="button">Subscriptions</button>
         <button class="nav-btn" data-section="branding" type="button">Logo</button>
         <button class="nav-btn" data-section="keys" type="button">API keys</button>
@@ -92,6 +93,24 @@
                 <h3>What they use</h3>
                 <div id="usage-box"></div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-emergency" class="hidden">
+          <h2>Emergency</h2>
+          <p class="muted">When a blind person says emergency or SOS, the video call, message, photo, and map show here. Join the call if you are free.</p>
+          <div class="toolbar">
+            <button class="btn ghost" id="refresh-emergency" type="button">Refresh</button>
+          </div>
+          <div class="grid-2">
+            <div class="card">
+              <h3>Live emergencies</h3>
+              <div id="emergency-box"></div>
+            </div>
+            <div class="card">
+              <h3>Message notifications</h3>
+              <div id="message-alert-box"></div>
             </div>
           </div>
         </section>
@@ -247,6 +266,6 @@
         </section>
       </main>
     </div>
-    <script type="module" src="../js/admin.js?v=8"></script>
+    <script type="module" src="../js/admin.js?v=9"></script>
   </body>
 </html>
