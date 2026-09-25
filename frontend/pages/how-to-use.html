@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="AI Sight" />
+    <meta name="theme-color" content="#04070d" />
+    <meta name="description" content="How to use AI Sight. A talking camera guide for blind people. No sign in." />
+    <title>How to use it — AI Sight</title>
+    <link rel="stylesheet" href="../css/main.css?v=31" />
+    <link rel="stylesheet" href="../css/accessibility.css?v=6" />
+    <link rel="stylesheet" href="../css/responsive.css?v=8" />
+    <link rel="stylesheet" href="../css/how-to.css?v=1" />
+    <link rel="manifest" href="../manifest.json" />
+  </head>
+  <body class="page-panel how-to-page">
+    <a class="skip-link" href="#lessons">Skip to lessons</a>
+    <main class="app-shell">
+      <header class="brand">
+        <p class="brand-kicker">AI Sight</p>
+        <h1>How to use it</h1>
+        <p>For the blind person using the camera. No sign in. Tap Hear the whole guide, or practice on the picture.</p>
+      </header>
+      <p id="how-status" class="status-bar" role="status" aria-live="polite"></p>
+
+      <div class="how-to-sticky">
+        <div class="auth-actions">
+          <button class="btn primary wide" id="hear-all" type="button">Hear the whole guide</button>
+          <button class="btn" id="stop-talk" type="button">Stop talking</button>
+          <a class="btn" href="./welcome.html">Back to sign in</a>
+        </div>
+        <nav class="how-to-toc" aria-label="Jump to a lesson">
+          <a href="#start">Start</a>
+          <a href="#camera">Camera</a>
+          <a href="#detect">Detect</a>
+          <a href="#describe">Describe</a>
+          <a href="#read">Read</a>
+          <a href="#call">Call</a>
+          <a href="#people">People</a>
+          <a href="#map">Map</a>
+          <a href="#emergency">Help</a>
+          <a href="#commands">Say this</a>
+        </nav>
+      </div>
+
+      <section class="how-to-lesson" id="practice" aria-labelledby="practice-title">
+        <h2 id="practice-title">Practice the camera</h2>
+        <p>This picture is a pretend camera. You can use it now. Hold it to talk. Double tap for detection. It will tell you if you did it right.</p>
+        <div class="demo-wrap">
+          <div id="demo-visual" class="demo-stage is-listening" aria-hidden="true">
+            <div class="demo-hud">
+              <span class="demo-logo"></span>
+              <div class="demo-pills"><span class="gps-on">GPS</span><span>DET</span></div>
+            </div>
+            <div class="demo-listen">
+              Listening
+              <div class="demo-waves" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+            </div>
+            <div class="demo-hand" aria-hidden="true"></div>
+            <div class="demo-dock" aria-hidden="true"><i class="is-on"></i><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <button class="demo-hit" type="button" id="demo-hit" aria-label="Practice. Hold to speak. Double tap for object detection."></button>
+        </div>
+        <p id="demo-note" class="live-note">Hold this picture, or double tap it.</p>
+      </section>
+
+      <div id="lessons">
+        <article class="how-to-lesson" id="start">
+          <h2>What this app is</h2>
+          <p>AI Sight is a talking camera. It sits on your phone or glasses. It can name objects, describe what is in front of you, read a page, call family, send messages, and help in an emergency.</p>
+          <p>You mostly use your voice. Family can also tap buttons for you.</p>
+          <button class="btn primary" type="button" data-speak="start">Hear this</button>
+        </article>
+
+        <article class="how-to-lesson" id="startapp">
+          <h2>How to start the app</h2>
+          <ol>
+            <li>Open this website in <strong>Safari</strong> on iPhone, or Chrome on Android.</li>
+            <li>On the sign-in screen, choose <strong>Blind person</strong>.</li>
+            <li>Create an account, or sign in with username and password.</li>
+            <li>Add AI Sight to your <strong>home screen</strong> so you can open it like an app.</li>
+            <li>The first time, tap <strong>Allow camera, microphone, and location</strong>, then Allow on the phone.</li>
+          </ol>
+          <p>After that, camera, microphone, and GPS start by themselves when you open the app. They stop auto-starting only when you Sign out.</p>
+          <p>You stay signed in until Sign out.</p>
+          <button class="btn primary" type="button" data-speak="startapp">Hear this</button>
+        </article>
+
+        <article class="how-to-lesson" id="camera">
+          <h2>The camera home</h2>
+          <p>The whole picture is one big button. You do not hunt for a microphone icon.</p>
+          <ul>
+            <li><strong>Hold</strong> the screen, speak, then <strong>let go</strong>.</li>
+            <li><strong>Double tap</strong> starts or stops object detection.</li>
+          </ul>
+          <p>When it hears you, it says Listening. At the top: logo, profile, GPS, DET. At the bottom, six buttons from left to right: Camera, Navigation, Contacts, Profile, Plans, Settings.</p>
+          <button class="btn primary" type="button" data-speak="camera">Hear this</button>
+        </article>
+
+        <article class="how-to-lesson" id="detect">
+          <h2>Object detection</h2>
+          <p>This names things in the live camera, like a person, chair, or bottle. It speaks them. A helper should download it once in Settings, on Wi‑Fi: <strong>Download YOLO to this phone</strong>.</p>
+          <p>Every day: point the camera forward, <strong>double tap</strong>. Double tap again to stop. Or hold and say:</p>
+          <div class="say-row">
+            <button class="btn" type="button" data-say="detect">detect</button>
+            <button class="btn" type="button" data-say="stop">stop</button>
+          </div>
+          <button class="btn primary" type="button" data-speak="detect">Hear this</button>
+        </article>
+
+        <article class="how-to-lesson" id="describe">
+          <h2>Describe what is in front of you</h2>
+          <p>Point the camera. Hold the screen. Say one of these. Wait for Okay, looking. Then listen. Turn volume up. Use the loud speaker or Bluetooth.</p>
+          <div class="say-row">
+            <button class="btn" type="button" data-say="what is in front of me">what is in front of me</button>
+            <button class="btn" type="button" data-say="describe what is in front of me">describe what is in front of me</button>
+            <button class="btn" type="button" data-say="what do you see">what do you see</button>
+          </div>
+          <p>If it says this is Premium, open Plans. If your organisation turned subscriptions off, describe stays free.</p>
+          <button class="btn primary" type="button" data-speak="describe">Hear this</button>
+        </article>
+
+        <article class="how-to-lesson" id="read">
+          <h2>Read a page or sign</h2>
+          <p>Fill the camera with the page. Hold still. Then say:</p>
+          <div class="say-row">
+            <button class="btn" type="button" data-say="read this">read this</button>
+            <button class="btn" type="button" data-say="what does this say">what does this say</button>
+            <button class="btn" type="button" data-say="read the menu">read the menu</button>
+          </div>
+          <button class="btn primary" type="button" data-speak="read">Hear this</button>
+        </article>
+
+        <article class="how-to-lesson" id="call">
+          <h2>Voice call and video call</h2>
+          <p>A helper opens Settings once and taps <strong>Configure calling</strong>. After that, calls stay inside AI Sight. Hang up with the red button. That ends both sides.</p>
+          <div class="say-row">
+            <button class="btn" type="button" data-say="call my brother">call my brother</button>
+            <button class="btn" type="button" data-say="video call Mama">video call Mama</button>
+            <button class="btn" type="button" data-say="open calling settings">open calling settings</button>
+            <button class="btn" type="button" data-say="stop">stop</button>
+          </div>
+          <p>Use the name as it is saved in Contacts. Green answers. X declines. Mic mutes. Camera turns video on or off.</p>
+          <button class="btn primary" type="button" data-speak="call">Hear this</button>
+        </article>
+
+        <article class="how-to-lesson" id="people">
+          <h2>Contacts and messages</h2>
+          <p>The two-people button is Contacts. Tap a person for chat: text, photo, voice note, map. From the camera you can also say:</p>
+          <div class="say-row">
+            <button class="btn" type="button" data-say="send a message to my brother">send a message to my brother</button>
+            <button class="btn" type="button" data-say="send a photo to Mama">send a photo to Mama</button>
+            <button class="btn" type="button" data-say="send my location to my brother">send my location to my brother</button>
+            <button class="btn" type="button" data-say="read my messages">read my messages</button>
+          </div>
+          <button class="btn primary" type="button" data-speak="people">Hear this</button>
+        </article>
+
+        <article class="how-to-lesson" id="map">
+          <h2>Walking and the map</h2>
+          <p>Walking directions stay off until a helper turns them on in Settings. If they are off, the app can send your location to family instead.</p>
+          <div class="say-row">
+            <button class="btn" type="button" data-say="take me to the market">take me to the market</button>
+            <button class="btn" type="button" data-say="where am I">where am I</button>
+            <button class="btn" type="button" data-say="how far">how far</button>
+            <button class="btn" type="button" data-say="next turn">next turn</button>
+            <button class="btn" type="button" data-say="show the map">show the map</button>
+            <button class="btn" type="button" data-say="stop">stop</button>
+          </div>
+          <button class="btn primary" type="button" data-speak="map">Hear this</button>
+        </article>
+
+        <article class="how-to-lesson" id="emergency">
+          <h2>Emergency</h2>
+          <p>Say <strong class="say">emergency</strong> or <strong class="say">SOS</strong>. The app tries your location and calls your emergency person. This does not replace police or ambulance on the phone.</p>
+          <div class="say-row">
+            <button class="btn" type="button" data-say="emergency">emergency</button>
+          </div>
+          <button class="btn primary" type="button" data-speak="emergency">Hear this</button>
+        </article>
+
+        <article class="how-to-lesson" id="settings">
+          <h2>Settings, plans, and profile</h2>
+          <p><strong>Plans</strong> (star): Free is detection, calls, and messages. Premium is describe and read, about five dollars a month, if subscriptions are on.</p>
+          <p><strong>Profile</strong> (person): your name, health notes, System ID for family.</p>
+          <p><strong>Settings</strong> (gear): New update, test speaker, configure calling, download detection, speech speed, language, high contrast, walking directions, system ID and QR, Sign out.</p>
+          <div class="say-row">
+            <button class="btn" type="button" data-say="help">help</button>
+            <button class="btn" type="button" data-say="settings">settings</button>
+          </div>
+          <button class="btn primary" type="button" data-speak="settings">Hear this</button>
+        </article>
+
+        <article class="how-to-lesson" id="commands">
+          <h2>Say this</h2>
+          <p>Hold, speak, let go. Tap a line to hear it.</p>
+          <table class="cmd-table">
+            <thead>
+              <tr><th>I want to</th><th>Say</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Hear help</td><td><button class="btn" type="button" data-say="help">help</button></td></tr>
+              <tr><td>See objects</td><td>Double tap, or <button class="btn" type="button" data-say="detect">detect</button></td></tr>
+              <tr><td>Stop</td><td><button class="btn" type="button" data-say="stop">stop</button></td></tr>
+              <tr><td>Describe</td><td><button class="btn" type="button" data-say="what is in front of me">what is in front of me</button></td></tr>
+              <tr><td>Read</td><td><button class="btn" type="button" data-say="read this">read this</button></td></tr>
+              <tr><td>Call</td><td><button class="btn" type="button" data-say="call my brother">call my brother</button></td></tr>
+              <tr><td>Video</td><td><button class="btn" type="button" data-say="video call Mama">video call Mama</button></td></tr>
+              <tr><td>Message</td><td><button class="btn" type="button" data-say="send a message to my brother">send a message</button></td></tr>
+              <tr><td>Where I am</td><td><button class="btn" type="button" data-say="where am I">where am I</button></td></tr>
+              <tr><td>Emergency</td><td><button class="btn" type="button" data-say="emergency">emergency</button></td></tr>
+            </tbody>
+          </table>
+          <button class="btn primary" type="button" data-speak="commands">Hear this</button>
+        </article>
+      </div>
+
+      <p class="auth-footer">
+        <a class="text-link" href="./welcome.html">Back to Blind person or Assistant</a>
+        ·
+        <a class="text-link" href="./login.html?role=blind">Sign in</a>
+      </p>
+    </main>
+    <audio id="tts-player" playsinline webkit-playsinline hidden></audio>
+    <script src="../js/how-to.js?v=1"></script>
+  </body>
+</html>

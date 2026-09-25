@@ -95,6 +95,7 @@ export function pages() {
     profile: new URL("../pages/profile.html", import.meta.url).href,
     plans: new URL("../pages/plans.html", import.meta.url).href,
     navigation: new URL("../pages/navigation.html", import.meta.url).href,
+    howTo: new URL("../pages/how-to-use.html", import.meta.url).href,
   };
 }
 

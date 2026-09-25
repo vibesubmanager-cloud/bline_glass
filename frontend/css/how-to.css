@@ -1,0 +1,305 @@
+.how-to-page {
+  --how-gold: #ffd36a;
+}
+
+.how-to-page .app-shell {
+  max-width: 760px;
+  padding-bottom: 48px;
+}
+
+.how-to-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  display: grid;
+  gap: 8px;
+  padding: 10px 0 12px;
+  background: linear-gradient(180deg, #04070d 70%, rgba(4, 7, 13, 0));
+}
+
+.how-to-sticky .auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.how-to-card {
+  background: linear-gradient(160deg, rgba(255, 211, 106, 0.18), rgba(90, 220, 255, 0.12)) !important;
+  border-color: rgba(255, 211, 106, 0.45) !important;
+}
+
+.how-to-card .role-icon {
+  color: var(--how-gold, #ffd36a) !important;
+}
+
+.how-to-toc {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.how-to-toc a {
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: rgba(11, 18, 32, 0.9);
+  color: var(--fg);
+  text-decoration: none;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.how-to-lesson {
+  margin: 18px 0;
+  padding: 18px 16px 16px;
+  border-radius: 22px;
+  border: 1px solid var(--stroke);
+  background: linear-gradient(180deg, rgba(12, 20, 36, 0.92), rgba(6, 10, 18, 0.88));
+}
+
+.how-to-lesson h2 {
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+}
+
+.how-to-lesson p,
+.how-to-lesson li {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.how-to-lesson strong.say {
+  display: inline-block;
+  margin: 4px 4px 4px 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(90, 220, 255, 0.16);
+  color: #e8fbff;
+  font-weight: 700;
+}
+
+.how-to-lesson .btn {
+  margin-top: 8px;
+}
+
+.demo-wrap {
+  position: relative;
+  margin: 14px 0 8px;
+}
+
+.demo-stage {
+  position: relative;
+  height: 280px;
+  margin: 0;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid var(--stroke);
+  background:
+    radial-gradient(circle at 50% 40%, rgba(90, 220, 255, 0.18), transparent 50%),
+    linear-gradient(180deg, #122033, #070b12);
+}
+
+.demo-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+}
+
+.demo-hud {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.demo-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid rgba(90, 220, 255, 0.7);
+  box-shadow: 0 0 16px rgba(90, 220, 255, 0.4);
+}
+
+.demo-pills {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.demo-pills span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(4, 8, 16, 0.7);
+  border: 1px solid var(--stroke);
+}
+
+.demo-pills .gps-on {
+  color: #ffd36a;
+}
+
+.demo-listen {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  text-align: center;
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.demo-stage.is-listening .demo-listen {
+  opacity: 1;
+  animation: how-pulse 1.2s ease-in-out infinite;
+}
+
+.demo-stage.is-detecting {
+  box-shadow: inset 0 0 0 3px #ffd36a;
+}
+
+.demo-hand {
+  position: absolute;
+  right: 18%;
+  bottom: 18%;
+  width: 54px;
+  height: 54px;
+  border-radius: 50% 50% 48% 50%;
+  background: rgba(255, 211, 106, 0.9);
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.85;
+  animation: how-hold 2.8s ease-in-out infinite;
+}
+
+.demo-stage.is-listening .demo-hand {
+  animation: how-press 0.6s ease-in-out infinite alternate;
+}
+
+.demo-stage.demo-tap .demo-hand {
+  animation: how-tap 1.4s ease-in-out infinite;
+}
+
+.demo-waves {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  margin-top: 10px;
+  height: 22px;
+}
+
+.demo-waves span {
+  width: 5px;
+  border-radius: 99px;
+  background: var(--cyan);
+  animation: how-wave 0.9s ease-in-out infinite;
+}
+
+.demo-waves span:nth-child(2) { animation-delay: 0.1s; }
+.demo-waves span:nth-child(3) { animation-delay: 0.2s; }
+.demo-waves span:nth-child(4) { animation-delay: 0.3s; }
+.demo-waves span:nth-child(5) { animation-delay: 0.4s; }
+
+.demo-dock {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.demo-dock i {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  border: 1px solid var(--stroke);
+  background: rgba(8, 12, 20, 0.75);
+}
+
+.demo-dock i.is-on {
+  border-color: var(--cyan);
+  box-shadow: 0 0 12px rgba(90, 220, 255, 0.5);
+  animation: how-pulse 1.6s ease-in-out infinite;
+}
+
+.say-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.cmd-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cmd-table th,
+.cmd-table td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--stroke);
+  vertical-align: top;
+}
+
+.cmd-table th {
+  color: var(--how-gold, #ffd36a);
+  font-size: 0.85rem;
+}
+
+.live-note {
+  min-height: 1.4em;
+  margin: 8px 0 0;
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+@keyframes how-hold {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(8px) scale(0.92); }
+}
+
+@keyframes how-press {
+  from { transform: scale(1); }
+  to { transform: scale(0.86); }
+}
+
+@keyframes how-tap {
+  0%, 40%, 100% { transform: translateY(0) scale(1); }
+  12%, 28% { transform: translateY(10px) scale(0.88); }
+}
+
+@keyframes how-pulse {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
+}
+
+@keyframes how-wave {
+  0%, 100% { height: 8px; }
+  50% { height: 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-hand,
+  .demo-listen,
+  .demo-dock i.is-on,
+  .demo-waves span {
+    animation: none;
+  }
+}
