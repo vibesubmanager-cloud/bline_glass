@@ -12,6 +12,9 @@ import {
   sendChatMessage,
 } from "./messages.js";
 import { startMessageNotices } from "./notify.js";
+import { registerOffline } from "./offline.js";
+
+registerOffline();
 
 const params = new URLSearchParams(location.search);
 const peerId = params.get("with") || "";

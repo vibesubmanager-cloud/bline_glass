@@ -420,7 +420,7 @@ async function executeCommand(parsed, text) {
     }
 
   if (!isOnline()) {
-    await speakOut("The internet connection looks unavailable. Camera AI features need a connection.");
+    await speakOut("Describe, read, and calling need internet. Camera and object detection still work.");
     return;
   }
 
@@ -919,9 +919,23 @@ async function allowLocation() {
   }
 }
 
+async function startCameraNow() {
+  const preview = document.getElementById("camera-preview");
+  if (!preview) return false;
+  try {
+    await camera.ensureStarted(preview);
+    setLive(true);
+    return true;
+  } catch {
+    setLive(false);
+    return false;
+  }
+}
+
 async function promptForLocation() {
   hideLocationBanner();
   const preview = document.getElementById("camera-preview");
+  await startCameraNow();
   const tryResume = async () => {
     const { pos } = await resumeDevices(preview);
     markGps(true, pos);
@@ -976,6 +990,8 @@ function closeDestSheet() {
 
 async function boot() {
   if (!requireAuth()) return;
+  document.addEventListener("gesturestart", (event) => event.preventDefault());
+  startCameraNow();
   onYoloProgress((info) => {
     if (detectionMode) return;
     if (info.state === "downloading" || info.state === "loading") {
@@ -1008,11 +1024,21 @@ async function boot() {
       await voice.speak(error.message || "I could not start that in-app call.");
     }
   });
-  calls.startPolling();
-  refreshBilling();
-  announceUnread();
-  setInterval(announceUnread, 5000);
-  startMessageNotices({ speak: false, href: pages().emergency });
+  let networkJobsStarted = false;
+  const startNetworkJobs = () => {
+    if (networkJobsStarted) return;
+    networkJobsStarted = true;
+    calls.startPolling();
+    refreshBilling();
+    announceUnread();
+    setInterval(announceUnread, 5000);
+    startMessageNotices({ speak: false, href: pages().emergency });
+  };
+  if (navigator.onLine) startNetworkJobs();
+  window.addEventListener("online", () => {
+    setOnline(true);
+    startNetworkJobs();
+  });
   if (!voice.listeningSupported()) fallbackForm?.classList.remove("hidden");
   navigation.onChange = (info) => {
     const remaining = info.user ? navigation.remainingDistance(info.user) : null;
@@ -1129,14 +1155,8 @@ fallbackForm?.addEventListener("submit", async (event) => {
 
 window.addEventListener("offline", () => {
   setOnline(false);
-  voice.speak("You are offline. Navigation tracking can continue, but AI features need internet.");
+  voice.speak("You are offline. Camera and object detection still work.");
 });
 window.addEventListener("online", () => setOnline(true));
-
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.getRegistrations().then((regs) => {
-    regs.forEach((reg) => reg.unregister());
-  }).catch(() => undefined);
-}
 
 boot();

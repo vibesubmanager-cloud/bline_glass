@@ -2,9 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>Contacts — vibeEye</title>
-    <link rel="stylesheet" href="../css/main.css?v=29" />
+    <link rel="stylesheet" href="../css/main.css?v=32" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
   </head>
@@ -90,6 +90,8 @@
       import { voice } from "../js/voice.js";
       import { getToken, getUser, getLinkedBlind, pages } from "../js/config.js";
       import { startMessageNotices } from "../js/notify.js";
+      import { registerOffline } from "../js/offline.js";
+      registerOffline();
       if (!getToken()) location.href = pages().welcome;
       const list = document.getElementById("contact-list");
       const status = document.getElementById("contact-status");
