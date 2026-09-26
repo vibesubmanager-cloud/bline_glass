@@ -25,8 +25,15 @@
           }
         location.replace(role === "assistant" ? "./pages/contacts.html" : "./pages/home.html");
         }
+        var ios = /iPad|iPhone|iPod/i.test(navigator.userAgent || "");
         if ("serviceWorker" in navigator) {
-          navigator.serviceWorker.register("./sw.js").catch(() => undefined);
+          if (ios) {
+            navigator.serviceWorker.getRegistrations()
+              .then(function (regs) { return Promise.all(regs.map(function (reg) { return reg.unregister(); })); })
+              .catch(function () {});
+          } else {
+            navigator.serviceWorker.register("./sw.js").catch(function () {});
+          }
         }
       })();
     </script>

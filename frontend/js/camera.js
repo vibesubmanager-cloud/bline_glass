@@ -1,4 +1,4 @@
-const VIDEO = { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } };
+import { isStandaloneApp } from "./location.js";
 const VIDEO_ONLY = [
   { audio: false, video: VIDEO },
   { audio: false, video: { facingMode: "environment" } },
@@ -29,6 +29,13 @@ class CameraService {
       throw Object.assign(new Error("I can't access the camera."), { code: "CAMERA_UNAVAILABLE" });
     }
     this.video = videoEl || document.getElementById("camera-preview");
+    if (this.video) {
+      this.video.setAttribute("playsinline", "true");
+      this.video.setAttribute("webkit-playsinline", "true");
+      this.video.muted = true;
+      this.video.autoplay = true;
+      this.video.playsInline = true;
+    }
     const attempts = includeAudio ? AUDIO_AND_VIDEO : VIDEO_ONLY;
     let lastError;
     for (const options of attempts) {
@@ -42,7 +49,12 @@ class CameraService {
       }
     }
     if (!this.stream) {
-      throw Object.assign(new Error("I can't access the camera."), { code: "CAMERA_UNAVAILABLE", cause: lastError });
+      const denied = /notallowed|permission|denied/i.test(String(lastError?.name || lastError?.message || ""));
+      const home = isStandaloneApp();
+      const message = denied && home
+        ? "This Home Screen app has its own camera switch. Open iPhone Settings, scroll to vibeEye, turn Camera on, then open the app again. If it still stays black, delete the Home Screen icon, open Safari, then Add to Home Screen again."
+        : "I can't access the camera.";
+      throw Object.assign(new Error(message), { code: "CAMERA_UNAVAILABLE", cause: lastError });
     }
     this.stream.getAudioTracks().forEach((track) => {
       this._micGranted = true;
@@ -50,8 +62,10 @@ class CameraService {
       this.stream.removeTrack(track);
     });
     if (this.video) {
-      this.video.setAttribute("playsinline", "");
+      this.video.setAttribute("playsinline", "true");
+      this.video.setAttribute("webkit-playsinline", "true");
       this.video.muted = true;
+      this.video.playsInline = true;
       this.video.srcObject = this.stream;
       await this.video.play().catch(() => undefined);
     }

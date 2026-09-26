@@ -18,7 +18,7 @@
       <p id="settings-status" class="status-bar" role="status" aria-live="polite"></p>
       <article class="card iphone-help" aria-label="New update">
         <strong>New update</strong>
-        <p>Tap this to refresh the whole app and load the latest version.</p>
+        <p>Tap this to refresh the whole app and load the latest version. On iPhone, if the Home Screen icon has no camera, delete that icon, open vibeEye in Safari, then Share → Add to Home Screen.</p>
         <button class="btn primary wide" id="new-update" type="button">New update</button>
       </article>
       <article class="card iphone-help" aria-label="Test speaker">
@@ -172,7 +172,7 @@
         status.textContent = "Updating…";
         try {
           voice.unlock({ fromGesture: true });
-          await voice.speak("Updating the app.");
+          await voice.speak("Updating the app. If the camera stays black on the Home Screen icon, delete that icon, open this site in Safari, then tap Share and Add to Home Screen.");
         } catch {
           /* still refresh */
         }
