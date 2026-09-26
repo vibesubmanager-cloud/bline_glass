@@ -990,7 +990,6 @@ function closeDestSheet() {
 
 async function boot() {
   if (!requireAuth()) return;
-  document.addEventListener("gesturestart", (event) => event.preventDefault());
   startCameraNow();
   onYoloProgress((info) => {
     if (detectionMode) return;

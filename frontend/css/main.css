@@ -33,7 +33,7 @@ body {
   font-family: var(--font);
   font-size: 17px;
   overscroll-behavior: none;
-  touch-action: pan-y;
+  touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
 }
 

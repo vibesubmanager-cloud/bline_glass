@@ -11,10 +11,6 @@ export async function registerOffline() {
     try {
       const regs = await navigator.serviceWorker.getRegistrations();
       await Promise.all(regs.map((reg) => reg.unregister()));
-      if (window.caches?.keys) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((key) => caches.delete(key)));
-      }
     } catch {
       /* camera still needs to start */
     }

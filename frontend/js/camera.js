@@ -1,4 +1,6 @@
 import { isStandaloneApp } from "./location.js";
+
+const VIDEO = { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } };
 const VIDEO_ONLY = [
   { audio: false, video: VIDEO },
   { audio: false, video: { facingMode: "environment" } },
