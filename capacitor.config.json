@@ -1,6 +1,6 @@
 {
   "appId": "app.aisight.mobile",
-  "appName": "vibeEye",
+  "appName": "Nyota Sight",
   "webDir": "frontend",
   "ios": {
     "contentInset": "automatic"

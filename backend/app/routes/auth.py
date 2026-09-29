@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from flask import Blueprint, g, request
 from sqlalchemy import or_
 
@@ -78,6 +80,22 @@ def _full_blind_profile(blind: User) -> dict:
     }
 
 
+def _parse_agreed_at(value) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip().replace("Z", "+00:00")
+    try:
+        when = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    if when > now + timedelta(minutes=5) or when.year < 2024:
+        return now
+    return when
+
+
 def _auth_payload(user: User) -> dict:
     ensure_user_identity(user)
     db.session.commit()
@@ -95,7 +113,7 @@ def register():
         data = require_json(request.get_json(silent=True))
         role = (optional_string(data, "role", 16) or "blind").lower()
         if role not in {"blind", "assistant"}:
-            raise ValidationError("Choose blind person or assistant.")
+            raise ValidationError("Choose V.I.P (visually impaired person) or Personal Assistant.")
         first_name = optional_string(data, "first_name", 80)
         last_name = optional_string(data, "last_name", 80)
         name = optional_string(data, "name", 120)
@@ -121,10 +139,10 @@ def register():
     linked_blind = None
     if role == "assistant":
         if not system_id_in:
-            return fail("VALIDATION_ERROR", "Enter the blind person's system ID.", 400)
+            return fail("VALIDATION_ERROR", "Enter the V.I.P (visually impaired person) system ID.", 400)
         linked_blind = User.query.filter_by(system_id=system_id_in.strip().upper(), role="blind").first()
         if not linked_blind:
-            return fail("BLIND_ID_NOT_FOUND", "I could not find a blind person with that system ID.", 404)
+            return fail("BLIND_ID_NOT_FOUND", "I could not find a V.I.P (visually impaired person) with that system ID.", 404)
         if not relationship:
             return fail("VALIDATION_ERROR", "Choose how you are related to this person.", 400)
         try:
@@ -230,8 +248,34 @@ def lookup_id():
     system_id = (request.args.get("system_id") or "").strip()
     profile = lookup_blind_profile(system_id)
     if not profile:
-        return fail("BLIND_ID_NOT_FOUND", "I could not find a blind person with that system ID.", 404)
+        return fail("BLIND_ID_NOT_FOUND", "I could not find a V.I.P (visually impaired person) with that system ID.", 404)
     return ok({"profile": profile})
+
+
+@auth_bp.post("/disclaimer")
+@login_required
+def accept_disclaimer():
+    data = request.get_json(silent=True) or {}
+    user = g.current_user
+    if user.disclaimer_agreed_at is None:
+        user.disclaimer_agreed_at = _parse_agreed_at(data.get("agreed_at")) or datetime.now(timezone.utc)
+        db.session.commit()
+        log_event("DISCLAIMER_AGREED", user_id=user.id)
+    when = user.disclaimer_agreed_at
+    return ok({"disclaimer_agreed_at": when.isoformat() if when else None})
+
+
+@auth_bp.post("/privacy-policy")
+@login_required
+def accept_privacy_policy():
+    data = request.get_json(silent=True) or {}
+    user = g.current_user
+    if user.privacy_policy_agreed_at is None:
+        user.privacy_policy_agreed_at = _parse_agreed_at(data.get("agreed_at")) or datetime.now(timezone.utc)
+        db.session.commit()
+        log_event("PRIVACY_POLICY_AGREED", user_id=user.id)
+    when = user.privacy_policy_agreed_at
+    return ok({"privacy_policy_agreed_at": when.isoformat() if when else None})
 
 
 @auth_bp.post("/logout")
@@ -263,7 +307,7 @@ def profile():
         viewer_role = "self"
     else:
         if not viewer.linked_blind_user_id:
-            return fail("PROFILE_UNAVAILABLE", "No blind person is linked to this account yet.", 404)
+            return fail("PROFILE_UNAVAILABLE", "No V.I.P (visually impaired person) is linked to this account yet.", 404)
         blind = db.session.get(User, viewer.linked_blind_user_id)
         if not blind:
             return fail("PROFILE_UNAVAILABLE", "I could not find the linked profile.", 404)

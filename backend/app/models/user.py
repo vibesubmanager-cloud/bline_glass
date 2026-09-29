@@ -32,6 +32,8 @@ class User(db.Model):
     stripe_customer_id = db.Column(db.String(64), nullable=True)
     stripe_subscription_id = db.Column(db.String(64), nullable=True)
     paypal_subscription_id = db.Column(db.String(64), nullable=True)
+    disclaimer_agreed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    privacy_policy_agreed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
     updated_at = db.Column(
         db.DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
@@ -63,6 +65,8 @@ class User(db.Model):
             "linked_blind_user_id": self.linked_blind_user_id,
             "relationship_to_blind": self.relationship_to_blind,
             "plan": (self.plan or "free"),
+            "disclaimer_agreed_at": self.disclaimer_agreed_at.isoformat() if self.disclaimer_agreed_at else None,
+            "privacy_policy_agreed_at": self.privacy_policy_agreed_at.isoformat() if self.privacy_policy_agreed_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
@@ -74,7 +78,7 @@ class UserSettings(db.Model):
     speech_rate = db.Column(db.Float, default=1.0, nullable=False)
     high_contrast = db.Column(db.Boolean, default=True, nullable=False)
     voice_name = db.Column(db.String(120), nullable=True)
-    language = db.Column(db.String(16), default="en-US", nullable=False)
+    language = db.Column(db.String(16), default="en-GB", nullable=False)
     share_location_in_emergency = db.Column(db.Boolean, default=True, nullable=False)
     walking_directions = db.Column(db.Boolean, default=False, nullable=False)
     calling_configured = db.Column(db.Boolean, default=False, nullable=False)

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+  <head>
+    <script src="../js/disclaimer-gate.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Nyota Sight" />
+    <meta name="theme-color" content="#04070d" />
+    <title>Privacy and policy — Nyota Sight</title>
+    <link rel="stylesheet" href="../css/main.css?v=34" />
+    <link rel="stylesheet" href="../css/accessibility.css?v=6" />
+    <link rel="stylesheet" href="../css/responsive.css?v=8" />
+  </head>
+  <body class="page-panel">
+    <a class="skip-link" href="#privacy-actions">Skip to I agree and Next</a>
+    <main class="app-shell">
+      <header class="brand">
+        <p class="brand-kicker">Nyota Sight</p>
+        <h1>Privacy and policy</h1>
+        <p>Listen to this notice. Select I agree, then Next.</p>
+      </header>
+      <p id="privacy-status" class="status-bar" role="status" aria-live="polite">Reading the privacy and policy.</p>
+      <article class="card" id="privacy-script" aria-label="Privacy and policy"></article>
+      <div id="privacy-actions" class="disclaimer-actions">
+        <button class="btn" id="repeat" type="button">Repeat</button>
+        <button class="btn" id="agree" type="button">I agree</button>
+        <button class="btn primary" id="next" type="button" disabled>Next</button>
+      </div>
+      <p class="auth-footer">
+        <button class="text-link" id="sign-out" type="button">Sign out</button>
+      </p>
+    </main>
+    <audio id="tts-player" playsinline webkit-playsinline hidden></audio>
+    <script type="module">
+      import { voice } from "../js/voice.js?v=58";
+      import { clearSession, getToken, getUser, pages } from "../js/config.js?v=37";
+      import { PRIVACY_PARAGRAPHS, PRIVACY_NOTICE } from "../js/disclaimer.js?v=2";
+      import { hasPrivacyAgreement, markPrivacyAgreed, syncPrivacyAgreement } from "../js/entry.js?v=1";
+
+      const user = getUser() || {};
+      const nextUrl = user.role === "assistant" ? pages().contacts : pages().permissions;
+      if (!getToken()) {
+        location.replace(pages().welcome);
+      } else if (hasPrivacyAgreement(user)) {
+        location.replace(nextUrl);
+      } else {
+        const script = document.getElementById("privacy-script");
+        const status = document.getElementById("privacy-status");
+        const agreeBtn = document.getElementById("agree");
+        const nextBtn = document.getElementById("next");
+        PRIVACY_PARAGRAPHS.forEach((line) => {
+          const p = document.createElement("p");
+          p.textContent = line;
+          script.appendChild(p);
+        });
+
+        let heard = false;
+        let agreed = false;
+        let playing = null;
+
+        function setStatus(text) {
+          status.textContent = text;
+        }
+
+        async function playPolicy() {
+          heard = false;
+          setStatus("Reading the privacy and policy.");
+          const run = voice.speak(PRIVACY_NOTICE, { interrupt: true });
+          playing = run;
+          try {
+            await run;
+            if (playing === run) {
+              heard = true;
+              setStatus(agreed ? "You agreed. Select Next." : 'Select "I agree", then "Next".');
+            }
+          } catch {
+            if (playing === run) heard = true;
+          }
+        }
+
+        agreeBtn.addEventListener("click", async () => {
+          voice.unlock({ fromGesture: true });
+          if (!heard) {
+            setStatus("Please listen to the privacy and policy. Then select I agree.");
+            if (!voice.isSpeaking()) await playPolicy();
+            return;
+          }
+          markPrivacyAgreed(user.id);
+          agreed = true;
+          nextBtn.disabled = false;
+          setStatus("You agreed. Select Next.");
+          await syncPrivacyAgreement(user.id);
+          await voice.speak("You agreed. Select Next.", { interrupt: true });
+        });
+
+        nextBtn.addEventListener("click", async () => {
+          voice.unlock({ fromGesture: true });
+          if (!agreed) {
+            setStatus("Select I agree before Next.");
+            await voice.speak("Select I agree before Next.", { interrupt: true });
+            return;
+          }
+          location.assign(nextUrl);
+        });
+
+        document.getElementById("repeat").addEventListener("click", async () => {
+          voice.unlock({ fromGesture: true });
+          await playPolicy();
+        });
+
+        document.getElementById("sign-out").addEventListener("click", () => {
+          clearSession();
+          location.assign(pages().welcome);
+        });
+
+        voice.unlock();
+        playPolicy();
+      }
+    </script>
+  </body>
+</html>

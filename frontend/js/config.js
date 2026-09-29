@@ -97,6 +97,8 @@ export function pages() {
     navigation: new URL("../pages/navigation.html", import.meta.url).href,
     emergency: new URL("../pages/emergency.html", import.meta.url).href,
     howTo: new URL("../pages/how-to-use.html", import.meta.url).href,
+    privacy: new URL("../pages/privacy-policy.html", import.meta.url).href,
+    permissions: new URL("../pages/permissions.html", import.meta.url).href,
   };
 }
 

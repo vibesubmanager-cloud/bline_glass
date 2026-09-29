@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Nyota Sight" />
+    <meta name="theme-color" content="#04070d" />
+    <title>Notice — Nyota Sight</title>
+    <link rel="stylesheet" href="../css/main.css?v=34" />
+    <link rel="stylesheet" href="../css/accessibility.css?v=6" />
+    <link rel="stylesheet" href="../css/responsive.css?v=8" />
+  </head>
+  <body class="page-panel">
+    <a class="skip-link" href="#disclaimer-actions">Skip to I agree, I disagree, and Repeat</a>
+    <main class="app-shell">
+      <header class="brand">
+        <p class="brand-kicker">Nyota Sight</p>
+        <h1>Please listen</h1>
+        <p>This notice is read aloud. If you do not hear it, select Repeat.</p>
+      </header>
+      <p id="disclaimer-status" class="status-bar" role="status" aria-live="polite">Reading the notice.</p>
+      <article class="card" id="disclaimer-script" aria-label="Disclaimer"></article>
+      <div id="disclaimer-actions" class="disclaimer-actions">
+        <button class="btn primary" id="agree" type="button">I agree</button>
+        <button class="btn" id="disagree" type="button">I disagree</button>
+        <button class="btn" id="repeat" type="button">Repeat</button>
+      </div>
+    </main>
+    <audio id="tts-player" playsinline webkit-playsinline hidden></audio>
+    <script type="module">
+      import { voice } from "../js/voice.js?v=58";
+      import { getToken, getUser, homeForUser, pages } from "../js/config.js?v=37";
+      import {
+        agreeNow,
+        syncDisclaimerAgreement,
+        DISCLAIMER_PARAGRAPHS,
+        DISCLAIMER_SCRIPT,
+        DISAGREE_SCRIPT,
+        agreedAt,
+      } from "../js/disclaimer.js?v=1";
+
+      if (agreedAt()) {
+        location.replace("../index.html");
+      } else {
+        const script = document.getElementById("disclaimer-script");
+        const status = document.getElementById("disclaimer-status");
+        DISCLAIMER_PARAGRAPHS.forEach((line) => {
+          const p = document.createElement("p");
+          p.textContent = line;
+          script.appendChild(p);
+        });
+
+        let heard = false;
+        let playing = null;
+
+        function setStatus(text) {
+          status.textContent = text;
+        }
+
+        async function playNotice() {
+          heard = false;
+          setStatus("Reading the notice.");
+          const run = voice.speak(DISCLAIMER_SCRIPT, { interrupt: true });
+          playing = run;
+          try {
+            await run;
+            if (playing === run) {
+              heard = true;
+              setStatus('Select "I agree", "I disagree", or "Repeat".');
+            }
+          } catch {
+            if (playing === run) heard = true;
+          }
+        }
+
+        document.getElementById("agree").addEventListener("click", async () => {
+          voice.unlock({ fromGesture: true });
+          if (!heard) {
+            setStatus("Please listen to the notice. Then select I agree.");
+            if (!voice.isSpeaking()) await playNotice();
+            return;
+          }
+          agreeNow();
+          setStatus("You agreed. Continuing.");
+          await syncDisclaimerAgreement();
+          await voice.speak("You agreed. Continuing.", { interrupt: true });
+          if (getToken()) location.assign(homeForUser(getUser()));
+          else location.assign(pages().welcome);
+        });
+
+        document.getElementById("disagree").addEventListener("click", async () => {
+          voice.unlock({ fromGesture: true });
+          heard = false;
+          setStatus("Nyota Sight cannot be used without agreeing to this notice.");
+          await voice.speak(DISAGREE_SCRIPT, { interrupt: true });
+          await playNotice();
+        });
+
+        document.getElementById("repeat").addEventListener("click", async () => {
+          voice.unlock({ fromGesture: true });
+          await playNotice();
+        });
+
+        voice.unlock();
+        playNotice();
+      }
+    </script>
+  </body>
+</html>

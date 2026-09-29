@@ -51,7 +51,7 @@ def _is_linked_assistant(contact: Contact, owner: User) -> bool:
 
 
 def restore_linked_assistants(owner: User) -> None:
-    """Put assistant accounts back on the blind person's contact list if they were deleted."""
+    """Put Personal Assistant accounts back on the V.I.P (visually impaired person) contact list if they were deleted."""
     if owner.role != "blind":
         return
     assistants = User.query.filter_by(
@@ -129,7 +129,7 @@ def list_contacts():
 @login_required
 def create_assistant_contact():
     if g.current_user.role != "blind":
-        return fail("FORBIDDEN", "Only a blind person can add an assistant here.", 403)
+        return fail("FORBIDDEN", "Only a V.I.P (visually impaired person) can add a Personal Assistant here.", 403)
     try:
         data = require_json(request.get_json(silent=True))
         first_name = require_string(data, "first_name", min_len=2, max_len=80)
@@ -224,7 +224,7 @@ def delete_contact(contact_id):
     if _is_linked_assistant(contact, g.current_user):
         return fail(
             "CONTACT_LINKED",
-            f"{contact.name} still has an assistant account, so they stay in your contacts.",
+            f"{contact.name} still has a Personal Assistant account, so they stay in your contacts.",
             400,
         )
     db.session.delete(contact)

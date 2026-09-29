@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+  <head>
+    <script src="../js/disclaimer-gate.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Nyota Sight" />
+    <meta name="theme-color" content="#04070d" />
+    <title>Turn things on — Nyota Sight</title>
+    <link rel="stylesheet" href="../css/main.css?v=34" />
+    <link rel="stylesheet" href="../css/accessibility.css?v=6" />
+    <link rel="stylesheet" href="../css/responsive.css?v=8" />
+  </head>
+  <body class="page-panel">
+    <a class="skip-link" href="#permission-actions">Skip to camera, voice, and GPS</a>
+    <main class="app-shell">
+      <header class="brand">
+        <p class="brand-kicker">Nyota Sight</p>
+        <h1>Turn these on</h1>
+        <p>Before the homepage, turn on the camera, voice, and GPS. When all three are on, select Continue.</p>
+      </header>
+      <p id="permission-status" class="status-bar" role="status" aria-live="polite">Checking camera, voice, and GPS.</p>
+      <div id="permission-actions" class="disclaimer-actions">
+        <button class="btn" id="enable-camera" type="button">Enable camera</button>
+        <button class="btn" id="enable-voice" type="button">Enable voice</button>
+        <button class="btn" id="enable-gps" type="button">Enable GPS</button>
+        <button class="btn primary" id="continue" type="button" disabled>Continue</button>
+      </div>
+      <video id="setup-camera" playsinline webkit-playsinline muted autoplay aria-hidden="true" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none"></video>
+    </main>
+    <audio id="tts-player" playsinline webkit-playsinline hidden></audio>
+    <script type="module">
+      import { voice } from "../js/voice.js?v=58";
+      import { camera } from "../js/camera.js";
+      import { requestLocationAccess } from "../js/location.js";
+      import { getToken, getUser, pages } from "../js/config.js?v=37";
+      import { hasPrivacyAgreement, markHomeEntryOk } from "../js/entry.js?v=1";
+      import { markDeviceReady } from "../js/device-access.js";
+
+      const user = getUser() || {};
+      if (!getToken()) {
+        location.replace(pages().welcome);
+      } else if (user.role === "assistant") {
+        location.replace(pages().contacts);
+      } else if (!hasPrivacyAgreement(user)) {
+        location.replace(pages().privacy);
+      } else {
+        const status = document.getElementById("permission-status");
+        const continueBtn = document.getElementById("continue");
+        const ready = { camera: false, voice: false, gps: false };
+        const labels = {
+          camera: ["Enable camera", "Camera on"],
+          voice: ["Enable voice", "Voice on"],
+          gps: ["Enable GPS", "GPS on"],
+        };
+
+        function setStatus(text) {
+          status.textContent = text;
+        }
+
+        function refresh() {
+          const cameraBtn = document.getElementById("enable-camera");
+          const voiceBtn = document.getElementById("enable-voice");
+          const gpsBtn = document.getElementById("enable-gps");
+          cameraBtn.textContent = ready.camera ? labels.camera[1] : labels.camera[0];
+          voiceBtn.textContent = ready.voice ? labels.voice[1] : labels.voice[0];
+          gpsBtn.textContent = ready.gps ? labels.gps[1] : labels.gps[0];
+          cameraBtn.setAttribute("aria-pressed", String(ready.camera));
+          voiceBtn.setAttribute("aria-pressed", String(ready.voice));
+          gpsBtn.setAttribute("aria-pressed", String(ready.gps));
+          const allOn = ready.camera && ready.voice && ready.gps;
+          continueBtn.disabled = !allOn;
+          if (allOn) setStatus("Camera, voice, and GPS are on. Select Continue.");
+        }
+
+        async function permissionGranted(name) {
+          try {
+            if (!navigator.permissions?.query) return false;
+            const result = await navigator.permissions.query({ name });
+            return result.state === "granted";
+          } catch {
+            return false;
+          }
+        }
+
+        async function enableCamera() {
+          await camera.start(document.getElementById("setup-camera"), { includeAudio: false });
+          ready.camera = true;
+          refresh();
+          await voice.speak("Camera on.", { interrupt: true });
+        }
+
+        async function enableVoice() {
+          voice.unlock({ fromGesture: true });
+          await camera.primeMicrophone();
+          ready.voice = true;
+          refresh();
+          await voice.speak("Voice on.", { interrupt: true });
+        }
+
+        async function enableGps() {
+          await requestLocationAccess();
+          ready.gps = true;
+          refresh();
+          await voice.speak("GPS on.", { interrupt: true });
+        }
+
+        async function run(action) {
+          voice.unlock({ fromGesture: true });
+          try {
+            await action();
+          } catch (error) {
+            const message = error?.message || "That is still off. Try the button again.";
+            setStatus(message);
+            await voice.speak(message, { interrupt: true });
+          }
+        }
+
+        document.getElementById("enable-camera").addEventListener("click", () => run(enableCamera));
+        document.getElementById("enable-voice").addEventListener("click", () => run(enableVoice));
+        document.getElementById("enable-gps").addEventListener("click", () => run(enableGps));
+        continueBtn.addEventListener("click", async () => {
+          if (!(ready.camera && ready.voice && ready.gps)) {
+            setStatus("Turn on the camera, voice, and GPS. Then select Continue.");
+            await voice.speak("Turn on the camera, voice, and GPS. Then select Continue.", { interrupt: true });
+            return;
+          }
+          markDeviceReady();
+          markHomeEntryOk();
+          location.assign(pages().home);
+        });
+
+        ready.camera = await permissionGranted("camera");
+        ready.voice = await permissionGranted("microphone");
+        ready.gps = await permissionGranted("geolocation");
+        refresh();
+        const spoken = continueBtn.disabled
+          ? "Before the homepage, turn on the camera, voice, and GPS. Tap each button. When all three are on, select Continue."
+          : "Camera, voice, and GPS are on. Select Continue.";
+        voice.unlock();
+        voice.speak(spoken);
+      }
+    </script>
+  </body>
+</html>

@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <script src="../js/disclaimer-gate.js"></script>
     <meta charset="UTF-8" />
     <meta http-equiv="Cache-Control" content="no-store" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit-cover" />
-    <title>Settings — vibeEye</title>
+    <title>Settings — Nyota Sight</title>
     <link rel="stylesheet" href="../css/main.css?v=29" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
@@ -16,9 +17,15 @@
         <p>Voice, camera, calling, and privacy.</p>
       </header>
       <p id="settings-status" class="status-bar" role="status" aria-live="polite"></p>
+      <article class="card" id="privacy-notice" aria-label="Privacy notice">
+        <strong>Privacy notice</strong>
+        <p id="privacy-notice-text">The full privacy notice will be read from here.</p>
+        <p id="disclaimer-agreed"></p>
+        <button class="btn primary" id="hear-privacy" type="button">Hear privacy notice</button>
+      </article>
       <article class="card iphone-help" aria-label="New update">
         <strong>New update</strong>
-        <p>Tap this to refresh the whole app and load the latest version. On iPhone, if the Home Screen icon has no camera, delete that icon, open vibeEye in Safari, then Share → Add to Home Screen.</p>
+        <p>Tap this to refresh the whole app and load the latest version. On iPhone, if the Home Screen icon has no camera, delete that icon, open Nyota Sight in Safari, then Share → Add to Home Screen.</p>
         <button class="btn primary wide" id="new-update" type="button">New update</button>
       </article>
       <article class="card iphone-help" aria-label="Test speaker">
@@ -42,7 +49,7 @@
         <strong>Calling</strong>
         <p>
           Configure voice and video calling once. After that, say call or video call a person.
-          You stay signed in to vibeEye. Calls do not open a Jitsi login page or ask for your email again.
+          You stay signed in to Nyota Sight. Calls do not open a Jitsi login page or ask for your email again.
         </p>
         <p id="calling-status" class="status-bar" role="status">Checking calling…</p>
         <div class="auth-actions">
@@ -73,7 +80,7 @@
       </article>
       <article class="card iphone-help" aria-label="Location">
         <strong>Location and map</strong>
-        <p>Use Safari on the https page, tap Allow location, then Add to Home Screen. A home-screen app has its own GPS switch: Settings → vibeEye → Location → While Using the App.</p>
+        <p>Use Safari on the https page, tap Allow location, then Add to Home Screen. A home-screen app has its own GPS switch: Settings → Nyota Sight → Location → While Using the App.</p>
         <p>Also turn on Settings → Privacy & Security → Location Services. Chrome on iPhone is less reliable; Safari is the one to save to the home screen.</p>
         <p>For App Store and Play Store later, wrap this same app as a native shell. Then the phone GPS is used automatically.</p>
         <button class="btn primary" id="allow-location" type="button">Allow location</button>
@@ -102,9 +109,9 @@
         <label>
           Speech language
           <select name="language">
+            <option value="en-GB" selected>English (UK)</option>
             <option value="en-US">English (US)</option>
             <option value="en-IN">English (India)</option>
-            <option value="en-GB">English (UK)</option>
             <option value="hi-IN">Hindi</option>
           </select>
         </label>
@@ -118,7 +125,7 @@
       </form>
       <article class="card" id="system-id-card" aria-label="System ID">
         <strong>Your system ID</strong>
-        <p>Give this code or QR to an assistant so they can link to you.</p>
+        <p>Give this code or QR to a Personal Assistant so they can link to you.</p>
         <p id="system-id-text" class="system-id"></p>
         <canvas id="system-qr" width="240" height="240" aria-label="System ID QR code"></canvas>
       </article>
@@ -138,7 +145,7 @@
         <p id="gemini-test-result" class="api-test-result" aria-live="polite"></p>
       </article>
       <article class="card" aria-label="About">
-        <strong>vibeEye</strong>
+        <strong>Nyota Sight</strong>
         <p>See more. Live better. Assistive vision for blind and visually impaired users.</p>
       </article>
       <button class="btn danger" id="logout" type="button">Sign out</button>
@@ -165,7 +172,25 @@
       import { installYolo, removeYolo, yoloStatus, onYoloProgress, isYoloReady } from "../js/yolo-on-device.js";
       import { speakOut } from "../js/speak-out.js";
       import { compressPhoto } from "../js/compress-photo.js";
+      import { formatAgreedAt, privacyNoticeText, syncDisclaimerAgreement, agreedAt } from "../js/disclaimer.js?v=1";
       if (!getToken()) location.href = pages().welcome;
+      const privacyText = privacyNoticeText();
+      document.getElementById("privacy-notice-text").textContent = privacyText;
+      const agreedIso = getUser()?.disclaimer_agreed_at || agreedAt();
+      const agreedLine = document.getElementById("disclaimer-agreed");
+      agreedLine.textContent = agreedIso
+        ? `You agreed to the start-up notice on ${formatAgreedAt(agreedIso)}.`
+        : "You have not agreed to the start-up notice on this phone yet.";
+      document.getElementById("hear-privacy")?.addEventListener("click", async () => {
+        voice.unlock({ fromGesture: true });
+        const spoken = agreedLine.textContent ? `${privacyText} ${agreedLine.textContent}` : privacyText;
+        await voice.speak(spoken, { interrupt: true });
+      });
+      syncDisclaimerAgreement().then((data) => {
+        const iso = data?.disclaimer_agreed_at || getUser()?.disclaimer_agreed_at || agreedAt();
+        if (!iso) return;
+        agreedLine.textContent = `You agreed to the start-up notice on ${formatAgreedAt(iso)}.`;
+      });
       bindApiField();
       document.getElementById("new-update")?.addEventListener("click", async () => {
         const status = document.getElementById("settings-status");
@@ -200,7 +225,7 @@
             : "Calling is ready.";
         } else {
           el.textContent = info.email
-            ? `Calling is not configured. Your vibeEye account is ${info.email}. Tap Configure calling once.`
+            ? `Calling is not configured. Your Nyota Sight account is ${info.email}. Tap Configure calling once.`
             : "Calling is not configured. Tap Configure calling once.";
         }
         return info;
@@ -257,7 +282,7 @@
         ["voice", "Voice. Hold the screen to speak. Double tap for object detection."],
         ["detect", "Detection. You see a chair and a person in front of you."],
         ["describe", "Describe. Okay. Looking in front of you. There is a table and a doorway ahead."],
-        ["read", "Reading. The text says: Welcome to vibeEye."],
+        ["read", "Reading. The text says: Welcome to Nyota Sight."],
         ["directions", "Directions. In 50 meters, turn left. Continue straight."],
         ["call", "Calling. Connecting voice call."],
       ];
@@ -294,7 +319,7 @@
       document.body.classList.toggle("high-contrast", Boolean(settings.high_contrast));
       const form = document.getElementById("settings-form");
       form.speech_rate.value = settings.speech_rate || 1;
-      form.language.value = settings.language || "en-US";
+      form.language.value = settings.language || "en-GB";
       form.high_contrast.checked = Boolean(settings.high_contrast);
       form.share_location_in_emergency.checked = settings.share_location_in_emergency !== false;
       form.walking_directions.checked = settings.walking_directions === true;

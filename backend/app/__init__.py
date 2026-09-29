@@ -224,6 +224,8 @@ def _ensure_user_columns() -> None:
         "stripe_customer_id": "VARCHAR(64)",
         "stripe_subscription_id": "VARCHAR(64)",
         "paypal_subscription_id": "VARCHAR(64)",
+        "disclaimer_agreed_at": "TIMESTAMPTZ" if db.engine.dialect.name == "postgresql" else "DATETIME",
+        "privacy_policy_agreed_at": "TIMESTAMPTZ" if db.engine.dialect.name == "postgresql" else "DATETIME",
     }
     for name, definition in additions.items():
         if name not in columns:

@@ -42,15 +42,17 @@ function quietWavUrl() {
 
 const KEEP_SRC = quietWavUrl();
 
-function preferredVoice(voices, name) {
+function preferredVoice(voices, name, lang) {
   if (name) {
     const match = voices.find((v) => v.name === name);
     if (match) return match;
   }
+  const want = String(lang || "en-GB");
   return (
-    voices.find((v) => v.localService && /en/i.test(v.lang)) ||
-    voices.find((v) => /en/i.test(v.lang) && v.localService) ||
-    voices.find((v) => /en-US/i.test(v.lang)) ||
+    voices.find((v) => String(v.lang || "").toLowerCase() === want.toLowerCase()) ||
+    voices.find((v) => /en-GB/i.test(v.lang || "")) ||
+    voices.find((v) => v.localService && /en/i.test(v.lang || "")) ||
+    voices.find((v) => /en/i.test(v.lang || "")) ||
     voices[0]
   );
 }
@@ -490,9 +492,9 @@ class VoiceService {
         const utter = new SpeechSynthesisUtterance(text);
         const settings = getSettings();
         utter.rate = Number(settings.speech_rate || 1);
-        utter.lang = settings.language || "en-US";
+        utter.lang = settings.language || "en-GB";
         utter.volume = 1;
-        const chosen = preferredVoice(this.voices, settings.voice_name);
+        const chosen = preferredVoice(this.voices, settings.voice_name, settings.language || "en-GB");
         if (chosen && chosen.localService && !IS_IOS) utter.voice = chosen;
         utter.onstart = () => {
           if (token !== this._serverToken) return;
@@ -589,9 +591,9 @@ class VoiceService {
         const utter = new SpeechSynthesisUtterance(text);
         const settings = getSettings();
         utter.rate = Number(settings.speech_rate || 1);
-        utter.lang = settings.language || "en-US";
+        utter.lang = settings.language || "en-GB";
         utter.volume = 1;
-        const chosen = preferredVoice(this.voices, settings.voice_name);
+        const chosen = preferredVoice(this.voices, settings.voice_name, settings.language || "en-GB");
         if (chosen && chosen.localService && !IS_IOS) utter.voice = chosen;
         utter.onstart = () => {
           if (token !== this._serverToken) return done(false);
@@ -820,7 +822,7 @@ class VoiceService {
     return new Promise((resolve, reject) => {
       const rec = new SpeechRecognition();
       this.recognition = rec;
-      rec.lang = language || settings.language || "en-US";
+      rec.lang = language || settings.language || "en-GB";
       rec.continuous = true;
       rec.interimResults = true;
       rec.maxAlternatives = 1;
@@ -898,7 +900,7 @@ class VoiceService {
         if (error) reject(error);
         else resolve(text);
       };
-      rec.lang = language || settings.language || "en-US";
+      rec.lang = language || settings.language || "en-GB";
       rec.interimResults = true;
       rec.maxAlternatives = 1;
       rec.onresult = (event) => {

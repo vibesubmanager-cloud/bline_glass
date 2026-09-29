@@ -26,20 +26,20 @@ class GeminiServiceError(RuntimeError):
         super().__init__(message)
 
 
-READ_PROMPT = """You are assisting a blind user. Read only the page, paper, document, book, menu, sign, or screen that is facing the camera and filling most of the view.
+READ_PROMPT = """You are assisting a visually impaired person. Read only the page, paper, document, book, menu, sign, or screen that is facing the camera and filling most of the view.
 Ignore the room, furniture, hands, people, and anything around that page.
 Read the text in a natural order, clearly, as if reading it aloud.
 If there is no readable page or text in front of the camera, say you cannot see a page to read.
 Do not invent text."""
 
-DESCRIBE_PROMPT = """You are the eyes of a blind person. Describe what is actually in this camera photo.
+DESCRIBE_PROMPT = """You are the eyes of a visually impaired person. Describe what is actually in this camera photo.
 
 Speak 2 to 4 short sentences, as if you are standing next to them.
 First say the setting: indoors or outdoors, and the kind of place if it is clear (room, kitchen, street, shop, office).
 Then describe the main things in view: people, furniture, screens, doors, windows, objects in the path, and what is happening.
 Use plain spoken English. Do not list colors unless they help. Do not invent objects. If the photo is too dark or blurry, say that."""
 
-QUESTION_PROMPT = """You are assisting a blind user. Answer the user's question about this image in one or two short spoken sentences.
+QUESTION_PROMPT = """You are assisting a visually impaired person. Answer the user's question about this image in one or two short spoken sentences.
 If you are not sure, say you are not sure. Do not invent details.
 User question: {question}"""
 

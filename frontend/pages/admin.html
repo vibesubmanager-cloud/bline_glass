@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <script src="../js/disclaimer-gate.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Admin — vibeEye</title>
+    <title>Admin — Nyota Sight</title>
     <link rel="stylesheet" href="../css/admin.css" />
   </head>
   <body>
     <div class="admin-shell">
       <aside class="sidebar">
-        <h1>vibeEye Admin</h1>
+        <h1>Nyota Sight Admin</h1>
         <button class="nav-btn active" data-section="users" type="button">Users</button>
         <button class="nav-btn" data-section="emergency" type="button">Emergency</button>
         <button class="nav-btn" data-section="subscription" type="button">Subscriptions</button>
@@ -24,14 +25,14 @@
         <section id="section-users">
           <div id="users-home">
             <h2>Users</h2>
-            <p class="muted">Blind people and the assistants they talk with.</p>
+            <p class="muted">V.I.P (visually impaired person) accounts and the Personal Assistants they talk with.</p>
             <div class="toolbar">
               <label>Search <input id="user-search" placeholder="Name, username, email, phone, ID" /></label>
               <label>Role
                 <select id="user-role">
                   <option value="">All</option>
-                  <option value="blind">Blind person</option>
-                  <option value="assistant">Assistant</option>
+                  <option value="blind">V.I.P (visually impaired person)</option>
+                  <option value="assistant">Personal Assistant</option>
                 </select>
               </label>
               <button class="btn ghost" id="refresh-users" type="button">Refresh</button>
@@ -99,7 +100,7 @@
 
         <section id="section-emergency" class="hidden">
           <h2>Emergency</h2>
-          <p class="muted">Admin is the emergency desk. Video, voice, text, photo, and map from a blind person land here. Join the in-app call if you are free.</p>
+          <p class="muted">Admin is the emergency desk. Video, voice, text, photo, and map from a V.I.P (visually impaired person) land here. Join the in-app call if you are free.</p>
           <div class="toolbar">
             <button class="btn ghost" id="refresh-emergency" type="button">Refresh</button>
           </div>
@@ -162,7 +163,7 @@
 
         <section id="section-branding" class="hidden">
           <h2>App logo</h2>
-          <p class="muted">This icon replaces the vibeEye text on the live camera screen. Upload a square PNG or JPEG.</p>
+          <p class="muted">This icon replaces the Nyota Sight text on the live camera screen. Upload a square PNG or JPEG.</p>
           <form class="card" id="logo-form">
             <div class="logo-preview-wrap">
               <img id="logo-preview" alt="Current app logo" class="logo-preview hidden" />

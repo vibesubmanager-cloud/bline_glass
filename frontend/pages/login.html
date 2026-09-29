@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <script src="../js/disclaimer-gate.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="vibeEye" />
+    <meta name="apple-mobile-web-app-title" content="Nyota Sight" />
     <meta name="theme-color" content="#04070d" />
-    <title>Sign in — vibeEye</title>
+    <title>Sign in — Nyota Sight</title>
     <link rel="stylesheet" href="../css/main.css?v=16" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
@@ -17,7 +18,7 @@
     <a class="skip-link" href="#login-form">Skip to sign in form</a>
     <main class="app-shell">
       <header class="brand">
-        <p class="brand-kicker">vibeEye</p>
+        <p class="brand-kicker">Nyota Sight</p>
         <h1 id="login-title">Sign in</h1>
         <p id="login-lede">Use your username and password.</p>
       </header>
@@ -43,15 +44,15 @@
       const lede = document.getElementById("login-lede");
       const register = document.getElementById("register-link");
       if (role === "assistant") {
-        title.textContent = "Assistant sign in";
+        title.textContent = "Personal Assistant sign in";
         lede.textContent = "Use your username and password.";
         register.href = "./register-assistant.html";
-        register.textContent = "Create an assistant account";
+        register.textContent = "Create a Personal Assistant account";
       } else {
         title.textContent = "Sign in";
         lede.textContent = "Use your username and password.";
         register.href = "./register.html";
-        register.textContent = "Create a blind person account";
+        register.textContent = "Create a VIP account";
       }
       bindAuthForm(document.getElementById("login-form"), "login");
     </script>

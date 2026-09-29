@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <script src="../js/disclaimer-gate.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-    <title>Contacts — vibeEye</title>
+    <title>Contacts — Nyota Sight</title>
     <link rel="stylesheet" href="../css/main.css?v=32" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
@@ -20,7 +21,7 @@
       <article id="linked-card" class="card hidden" aria-label="Linked person"></article>
       <p id="contact-status" class="status-bar" role="status" aria-live="polite"></p>
       <form id="contact-form" class="form-card hidden">
-        <p>This person can sign in as an assistant with this username and password.</p>
+        <p>This person can sign in as a Personal Assistant with this username and password.</p>
         <div class="field-row">
           <label>First name <input type="text" name="first_name" autocomplete="given-name" required minlength="2" /></label>
           <label>Surname <input type="text" name="last_name" autocomplete="family-name" required minlength="1" /></label>
@@ -42,7 +43,7 @@
           <label class="choice-chip"><input type="radio" name="relationship" value="caregiver" /><span>Caregiver</span></label>
           <label class="choice-chip"><input type="radio" name="relationship" value="other" /><span>Other</span></label>
         </fieldset>
-        <button class="btn primary" type="submit">Create assistant</button>
+        <button class="btn primary" type="submit">Create Personal Assistant account</button>
       </form>
       <section class="contact-list" id="contact-list" aria-label="Saved contacts"></section>
       <div id="confirm-sheet" class="sheet confirm-sheet hidden" role="alertdialog" aria-labelledby="confirm-text" aria-modal="true">
@@ -91,7 +92,9 @@
       import { getToken, getUser, getLinkedBlind, pages } from "../js/config.js";
       import { startMessageNotices } from "../js/notify.js";
       import { registerOffline } from "../js/offline.js";
+      import { syncDisclaimerAgreement } from "../js/disclaimer.js";
       registerOffline();
+      syncDisclaimerAgreement();
       if (!getToken()) location.href = pages().welcome;
       const list = document.getElementById("contact-list");
       const status = document.getElementById("contact-status");
@@ -133,7 +136,7 @@
         if (open) {
           status.textContent = "";
           form.querySelector("input")?.focus();
-          await voice.speak("Add a person. Fill their name, email, phone, username, and password so they can sign in as your assistant.");
+          await voice.speak("Add a person. Fill their name, email, phone, username, and password so they can sign in as your Personal Assistant.");
         }
       });
 
@@ -204,8 +207,8 @@
           form.reset();
           setFormOpen(false);
           const name = result.assistant?.name || raw.first_name;
-          status.textContent = `${name} can now sign in as an assistant.`;
-          await voice.speak(`${name} is added. They can sign in as an assistant with their username and password.`);
+          status.textContent = `${name} can now sign in as a Personal Assistant.`;
+          await voice.speak(`${name} is added. They can sign in as a Personal Assistant with their username and password.`);
           await refresh();
         } catch (error) {
           status.textContent = error.message;
@@ -269,8 +272,8 @@
           } else if (card?.dataset.chat) {
             location.href = `${pages().chat}?with=${encodeURIComponent(card.dataset.chat)}`;
           } else if (event.target.closest(".contact-item")) {
-            status.textContent = "That person does not have an vibeEye account yet, so chat is not available.";
-            await voice.speak("That person does not have an vibeEye account yet. Add them as an assistant first.");
+            status.textContent = "That person does not have a Nyota Sight account yet, so chat is not available.";
+            await voice.speak("That person does not have a Nyota Sight account yet. Add them as a Personal Assistant first.");
           }
           return;
         }
@@ -297,7 +300,7 @@
           }
         }
         if (noVideo) {
-          const message = `${noVideo} cannot video call yet. Add them as an assistant so they can sign in.`;
+          const message = `${noVideo} cannot video call yet. Add them as a Personal Assistant so they can sign in.`;
           status.textContent = message;
           await voice.speak(message);
         }

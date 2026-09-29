@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <script src="../js/disclaimer-gate.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#04070d" />
-    <title>Assistant account — vibeEye</title>
+    <title>Personal Assistant account — Nyota Sight</title>
     <link rel="stylesheet" href="../css/main.css?v=16" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
@@ -15,9 +16,9 @@
     <a class="skip-link" href="#register-form">Skip to registration form</a>
     <main class="app-shell">
       <header class="brand">
-        <p class="brand-kicker">Assistant</p>
+        <p class="brand-kicker">Personal Assistant</p>
         <h1>Create your account</h1>
-        <p>Link to a blind person with their system ID or QR code.</p>
+        <p>Link to a V.I.P (visually impaired person) with their system ID or QR code.</p>
       </header>
       <p id="form-status" class="status-bar" role="status" aria-live="polite"></p>
       <form id="register-form" class="form-card">
@@ -30,7 +31,7 @@
         <label>Phone number <input type="tel" name="phone" autocomplete="tel" /></label>
         <label>Password <input type="password" name="password" autocomplete="new-password" required minlength="8" /></label>
         <article class="card">
-          <strong>Blind person system ID</strong>
+          <strong>V.I.P (visually impaired person) system ID</strong>
           <p>Type it, or scan their QR code from Settings.</p>
           <label>System ID <input id="system-id" name="system_id" type="text" required placeholder="AIS-XXXXXX" /></label>
           <div class="auth-actions">
@@ -55,7 +56,7 @@
           <label class="choice-chip"><input type="radio" name="relationship" value="caregiver" /><span>Caregiver</span></label>
           <label class="choice-chip"><input type="radio" name="relationship" value="other" /><span>Other</span></label>
         </fieldset>
-        <button class="btn primary" type="submit">Create assistant account</button>
+        <button class="btn primary" type="submit">Create Personal Assistant account</button>
       </form>
       <p class="auth-footer">
         <a class="text-link" href="./login.html?role=assistant">I already have an account</a>

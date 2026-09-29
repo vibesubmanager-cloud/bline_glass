@@ -161,3 +161,44 @@ def test_blind_profile_endpoint(auth_client):
     assert payload["viewer"]["view"] == "self"
     assert "assistants" in payload
     assert "contacts" in payload
+
+
+def test_disclaimer_agreement_is_recorded_once(auth_client):
+    me = auth_client.get("/api/auth/me")
+    assert me.get_json()["data"]["user"]["disclaimer_agreed_at"] is None
+    assert me.get_json()["data"]["settings"]["language"] == "en-GB"
+
+    first = auth_client.post(
+        "/api/auth/disclaimer",
+        json={"agreed_at": "2026-09-28T12:00:00+00:00"},
+    )
+    assert first.status_code == 200
+    stamp = first.get_json()["data"]["disclaimer_agreed_at"]
+    assert stamp.startswith("2026-09-28T12:00:00")
+
+    second = auth_client.post(
+        "/api/auth/disclaimer",
+        json={"agreed_at": "2026-10-01T09:30:00+00:00"},
+    )
+    assert second.status_code == 200
+    assert second.get_json()["data"]["disclaimer_agreed_at"] == stamp
+
+
+def test_privacy_policy_agreement_is_recorded_once(auth_client):
+    me = auth_client.get("/api/auth/me")
+    assert me.get_json()["data"]["user"]["privacy_policy_agreed_at"] is None
+
+    first = auth_client.post(
+        "/api/auth/privacy-policy",
+        json={"agreed_at": "2026-09-28T12:05:00+00:00"},
+    )
+    assert first.status_code == 200
+    stamp = first.get_json()["data"]["privacy_policy_agreed_at"]
+    assert stamp.startswith("2026-09-28T12:05:00")
+
+    second = auth_client.post(
+        "/api/auth/privacy-policy",
+        json={"agreed_at": "2026-10-01T09:30:00+00:00"},
+    )
+    assert second.status_code == 200
+    assert second.get_json()["data"]["privacy_policy_agreed_at"] == stamp

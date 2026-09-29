@@ -54,7 +54,7 @@ class CameraService {
       const denied = /notallowed|permission|denied/i.test(String(lastError?.name || lastError?.message || ""));
       const home = isStandaloneApp();
       const message = denied && home
-        ? "This Home Screen app has its own camera switch. Open iPhone Settings, scroll to vibeEye, turn Camera on, then open the app again. If it still stays black, delete the Home Screen icon, open Safari, then Add to Home Screen again."
+        ? "This Home Screen app has its own camera switch. Open iPhone Settings, scroll to Nyota Sight, turn Camera on, then open the app again. If it still stays black, delete the Home Screen icon, open Safari, then Add to Home Screen again."
         : "I can't access the camera.";
       throw Object.assign(new Error(message), { code: "CAMERA_UNAVAILABLE", cause: lastError });
     }

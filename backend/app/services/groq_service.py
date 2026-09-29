@@ -45,7 +45,7 @@ COMMAND_INTENTS = (
     "UNKNOWN",
 )
 
-COMMAND_PROMPT = """You are a friendly voice on a blind person's phone. One JSON object only.
+COMMAND_PROMPT = """You are a friendly voice on a visually impaired person's phone. One JSON object only.
 Speech: {speech}
 People they can message: {contacts}
 

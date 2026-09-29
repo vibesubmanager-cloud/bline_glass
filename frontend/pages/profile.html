@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <script src="../js/disclaimer-gate.js"></script>
     <meta charset="UTF-8" />
     <meta http-equiv="Cache-Control" content="no-store" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Profile — vibeEye</title>
+    <title>Profile — Nyota Sight</title>
     <link rel="stylesheet" href="../css/main.css?v=24" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
@@ -16,8 +17,8 @@
         <p>Details for the person this app is helping.</p>
       </header>
       <p id="profile-status" class="status-bar" role="status" aria-live="polite">Loading profile…</p>
-      <article class="card" id="profile-card" aria-label="Blind person profile"></article>
-      <article class="card hidden" id="assistants-card" aria-label="Family and assistants"></article>
+      <article class="card" id="profile-card" aria-label="V.I.P (visually impaired person) profile"></article>
+      <article class="card hidden" id="assistants-card" aria-label="Family and Personal Assistants"></article>
       <article class="card hidden" id="contacts-card" aria-label="Saved contacts"></article>
     </main>
     <nav class="dock" aria-label="Main">
@@ -74,7 +75,7 @@
         const assistants = data.assistants || [];
         if (assistants.length) {
           assistantsCard.classList.remove("hidden");
-          assistantsCard.innerHTML = `<strong>Family and assistants</strong>${assistants
+          assistantsCard.innerHTML = `<strong>Family and Personal Assistants</strong>${assistants
             .map(
               (item) =>
                 `<p><strong>${item.name}</strong> ${item.relationship || ""} ${item.phone || ""} ${item.email || ""}</p>`

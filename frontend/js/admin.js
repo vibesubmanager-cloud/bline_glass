@@ -105,10 +105,10 @@ function peopleHtml(detail) {
     );
   }
   if (detail.assistants?.length) {
-    parts.push("<p><strong>Assistants</strong></p><ul>");
+    parts.push("<p><strong>Personal Assistants</strong></p><ul>");
     for (const helper of detail.assistants) {
       parts.push(
-        `<li>${helper.name} · @${helper.username || "—"} · ${helper.relationship_to_blind || "assistant"} · ${helper.phone || helper.email}</li>`
+        `<li>${helper.name} · @${helper.username || "—"} · ${helper.relationship_to_blind || "Personal Assistant"} · ${helper.phone || helper.email}</li>`
       );
     }
     parts.push("</ul>");

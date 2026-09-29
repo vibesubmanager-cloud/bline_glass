@@ -1578,3 +1578,24 @@ textarea {
   margin: 0;
   color: var(--muted);
 }
+
+.disclaimer-actions {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.disclaimer-actions .btn {
+  width: 100%;
+  min-height: 64px;
+  font-size: 1.2rem;
+}
+
+#disclaimer-script p {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+#disclaimer-script p:last-child {
+  margin-bottom: 0;
+}

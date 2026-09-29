@@ -11,7 +11,7 @@ import { isYoloInstalled, onYoloProgress, holdDetectionAwake, releaseDetectionAw
 import { readScene, describeScene, askAboutScene } from "./vision.js?v=4";
 import { armVisionSpeaker, speakVision } from "./vision-speak.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
-import { isStandaloneApp } from "./location.js";
+import { homeNeedsPermissionCheck } from "./entry.js";
 import { calls, startOnHome, takeQueuedHomeCall } from "./calls.js?v=16";
 import { activateEmergency } from "./emergency.js?v=2";
 import { startMessageNotices } from "./notify.js";
@@ -21,7 +21,8 @@ import { updateNavMap, clearNavMap, fitNavMap } from "./map.js";
 import { loadUnread, markMessagesRead, sendChatMessage, sendChatLocation } from "./messages.js";
 import { refreshBilling, canUseDescribe, PREMIUM_SPOKEN } from "./billing.js";
 import { applyAppLogo } from "./branding.js";
-import { grantDevices, gpsWasOk, isDeviceReady, locationLooksDenied, resumeDevices } from "./device-access.js";
+import { markDeviceReady } from "./device-access.js";
+import { syncDisclaimerAgreement } from "./disclaimer.js";
 
 const zone = document.getElementById("interaction-zone");
 const statusEl = document.getElementById("status-text");
@@ -767,14 +768,6 @@ function onZonePointerDown(event) {
   event.preventDefault();
   if (!requireAuth()) return;
   voice.unlock({ fromGesture: true });
-  if (document.getElementById("location-banner") && !document.getElementById("location-banner").classList.contains("hidden")) {
-    requestLocationAccess()
-      .then((pos) => {
-        markGps(true, pos);
-        hideLocationBanner();
-      })
-      .catch(() => undefined);
-  }
   try {
     zone.setPointerCapture(event.pointerId);
   } catch {
@@ -872,50 +865,11 @@ function applyAppearance() {
   document.body.classList.toggle("high-contrast", Boolean(settings.high_contrast));
 }
 
-function hideLocationBanner() {
-  document.getElementById("location-banner")?.classList.add("hidden");
-}
-
-function showLocationBanner(helpText = "") {
-  const banner = document.getElementById("location-banner");
-  const deniedHelp = document.getElementById("location-denied");
-  if (!banner) return;
-  banner.classList.remove("hidden");
-  if (deniedHelp) {
-    deniedHelp.textContent = helpText;
-    deniedHelp.classList.toggle("hidden", !helpText);
-  }
-}
-
 function markGps(on, position) {
   setGps(on);
   if (on && position?.coords) {
     localStorage.setItem("AISIGHT_GPS_OK", "1");
     sessionStorage.setItem("AISIGHT_GPS_OK", "1");
-  }
-}
-
-async function allowLocation() {
-  try {
-    const pos = await grantDevices(document.getElementById("camera-preview"));
-    markGps(true, pos);
-    hideLocationBanner();
-    setLive(true);
-    voice.unlock({ fromGesture: true });
-    const pendingDest = sessionStorage.getItem("AI_SIGHT_NAV_DEST");
-    if (pendingDest) {
-      sessionStorage.removeItem("AI_SIGHT_NAV_DEST");
-      const spoken = await navigation.start(pendingDest);
-      setStatus(spoken);
-      await voice.speak(spoken);
-      return;
-    }
-    setStatus("Camera, microphone, and location are on.");
-    await voice.speak("Camera, microphone, and location are on. Next time you open the app, they will start by themselves.");
-  } catch (error) {
-    markGps(false);
-    showLocationBanner(error.message);
-    await handleFailure(error);
   }
 }
 
@@ -932,51 +886,28 @@ async function startCameraNow() {
   }
 }
 
-async function promptForLocation() {
-  hideLocationBanner();
+async function startDevicesQuietly() {
   const preview = document.getElementById("camera-preview");
-  await startCameraNow();
-  const tryResume = async () => {
-    const { pos } = await resumeDevices(preview);
-    markGps(true, pos);
-    setLive(true);
-  };
-  if (isDeviceReady() || gpsWasOk()) {
-    try {
-      await tryResume();
-      return;
-    } catch (error) {
-      if (error?.code === "GPS_DENIED") {
-        showLocationBanner(error.message);
-        return;
-      }
-      try {
-        await camera.ensureStarted(preview);
-        setLive(true);
-      } catch {
-        setLive(false);
-      }
-      return;
-    }
-  }
   try {
     await camera.ensureStarted(preview);
     setLive(true);
-    const { pos } = await resumeDevices(preview);
-    markGps(true, pos);
-    return;
   } catch {
-    /* first visit still needs a tap on iPhone */
+    sessionStorage.removeItem("NYOTA_HOME_ENTRY_OK");
+    location.replace(pages().permissions);
+    return false;
   }
-  if (await locationLooksDenied()) {
-    showLocationBanner(
-      isStandaloneApp()
-        ? "On iPhone: Settings, scroll to vibeEye, tap Location, choose While Using the App."
-        : "On iPhone: Settings → Privacy & Security → Location Services On, then Settings → Safari → Location → Allow."
-    );
-    return;
+  try {
+    const pos = await requestLocationAccess();
+    markGps(true, pos);
+  } catch (error) {
+    if (error?.code === "GPS_DENIED") {
+      sessionStorage.removeItem("NYOTA_HOME_ENTRY_OK");
+      location.replace(pages().permissions);
+      return false;
+    }
   }
-  showLocationBanner("");
+  markDeviceReady();
+  return true;
 }
 
 function openDestSheet() {
@@ -990,6 +921,11 @@ function closeDestSheet() {
 
 async function boot() {
   if (!requireAuth()) return;
+  if (getUser()?.role !== "assistant" && homeNeedsPermissionCheck()) {
+    location.replace(pages().permissions);
+    return;
+  }
+  syncDisclaimerAgreement();
   startCameraNow();
   onYoloProgress((info) => {
     if (detectionMode) return;
@@ -1004,6 +940,11 @@ async function boot() {
   warmYoloIfInstalled();
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && detectionMode) holdDetectionAwake();
+    if (document.visibilityState !== "visible") return;
+    if (sessionStorage.getItem("NYOTA_LEFT_APP") !== "1") return;
+    const call = document.getElementById("call-overlay");
+    if (call && !call.classList.contains("hidden")) return;
+    location.replace(pages().permissions);
   });
   setDetectHud("ready");
   applyAppearance();
@@ -1011,7 +952,8 @@ async function boot() {
   idleStatus();
   setOnline(navigator.onLine);
   voice.unlock();
-  promptForLocation().then(async () => {
+  startDevicesQuietly().then(async (ready) => {
+    if (!ready) return;
     const pending = takeQueuedHomeCall();
     if (!pending) return;
     try {
@@ -1059,7 +1001,6 @@ async function boot() {
       clearNavMap();
     }
   };
-  document.getElementById("location-allow")?.addEventListener("click", () => allowLocation());
   document.getElementById("call-answer")?.addEventListener("click", () => calls.acceptIncoming());
   document.getElementById("call-decline")?.addEventListener("click", () => calls.rejectIncoming());
   document.getElementById("call-end")?.addEventListener("click", () => calls.end(true));
@@ -1111,7 +1052,6 @@ async function boot() {
     } else {
       requestLocationAccess()
         .then(async () => {
-          hideLocationBanner();
           const spoken = await navigation.start(pendingDest);
           await voice.speak(spoken);
         })

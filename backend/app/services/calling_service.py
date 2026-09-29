@@ -165,13 +165,13 @@ def start_call(caller: User, contact: Contact, media: str = "audio") -> dict:
 
     if video and (not callee or callee.id == caller.id):
         raise CallingServiceError(
-            f"{contact.name} cannot video call yet. They need an vibeEye account, like a family assistant.",
+            f"{contact.name} cannot video call yet. They need a Nyota Sight account, like a Personal Assistant.",
             "VIDEO_UNAVAILABLE",
         )
 
     if (not callee or callee.id == caller.id) and not contact.phone:
         raise CallingServiceError(
-            "That contact has no phone number and is not a vibeEye user.",
+            "That contact has no phone number and is not a Nyota Sight user.",
             "CALL_FAILED",
         )
 
@@ -207,7 +207,7 @@ def start_group_call(caller: User, media: str = "audio", emergency: bool = False
             "Emergency admin is not available. Set an admin account on the server.",
             "CONTACT_NOT_FOUND",
         ) if emergency else CallingServiceError(
-            "Add family who can sign in to vibeEye, so the in-app video call can ring them.",
+            "Add family who can sign in to Nyota Sight, so the in-app video call can ring them.",
             "CONTACT_NOT_FOUND",
         )
     call_type = ("e" if emergency else "g") + ("video" if video else "webrtc")

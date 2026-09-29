@@ -133,7 +133,7 @@ def _synthesize_edge(text: str, path: Path) -> bool:
         import edge_tts
     except ImportError:
         return False
-    voice = os.getenv("TTS_VOICE", "en-US-JennyNeural")
+    voice = os.getenv("TTS_VOICE", "en-GB-SoniaNeural")
 
     async def _save() -> None:
         communicate = edge_tts.Communicate(text, voice)

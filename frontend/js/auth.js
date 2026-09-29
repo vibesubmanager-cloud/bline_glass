@@ -1,15 +1,27 @@
 import { api, ApiError } from "./api.js?v=35";
-import { setSession, getApiBase, setApiBase, pages, getToken, getUser, homeForUser, loginUrl } from "./config.js";
+import { setSession, getApiBase, setApiBase, pages, getToken, getUser, loginUrl } from "./config.js";
 import { voice } from "./voice.js?v=44";
+import { syncDisclaimerAgreement } from "./disclaimer.js";
+import { hasPrivacyAgreement, homeNeedsPermissionCheck } from "./entry.js";
 
 function roleFromPage() {
   const params = new URLSearchParams(location.search);
   return params.get("role") === "assistant" ? "assistant" : "blind";
 }
 
-export function afterAuth(result) {
+export async function afterAuth(result) {
   setSession(result.token, result.user, result.settings, result.linked_blind);
-  location.assign(homeForUser(result.user));
+  await syncDisclaimerAgreement();
+  const user = result.user || {};
+  if (!hasPrivacyAgreement(user)) {
+    location.assign(pages().privacy);
+    return;
+  }
+  if (user.role === "assistant") {
+    location.assign(pages().contacts);
+    return;
+  }
+  location.assign(pages().permissions);
 }
 
 export function bindAuthForm(form, mode) {
@@ -105,7 +117,21 @@ export function bindApiField() {
 }
 
 export function redirectIfAuthed() {
-  if (getToken()) location.href = homeForUser(getUser());
+  if (!getToken()) return;
+  const user = getUser();
+  if (!hasPrivacyAgreement(user)) {
+    location.href = pages().privacy;
+    return;
+  }
+  if (user?.role === "assistant") {
+    location.href = pages().contacts;
+    return;
+  }
+  if (homeNeedsPermissionCheck()) {
+    location.href = pages().permissions;
+    return;
+  }
+  location.href = pages().home;
 }
 
 export function currentRole() {

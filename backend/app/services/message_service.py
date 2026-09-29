@@ -1,4 +1,4 @@
-"""In-app chat between a blind person and linked assistants."""
+"""In-app chat between a V.I.P (visually impaired person) and linked Personal Assistants."""
 
 from __future__ import annotations
 
@@ -102,13 +102,13 @@ def resolve_peer(user: User, target: str | None, recipient_id: str | None = None
         if not peer:
             raise MessageError("I couldn't find that person.", "CONTACT_NOT_FOUND")
         if not _are_linked(user, peer):
-            raise MessageError("You can only chat with a linked assistant or the person you help.", "FORBIDDEN")
+            raise MessageError("You can only chat with a linked Personal Assistant or the person you help.", "FORBIDDEN")
         contact = Contact.query.filter_by(user_id=user.id, linked_user_id=peer.id).first()
         return peer, contact
 
     if user.role == "assistant" and not (target or "").strip():
         if not user.linked_blind_user_id:
-            raise MessageError("You are not linked to a blind person yet.", "CONTACT_NOT_FOUND")
+            raise MessageError("You are not linked to a V.I.P (visually impaired person) yet.", "CONTACT_NOT_FOUND")
         peer = db.session.get(User, user.linked_blind_user_id)
         if not peer:
             raise MessageError("I couldn't find the person you help.", "CONTACT_NOT_FOUND")
@@ -121,7 +121,7 @@ def resolve_peer(user: User, target: str | None, recipient_id: str | None = None
         raise MessageError(str(exc), exc.code) from exc
     if not contact.linked_user_id:
         raise MessageError(
-            f"{contact.name} does not have an vibeEye account yet, so I cannot send an in-app message.",
+            f"{contact.name} does not have a Nyota Sight account yet, so I cannot send an in-app message.",
             "NO_APP_ACCOUNT",
         )
     peer = db.session.get(User, contact.linked_user_id)
@@ -177,7 +177,7 @@ def _resolve_send_peers(sender: User, target: str | None, recipient_id: str | No
                 peers.append((peer, contact))
         if not peers:
             raise MessageError(
-                "Your group is not signed in to vibeEye yet, so I cannot deliver that.",
+                "Your group is not signed in to Nyota Sight yet, so I cannot deliver that.",
                 "NO_APP_ACCOUNT",
             )
         return peers
@@ -202,7 +202,7 @@ def _resolve_send_peers(sender: User, target: str | None, recipient_id: str | No
             peers.append((peer, contact))
     if not peers:
         raise MessageError(
-            "Your group is not signed in to vibeEye yet, so I cannot deliver that.",
+            "Your group is not signed in to Nyota Sight yet, so I cannot deliver that.",
             "NO_APP_ACCOUNT",
         )
     return peers
