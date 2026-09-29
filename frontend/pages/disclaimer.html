@@ -8,30 +8,36 @@
     <meta name="apple-mobile-web-app-title" content="Nyota Sight" />
     <meta name="theme-color" content="#04070d" />
     <title>Notice — Nyota Sight</title>
-    <link rel="stylesheet" href="../css/main.css?v=34" />
+    <link rel="stylesheet" href="../css/main.css?v=35" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
   </head>
   <body class="page-panel">
-    <a class="skip-link" href="#disclaimer-actions">Skip to Play, Stop, I agree, and I disagree</a>
+    <a class="skip-link" href="#disclaimer-card">Skip to the notice</a>
     <main class="app-shell">
       <header class="brand">
         <p class="brand-kicker">Nyota Sight</p>
         <h1>Please listen</h1>
-        <p>Select Play to hear this notice. It does not start by itself. Select Stop to stop it.</p>
+        <p>The play icon is at the top of the notice. Press it to play. Press it again to pause.</p>
       </header>
-      <p id="disclaimer-status" class="status-bar" role="status" aria-live="polite">Select Play to hear the notice.</p>
-      <article class="card" id="disclaimer-script" aria-label="Disclaimer"></article>
+      <p id="disclaimer-status" class="status-bar" role="status" aria-live="polite">Press the play icon to hear the notice.</p>
+      <article class="card" id="disclaimer-card" aria-label="Disclaimer">
+        <div class="notice-top">
+          <button class="notice-toggle" id="play-toggle" type="button" aria-label="Play">
+            <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+            <svg class="icon-pause hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+          </button>
+        </div>
+        <div id="disclaimer-script"></div>
+      </article>
       <div id="disclaimer-actions" class="disclaimer-actions">
-        <button class="btn" id="play" type="button">Play</button>
-        <button class="btn" id="stop" type="button">Stop</button>
         <button class="btn primary" id="agree" type="button">I agree</button>
         <button class="btn" id="disagree" type="button">I disagree</button>
       </div>
     </main>
     <audio id="tts-player" playsinline webkit-playsinline hidden></audio>
     <script type="module">
-      import { voice } from "../js/voice.js?v=59";
+      import { voice } from "../js/voice.js?v=60";
       import { getToken, getUser, homeForUser, pages } from "../js/config.js?v=37";
       import {
         agreeNow,
@@ -40,7 +46,8 @@
         DISCLAIMER_SCRIPT,
         DISAGREE_SCRIPT,
         agreedAt,
-      } from "../js/disclaimer.js?v=3";
+        bindNoticePlayer,
+      } from "../js/disclaimer.js?v=4";
 
       if (agreedAt()) {
         location.replace("../index.html");
@@ -53,49 +60,40 @@
           script.appendChild(p);
         });
 
-        const speakRate = 1.25;
-        let playing = null;
-
         function setStatus(text) {
           status.textContent = text;
         }
 
-        function playNotice() {
-          voice.unlock({ fromGesture: true });
-          setStatus("Playing the notice.");
-          const run = voice.speak(DISCLAIMER_SCRIPT, { interrupt: true, rate: speakRate });
-          playing = run;
-          run.then(() => {
-            if (playing === run && !voice.isSpeaking()) setStatus('Select "I agree" or "I disagree".');
-          });
-        }
-
-        function stopNotice() {
-          voice.stopSpeaking();
-          playing = null;
-          setStatus("Stopped. Select Play to hear the notice.");
-        }
-
-        document.getElementById("play").addEventListener("click", playNotice);
-        document.getElementById("stop").addEventListener("click", stopNotice);
+        const player = bindNoticePlayer(document.getElementById("play-toggle"), {
+          text: DISCLAIMER_SCRIPT,
+          onPlay() {
+            setStatus("Playing the notice.");
+          },
+          onPause() {
+            setStatus("Paused.");
+          },
+          onDone() {
+            setStatus('Select "I agree" or "I disagree".');
+          },
+        });
 
         document.getElementById("agree").addEventListener("click", async () => {
           voice.unlock({ fromGesture: true });
-          voice.stopSpeaking();
+          player.stop();
           agreeNow();
           setStatus("You agreed. Continuing.");
           await syncDisclaimerAgreement();
-          await voice.speak("You agreed.", { interrupt: true, rate: speakRate });
+          await voice.speak("You agreed.", { interrupt: true, rate: 1.25 });
           if (getToken()) location.assign(homeForUser(getUser()));
           else location.assign(pages().welcome);
         });
 
         document.getElementById("disagree").addEventListener("click", async () => {
           voice.unlock({ fromGesture: true });
-          voice.stopSpeaking();
+          player.stop();
           setStatus("Nyota Sight cannot be used without agreeing to this notice.");
-          await voice.speak(DISAGREE_SCRIPT, { interrupt: true, rate: speakRate });
-          setStatus("Select Play to hear the notice again.");
+          await voice.speak(DISAGREE_SCRIPT, { interrupt: true, rate: 1.25 });
+          setStatus("Press the play icon to hear the notice again.");
         });
       }
     </script>

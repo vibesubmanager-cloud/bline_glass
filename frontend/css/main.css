@@ -1591,7 +1591,34 @@ textarea {
   font-size: 1.2rem;
 }
 
-#disclaimer-script p {
+.notice-top {
+  display: flex;
+  justify-content: flex-start;
+  margin: 0 0 10px;
+}
+
+.notice-toggle {
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--stroke);
+  background: rgba(90, 220, 255, 0.16);
+  color: var(--cyan);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.notice-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+#disclaimer-script p,
+#privacy-script p {
   margin: 0 0 12px;
   line-height: 1.5;
 }

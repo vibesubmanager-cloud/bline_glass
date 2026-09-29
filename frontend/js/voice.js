@@ -434,7 +434,10 @@ class VoiceService {
     this._pending = null;
     this._onStart = typeof onStart === "function" ? onStart : null;
     this._priority = priority;
+    this._paused = false;
+    this._htmlPaused = false;
     this._stopSpeech();
+    this._finishWeb(false);
     this.unlock({ fromGesture: false });
     this._serverToken += 1;
     const token = this._serverToken;
@@ -724,6 +727,51 @@ class VoiceService {
     }
   }
 
+  _finishWeb(ok) {
+    if (this._webSettled) return;
+    this._webSettled = true;
+    clearTimeout(this._webTimer);
+    this._webSource = null;
+    this._webBuffer = null;
+    const done = this._webDone;
+    this._webDone = null;
+    if (done) done(ok);
+  }
+
+  _startWebSlice() {
+    const ctx = this.ctx;
+    const buffer = this._webBuffer;
+    if (!ctx || !buffer || this._webSettled) return;
+    const speed = this._webSpeed || 1;
+    const offset = Math.max(0, this._webOffset || 0);
+    if (offset >= buffer.duration - 0.05) {
+      this._finishWeb(this._webToken === this._serverToken);
+      return;
+    }
+    const source = ctx.createBufferSource();
+    source.playbackRate.value = speed;
+    source.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.value = 1;
+    source.connect(gain);
+    gain.connect(ctx.destination);
+    this._webSource = source;
+    this._webGain = gain;
+    this._webStartedAt = ctx.currentTime;
+    source.onended = () => {
+      if (this._paused) return;
+      if (this._webSource === source) this._webSource = null;
+      this._finishWeb(this._webToken === this._serverToken);
+    };
+    clearTimeout(this._webTimer);
+    const remain = ((buffer.duration - offset) / speed) * 1000 + 250;
+    this._webTimer = setTimeout(() => {
+      if (!this._paused) this._finishWeb(this._webToken === this._serverToken);
+    }, remain);
+    source.start(0, offset);
+    this._playing = true;
+  }
+
   async _playWebAudio(arrayBuffer, token, waitMs = 4000) {
     const ctx = this._audioContext();
     if (!ctx) return false;
@@ -738,31 +786,15 @@ class VoiceService {
         decoded = await ctx.decodeAudioData(copy);
       }
       if (token !== this._serverToken) return false;
-      const speed = Number(this._speakRate) > 0 ? Number(this._speakRate) : 1;
-      const durationMs = decoded.duration ? Math.min(20000, (decoded.duration * 1000) / speed + 250) : waitMs;
-      const source = ctx.createBufferSource();
-      source.playbackRate.value = speed;
-      const gain = ctx.createGain();
-      gain.gain.value = 1;
-      source.buffer = decoded;
-      source.connect(gain);
-      gain.connect(ctx.destination);
-      this._webSource = source;
-      this._webGain = gain;
+      this._webSettled = false;
+      this._webBuffer = decoded;
+      this._webOffset = 0;
+      this._webSpeed = Number(this._speakRate) > 0 ? Number(this._speakRate) : 1;
+      this._webToken = token;
       const ended = new Promise((resolve) => {
-        let settled = false;
-        const done = (ok) => {
-          if (settled) return;
-          settled = true;
-          resolve(ok);
-        };
-        source.onended = () => {
-          if (this._webSource === source) this._webSource = null;
-          done(token === this._serverToken);
-        };
-        setTimeout(() => done(token === this._serverToken), durationMs);
+        this._webDone = resolve;
       });
-      source.start(0);
+      if (!this._paused) this._startWebSlice();
       voiceLog("AUDIO PLAY START", "webaudio");
       this._notifyStart();
       this._cancelBrowserTts();
@@ -773,14 +805,64 @@ class VoiceService {
     }
   }
 
+  pauseSpeaking() {
+    if (this._paused) return false;
+    if (!this._busy && !this._playing && !this._webBuffer) return false;
+    this._paused = true;
+    try {
+      this.synth?.pause();
+    } catch {
+      /* ignore */
+    }
+    if (this.player && this.player.src && !this.player.paused) {
+      this.player.pause();
+      this._htmlPaused = true;
+    }
+    if (this._webSource && this.ctx) {
+      const speed = this._webSpeed || 1;
+      const elapsed = Math.max(0, this.ctx.currentTime - (this._webStartedAt || this.ctx.currentTime));
+      this._webOffset = (this._webOffset || 0) + elapsed * speed;
+      clearTimeout(this._webTimer);
+      const source = this._webSource;
+      source.onended = null;
+      this._webSource = null;
+      try {
+        source.stop();
+      } catch {
+        /* ignore */
+      }
+    }
+    this._playing = false;
+    return true;
+  }
+
+  resumeSpeaking() {
+    if (!this._paused) return false;
+    this._paused = false;
+    try {
+      this.synth?.resume();
+    } catch {
+      /* ignore */
+    }
+    if (this._htmlPaused && this.player) {
+      this._htmlPaused = false;
+      this.player.play().catch(() => undefined);
+    }
+    if (this._webBuffer) this._startWebSlice();
+    return true;
+  }
+
   stopSpeaking() {
     voiceLog("VOICE CANCELLED", "stopSpeaking");
+    this._paused = false;
+    this._htmlPaused = false;
     this._serverToken += 1;
     this._playing = false;
     this._busy = false;
     this._pending = null;
     this._priority = 0;
     this._stopSpeech();
+    this._finishWeb(false);
     this._startKeepPlayer();
   }
 

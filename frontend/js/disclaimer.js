@@ -1,5 +1,6 @@
 import { api } from "./api.js";
 import { getToken, getUser, setSession } from "./config.js";
+import { voice } from "./voice.js";
 
 export const APP_NAME = "Nyota Sight";
 export const AGREED_KEY = "NYOTA_DISCLAIMER_AGREED_AT";
@@ -11,7 +12,7 @@ export const DISCLAIMER_PARAGRAPHS = [
   "We recommend using the app indoors. If you use it outside, you do so at your own risk. Stay aware of your surroundings, and take care when holding your phone out in public.",
   "Emergency chat sends a message to your linked contacts. It does not contact the emergency services. In an emergency, call 999.",
   "When you use the camera features, photos are sent to outside AI services to be processed. You can hear our privacy notice in Settings.",
-  'To agree and continue, select "I agree". To hear this, select "Play". Select "Stop" to stop it.',
+  'To agree and continue, select "I agree". To hear this, select the play icon at the top. Select it again to pause.',
 ];
 
 export const DISCLAIMER_SCRIPT = DISCLAIMER_PARAGRAPHS.join(" ");
@@ -28,7 +29,7 @@ export const PRIVACY_PARAGRAPHS = [
   "Your account stores your name, username, email, phone number, and the notes you add. A Personal Assistant linked to you can see the profile you share.",
   "Location is used when you ask for the map, walking, or to send where you are. Emergency chat sends a message to your linked contacts. It does not contact the emergency services. In an emergency, call 999.",
   "Nyota Sight does not replace your cane, guide dog, or mobility training.",
-  'Select Play to hear this. Select Stop to stop it. To continue, select "I agree", then select "Next".',
+  'Select the play icon at the top to hear this. Select it again to pause. To continue, select "I agree", then select "Next".',
 ];
 
 export const PRIVACY_NOTICE = PRIVACY_PARAGRAPHS.join(" ");
@@ -92,4 +93,57 @@ export async function syncDisclaimerAgreement() {
   } catch {
     return null;
   }
+}
+
+export function bindNoticePlayer(button, { text, rate = 1.25, onPlay, onPause, onDone } = {}) {
+  let mode = "idle";
+  let run = null;
+  const playIcon = button.querySelector(".icon-play");
+  const pauseIcon = button.querySelector(".icon-pause");
+
+  function paint() {
+    const playing = mode === "playing";
+    playIcon?.classList.toggle("hidden", playing);
+    pauseIcon?.classList.toggle("hidden", !playing);
+    button.setAttribute("aria-label", playing ? "Pause" : "Play");
+    button.setAttribute("aria-pressed", String(playing));
+  }
+
+  button.addEventListener("click", () => {
+    voice.unlock({ fromGesture: true });
+    if (mode === "playing") {
+      voice.pauseSpeaking();
+      mode = "paused";
+      paint();
+      onPause?.();
+      return;
+    }
+    if (mode === "paused") {
+      voice.resumeSpeaking();
+      mode = "playing";
+      paint();
+      onPlay?.();
+      return;
+    }
+    mode = "playing";
+    paint();
+    onPlay?.();
+    const current = voice.speak(text, { interrupt: true, rate });
+    run = current;
+    current.then(() => {
+      if (run !== current || mode === "paused") return;
+      mode = "idle";
+      paint();
+      onDone?.();
+    });
+  });
+
+  return {
+    stop() {
+      run = null;
+      mode = "idle";
+      voice.stopSpeaking();
+      paint();
+    },
+  };
 }
