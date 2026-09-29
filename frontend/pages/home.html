@@ -2,22 +2,6 @@
 <html lang="en">
   <head>
     <script src="../js/disclaimer-gate.js"></script>
-    <script>
-      (function () {
-        var token = localStorage.getItem("VIBE_EYE_TOKEN") || sessionStorage.getItem("VIBE_EYE_TOKEN");
-        if (!token) return;
-        var user = {};
-        try {
-          user = JSON.parse(localStorage.getItem("VIBE_EYE_USER") || sessionStorage.getItem("VIBE_EYE_USER") || "{}") || {};
-        } catch (error) {
-          user = {};
-        }
-        if (user.role === "assistant") return;
-        var left = sessionStorage.getItem("NYOTA_LEFT_APP") === "1";
-        var ok = sessionStorage.getItem("NYOTA_HOME_ENTRY_OK") === "1";
-        if (left || !ok) location.replace("./permissions.html");
-      })();
-    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#04070d" />
@@ -26,7 +10,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Nyota Sight" />
     <title>Nyota Sight</title>
-    <link rel="stylesheet" href="../css/main.css?v=33" />
+    <link rel="stylesheet" href="../css/main.css?v=36" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
     <link rel="manifest" href="../manifest.json" />
@@ -145,6 +129,20 @@
         </a>
       </nav>
     </div>
-    <script type="module" src="../js/app.js?v=89"></script>
+    <section id="turn-on-popup" class="turn-on-popup hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="turn-on-title">
+      <div class="turn-on-card">
+        <p class="brand-kicker">Nyota Sight</p>
+        <h1 id="turn-on-title">Turn these on</h1>
+        <p>Turn on the camera, voice, and GPS here. When all three are on, select Continue.</p>
+        <p id="turn-on-status" class="status-bar" role="status" aria-live="polite">Checking camera, voice, and GPS.</p>
+        <div class="disclaimer-actions">
+          <button class="btn" id="enable-camera" type="button">Enable camera</button>
+          <button class="btn" id="enable-voice" type="button">Enable voice</button>
+          <button class="btn" id="enable-gps" type="button">Enable GPS</button>
+          <button class="btn primary" id="turn-on-continue" type="button" disabled>Continue</button>
+        </div>
+      </div>
+    </section>
+    <script type="module" src="../js/app.js?v=90"></script>
   </body>
 </html>

@@ -2,7 +2,7 @@ import { api, ApiError } from "./api.js?v=35";
 import { setSession, getApiBase, setApiBase, pages, getToken, getUser, loginUrl } from "./config.js";
 import { voice } from "./voice.js?v=44";
 import { syncDisclaimerAgreement } from "./disclaimer.js";
-import { hasPrivacyAgreement, homeNeedsPermissionCheck } from "./entry.js";
+import { hasPrivacyAgreement } from "./entry.js";
 
 function roleFromPage() {
   const params = new URLSearchParams(location.search);
@@ -21,7 +21,7 @@ export async function afterAuth(result) {
     location.assign(pages().contacts);
     return;
   }
-  location.assign(pages().permissions);
+  location.assign(pages().home);
 }
 
 export function bindAuthForm(form, mode) {
@@ -125,10 +125,6 @@ export function redirectIfAuthed() {
   }
   if (user?.role === "assistant") {
     location.href = pages().contacts;
-    return;
-  }
-  if (homeNeedsPermissionCheck()) {
-    location.href = pages().permissions;
     return;
   }
   location.href = pages().home;

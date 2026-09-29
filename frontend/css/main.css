@@ -1617,6 +1617,41 @@ textarea {
   fill: currentColor;
 }
 
+.turn-on-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  background: rgba(4, 7, 13, 0.78);
+}
+
+.turn-on-card {
+  width: min(440px, 100%);
+  max-height: calc(100svh - 32px);
+  overflow: auto;
+  padding: 18px 16px 16px;
+  border-radius: 24px;
+  background: var(--glass);
+  border: 1px solid var(--stroke);
+  backdrop-filter: blur(20px);
+}
+
+.turn-on-card h1 {
+  margin: 0 0 8px;
+  font-size: 1.7rem;
+}
+
+.turn-on-card p {
+  margin: 0 0 10px;
+}
+
+.turn-on-card .disclaimer-actions {
+  margin-top: 12px;
+}
+
 #disclaimer-script p,
 #privacy-script p {
   margin: 0 0 12px;

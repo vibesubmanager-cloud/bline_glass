@@ -11,7 +11,7 @@ import { isYoloInstalled, onYoloProgress, holdDetectionAwake, releaseDetectionAw
 import { readScene, describeScene, askAboutScene } from "./vision.js?v=4";
 import { armVisionSpeaker, speakVision } from "./vision-speak.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
-import { homeNeedsPermissionCheck } from "./entry.js";
+import { homeNeedsPermissionCheck, markHomeEntryOk } from "./entry.js";
 import { calls, startOnHome, takeQueuedHomeCall } from "./calls.js?v=16";
 import { activateEmergency } from "./emergency.js?v=2";
 import { startMessageNotices } from "./notify.js";
@@ -886,6 +886,155 @@ async function startCameraNow() {
   }
 }
 
+const turnOnReady = { camera: false, voice: false, gps: false };
+
+function setTurnOnStatus(text) {
+  const status = document.getElementById("turn-on-status");
+  if (status) status.textContent = text;
+}
+
+function paintTurnOn() {
+  const cameraBtn = document.getElementById("enable-camera");
+  const voiceBtn = document.getElementById("enable-voice");
+  const gpsBtn = document.getElementById("enable-gps");
+  const continueBtn = document.getElementById("turn-on-continue");
+  if (!cameraBtn || !voiceBtn || !gpsBtn || !continueBtn) return;
+  cameraBtn.textContent = turnOnReady.camera ? "Camera on" : "Enable camera";
+  voiceBtn.textContent = turnOnReady.voice ? "Voice on" : "Enable voice";
+  gpsBtn.textContent = turnOnReady.gps ? "GPS on" : "Enable GPS";
+  cameraBtn.setAttribute("aria-pressed", String(turnOnReady.camera));
+  voiceBtn.setAttribute("aria-pressed", String(turnOnReady.voice));
+  gpsBtn.setAttribute("aria-pressed", String(turnOnReady.gps));
+  const allOn = turnOnReady.camera && turnOnReady.voice && turnOnReady.gps;
+  continueBtn.disabled = !allOn;
+  if (allOn) setTurnOnStatus("Camera, voice, and GPS are on. Select Continue.");
+}
+
+async function permissionGranted(name) {
+  try {
+    if (!navigator.permissions?.query) return false;
+    const result = await navigator.permissions.query({ name });
+    return result.state === "granted";
+  } catch {
+    return false;
+  }
+}
+
+async function refreshTurnOnState() {
+  const cameraGranted = Boolean(camera.stream?.active) || (await permissionGranted("camera"));
+  const voiceGranted = Boolean(camera._micGranted) || (await permissionGranted("microphone"));
+  const gpsGranted =
+    sessionStorage.getItem("AISIGHT_GPS_OK") === "1" || (await permissionGranted("geolocation"));
+  turnOnReady.camera = cameraGranted;
+  turnOnReady.voice = voiceGranted;
+  turnOnReady.gps = gpsGranted;
+  const preview = document.getElementById("camera-preview");
+  if (cameraGranted && preview) {
+    try {
+      await camera.ensureStarted(preview);
+      setLive(true);
+      turnOnReady.camera = true;
+    } catch {
+      turnOnReady.camera = Boolean(camera.stream?.active);
+    }
+  }
+  if (voiceGranted) {
+    try {
+      await camera.primeMicrophone();
+      turnOnReady.voice = true;
+    } catch {
+      turnOnReady.voice = Boolean(camera._micGranted);
+    }
+  }
+  paintTurnOn();
+}
+
+function hideTurnOnPopup() {
+  const popup = document.getElementById("turn-on-popup");
+  if (!popup) return;
+  popup.classList.add("hidden");
+  popup.setAttribute("aria-hidden", "true");
+  document.querySelector(".stage")?.removeAttribute("inert");
+}
+
+async function showTurnOnPopup() {
+  const popup = document.getElementById("turn-on-popup");
+  if (!popup || getUser()?.role === "assistant") return;
+  const call = document.getElementById("call-overlay");
+  if (call && !call.classList.contains("hidden")) return;
+  const alreadyOpen = !popup.classList.contains("hidden");
+  popup.classList.remove("hidden");
+  popup.setAttribute("aria-hidden", "false");
+  document.querySelector(".stage")?.setAttribute("inert", "");
+  await refreshTurnOnState();
+  if (alreadyOpen) return;
+  const continueBtn = document.getElementById("turn-on-continue");
+  const spoken = continueBtn?.disabled
+    ? "Turn on the camera, voice, and GPS. Tap each button. When all three are on, select Continue."
+    : "Camera, voice, and GPS are on. Select Continue.";
+  if (continueBtn?.disabled) setTurnOnStatus("Turn on the camera, voice, and GPS.");
+  voice.unlock();
+  voice.speak(spoken);
+  (continueBtn?.disabled ? document.getElementById("enable-camera") : continueBtn)?.focus();
+}
+
+async function enableCameraFromPopup() {
+  await camera.start(document.getElementById("camera-preview"), { includeAudio: false });
+  setLive(true);
+  turnOnReady.camera = true;
+  paintTurnOn();
+  await voice.speak("Camera on.", { interrupt: true });
+}
+
+async function enableVoiceFromPopup() {
+  voice.unlock({ fromGesture: true });
+  await camera.primeMicrophone();
+  turnOnReady.voice = true;
+  paintTurnOn();
+  await voice.speak("Voice on.", { interrupt: true });
+}
+
+async function enableGpsFromPopup() {
+  const pos = await requestLocationAccess();
+  markGps(true, pos);
+  turnOnReady.gps = true;
+  paintTurnOn();
+  await voice.speak("GPS on.", { interrupt: true });
+}
+
+async function runTurnOn(action) {
+  voice.unlock({ fromGesture: true });
+  try {
+    await action();
+  } catch (error) {
+    const message = error?.message || "That is still off. Try the button again.";
+    setTurnOnStatus(message);
+    await voice.speak(message, { interrupt: true });
+  }
+}
+
+function bindTurnOnPopup() {
+  const popup = document.getElementById("turn-on-popup");
+  if (!popup || popup.dataset.bound === "1") return;
+  popup.dataset.bound = "1";
+  document.getElementById("enable-camera")?.addEventListener("click", () => runTurnOn(enableCameraFromPopup));
+  document.getElementById("enable-voice")?.addEventListener("click", () => runTurnOn(enableVoiceFromPopup));
+  document.getElementById("enable-gps")?.addEventListener("click", () => runTurnOn(enableGpsFromPopup));
+  document.getElementById("turn-on-continue")?.addEventListener("click", async () => {
+    voice.unlock({ fromGesture: true });
+    if (!(turnOnReady.camera && turnOnReady.voice && turnOnReady.gps)) {
+      setTurnOnStatus("Turn on the camera, voice, and GPS. Then select Continue.");
+      await voice.speak("Turn on the camera, voice, and GPS. Then select Continue.", { interrupt: true });
+      return;
+    }
+    markDeviceReady();
+    markHomeEntryOk();
+    hideTurnOnPopup();
+    const ready = await startDevicesQuietly();
+    await afterDevicesReady(ready);
+  });
+}
+
 async function startDevicesQuietly() {
   const preview = document.getElementById("camera-preview");
   try {
@@ -893,7 +1042,7 @@ async function startDevicesQuietly() {
     setLive(true);
   } catch {
     sessionStorage.removeItem("NYOTA_HOME_ENTRY_OK");
-    location.replace(pages().permissions);
+    showTurnOnPopup();
     return false;
   }
   try {
@@ -902,12 +1051,26 @@ async function startDevicesQuietly() {
   } catch (error) {
     if (error?.code === "GPS_DENIED") {
       sessionStorage.removeItem("NYOTA_HOME_ENTRY_OK");
-      location.replace(pages().permissions);
+      showTurnOnPopup();
       return false;
     }
   }
   markDeviceReady();
   return true;
+}
+
+async function afterDevicesReady(ready) {
+  if (!ready) return;
+  const pending = takeQueuedHomeCall();
+  if (!pending) return;
+  try {
+    await calls.start(pending.target || "group", {
+      video: Boolean(pending.video),
+      emergency: Boolean(pending.emergency),
+    });
+  } catch (error) {
+    await voice.speak(error.message || "I could not start that in-app call.");
+  }
 }
 
 function openDestSheet() {
@@ -921,12 +1084,10 @@ function closeDestSheet() {
 
 async function boot() {
   if (!requireAuth()) return;
-  if (getUser()?.role !== "assistant" && homeNeedsPermissionCheck()) {
-    location.replace(pages().permissions);
-    return;
-  }
+  const askTurnOn = getUser()?.role !== "assistant" && homeNeedsPermissionCheck();
+  bindTurnOnPopup();
   syncDisclaimerAgreement();
-  startCameraNow();
+  if (!askTurnOn) startCameraNow();
   onYoloProgress((info) => {
     if (detectionMode) return;
     if (info.state === "downloading" || info.state === "loading") {
@@ -944,7 +1105,7 @@ async function boot() {
     if (sessionStorage.getItem("NYOTA_LEFT_APP") !== "1") return;
     const call = document.getElementById("call-overlay");
     if (call && !call.classList.contains("hidden")) return;
-    location.replace(pages().permissions);
+    showTurnOnPopup();
   });
   setDetectHud("ready");
   applyAppearance();
@@ -952,19 +1113,8 @@ async function boot() {
   idleStatus();
   setOnline(navigator.onLine);
   voice.unlock();
-  startDevicesQuietly().then(async (ready) => {
-    if (!ready) return;
-    const pending = takeQueuedHomeCall();
-    if (!pending) return;
-    try {
-      await calls.start(pending.target || "group", {
-        video: Boolean(pending.video),
-        emergency: Boolean(pending.emergency),
-      });
-    } catch (error) {
-      await voice.speak(error.message || "I could not start that in-app call.");
-    }
-  });
+  if (askTurnOn) showTurnOnPopup();
+  else startDevicesQuietly().then(afterDevicesReady);
   let networkJobsStarted = false;
   const startNetworkJobs = () => {
     if (networkJobsStarted) return;
@@ -1003,7 +1153,10 @@ async function boot() {
   };
   document.getElementById("call-answer")?.addEventListener("click", () => calls.acceptIncoming());
   document.getElementById("call-decline")?.addEventListener("click", () => calls.rejectIncoming());
-  document.getElementById("call-end")?.addEventListener("click", () => calls.end(true));
+  document.getElementById("call-end")?.addEventListener("click", async () => {
+    await calls.end(true);
+    if (sessionStorage.getItem("NYOTA_LEFT_APP") === "1") showTurnOnPopup();
+  });
   document.getElementById("call-mute")?.addEventListener("click", () => {
     const muted = calls.toggleMute();
         voice.speak(muted ? "Microphone muted." : "Microphone unmuted.");

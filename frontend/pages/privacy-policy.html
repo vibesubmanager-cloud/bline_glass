@@ -47,7 +47,7 @@
       import { hasPrivacyAgreement, markPrivacyAgreed, syncPrivacyAgreement } from "../js/entry.js?v=1";
 
       const user = getUser() || {};
-      const nextUrl = user.role === "assistant" ? pages().contacts : pages().permissions;
+      const nextUrl = user.role === "assistant" ? pages().contacts : pages().home;
       if (!getToken()) {
         location.replace(pages().welcome);
       } else if (hasPrivacyAgreement(user)) {
