@@ -411,9 +411,11 @@ class VoiceService {
     this._usedMic = true;
   }
 
-  speak(text, { interrupt = true, onStart, priority = 1 } = {}) {
+  speak(text, { interrupt = true, onStart, priority = 1, rate } = {}) {
     const cleaned = (text || "").trim();
     if (!cleaned) return Promise.resolve();
+    const nextRate = Number(rate);
+    this._speakRate = nextRate > 0 ? nextRate : 0;
     appState.lastSpoken = cleaned;
     const inGesture = !this._holding && this._unlocked;
     if (!this._holding) this.restoreSpeaker();
@@ -491,7 +493,7 @@ class VoiceService {
         this.synth.resume();
         const utter = new SpeechSynthesisUtterance(text);
         const settings = getSettings();
-        utter.rate = Number(settings.speech_rate || 1);
+        utter.rate = this._speakRate || Number(settings.speech_rate || 1);
         utter.lang = settings.language || "en-GB";
         utter.volume = 1;
         const chosen = preferredVoice(this.voices, settings.voice_name, settings.language || "en-GB");
@@ -590,7 +592,7 @@ class VoiceService {
         this.synth.resume();
         const utter = new SpeechSynthesisUtterance(text);
         const settings = getSettings();
-        utter.rate = Number(settings.speech_rate || 1);
+        utter.rate = this._speakRate || Number(settings.speech_rate || 1);
         utter.lang = settings.language || "en-GB";
         utter.volume = 1;
         const chosen = preferredVoice(this.voices, settings.voice_name, settings.language || "en-GB");
@@ -695,6 +697,7 @@ class VoiceService {
     player.loop = false;
     player.muted = false;
     player.volume = 1;
+    player.playbackRate = Number(this._speakRate) > 0 ? Number(this._speakRate) : 1;
     player.src = url;
     try {
       await player.play();
@@ -735,8 +738,10 @@ class VoiceService {
         decoded = await ctx.decodeAudioData(copy);
       }
       if (token !== this._serverToken) return false;
-      const durationMs = decoded.duration ? Math.min(20000, decoded.duration * 1000 + 250) : waitMs;
+      const speed = Number(this._speakRate) > 0 ? Number(this._speakRate) : 1;
+      const durationMs = decoded.duration ? Math.min(20000, (decoded.duration * 1000) / speed + 250) : waitMs;
       const source = ctx.createBufferSource();
+      source.playbackRate.value = speed;
       const gain = ctx.createGain();
       gain.gain.value = 1;
       source.buffer = decoded;

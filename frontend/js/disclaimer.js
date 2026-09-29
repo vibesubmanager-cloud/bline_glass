@@ -11,7 +11,7 @@ export const DISCLAIMER_PARAGRAPHS = [
   "We recommend using the app indoors. If you use it outside, you do so at your own risk. Stay aware of your surroundings, and take care when holding your phone out in public.",
   "Emergency chat sends a message to your linked contacts. It does not contact the emergency services. In an emergency, call 999.",
   "When you use the camera features, photos are sent to outside AI services to be processed. You can hear our privacy notice in Settings.",
-  'To agree and continue, select "I agree". To hear this again, select "Repeat".',
+  'To agree and continue, select "I agree". To hear this, select "Play". Select "Stop" to stop it.',
 ];
 
 export const DISCLAIMER_SCRIPT = DISCLAIMER_PARAGRAPHS.join(" ");
@@ -28,7 +28,7 @@ export const PRIVACY_PARAGRAPHS = [
   "Your account stores your name, username, email, phone number, and the notes you add. A Personal Assistant linked to you can see the profile you share.",
   "Location is used when you ask for the map, walking, or to send where you are. Emergency chat sends a message to your linked contacts. It does not contact the emergency services. In an emergency, call 999.",
   "Nyota Sight does not replace your cane, guide dog, or mobility training.",
-  'To continue, select "I agree", then select "Next".',
+  'Select Play to hear this. Select Stop to stop it. To continue, select "I agree", then select "Next".',
 ];
 
 export const PRIVACY_NOTICE = PRIVACY_PARAGRAPHS.join(" ");
