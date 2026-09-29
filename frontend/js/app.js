@@ -11,7 +11,7 @@ import { isYoloInstalled, onYoloProgress, holdDetectionAwake, releaseDetectionAw
 import { readScene, describeScene, askAboutScene } from "./vision.js?v=4";
 import { armVisionSpeaker, speakVision } from "./vision-speak.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
-import { homeNeedsPermissionCheck, markHomeEntryOk } from "./entry.js";
+import { markHomeEntryOk, privacyPromptRequired } from "./entry.js";
 import { calls, startOnHome, takeQueuedHomeCall } from "./calls.js?v=16";
 import { activateEmergency } from "./emergency.js?v=2";
 import { startMessageNotices } from "./notify.js";
@@ -1092,7 +1092,11 @@ function closeDestSheet() {
 
 async function boot() {
   if (!requireAuth()) return;
-  const askTurnOn = getUser()?.role !== "assistant" && homeNeedsPermissionCheck();
+  if (privacyPromptRequired()) {
+    location.replace(pages().privacy);
+    return;
+  }
+  const askTurnOn = getUser()?.role !== "assistant";
   bindTurnOnPopup();
   syncDisclaimerAgreement();
   if (!askTurnOn) startCameraNow();

@@ -56,6 +56,11 @@ export function clearSession() {
   removeStore(LINKED_KEY);
   removeStore(DEVICE_READY_KEY);
   removeStore(GPS_OK_KEY);
+  try {
+    sessionStorage.removeItem("NYOTA_PRIVACY_REQUIRED");
+  } catch {
+    /* session storage is optional */
+  }
 }
 
 export function getUser() {

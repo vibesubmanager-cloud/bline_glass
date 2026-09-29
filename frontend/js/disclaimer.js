@@ -11,14 +11,13 @@ export const DISCLAIMER_PARAGRAPHS = [
   "Nyota Sight does not replace your cane, guide dog or mobility training. Please keep using them.",
   "We recommend using the app indoors. If you use it outside, you do so at your own risk. Stay aware of your surroundings, and take care when holding your phone out in public.",
   "Emergency chat sends a message to your linked contacts. It does not contact the emergency services. In an emergency, call 999.",
-  "When you use the camera features, photos are sent to outside AI services to be processed. You can hear our privacy notice in Settings.",
-  'To agree and continue, select "I agree". To hear this, select the play icon at the top. Select it again to pause.',
+  "When you use the camera features, photos are sent to outside AI services to be processed.",
 ];
 
 export const DISCLAIMER_SCRIPT = DISCLAIMER_PARAGRAPHS.join(" ");
 
 export const DISAGREE_SCRIPT =
-  "Nyota Sight cannot be used without agreeing to this notice.";
+  "Nyota Sight cannot be used without agreeing to this privacy notice.";
 
 export const PRIVACY_PARAGRAPHS = [
   "Nyota Sight privacy and policy.",
@@ -29,13 +28,17 @@ export const PRIVACY_PARAGRAPHS = [
   "Your account stores your name, username, email, phone number, and the notes you add. A Personal Assistant linked to you can see the profile you share.",
   "Location is used when you ask for the map, walking, or to send where you are. Emergency chat sends a message to your linked contacts. It does not contact the emergency services. In an emergency, call 999.",
   "Nyota Sight does not replace your cane, guide dog, or mobility training.",
-  'Select the play icon at the top to hear this. Select it again to pause. To continue, select "I agree", then select "Next".',
+  'To continue to the homepage, select "I agree". To hear this, select the play icon at the top. Select it again to pause.',
 ];
 
 export const PRIVACY_NOTICE = PRIVACY_PARAGRAPHS.join(" ");
 
+export const PRIVACY_PAGE_PARAGRAPHS = [...DISCLAIMER_PARAGRAPHS, ...PRIVACY_PARAGRAPHS];
+
+export const PRIVACY_PAGE_SCRIPT = PRIVACY_PAGE_PARAGRAPHS.join(" ");
+
 export function privacyNoticeText() {
-  const notice = String(PRIVACY_NOTICE || "").trim();
+  const notice = String(PRIVACY_PAGE_SCRIPT || "").trim();
   if (notice) return notice;
   return "The full privacy notice is not in the app yet. It will be read from Settings when the wording is ready.";
 }

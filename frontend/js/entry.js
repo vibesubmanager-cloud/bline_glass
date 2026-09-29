@@ -3,6 +3,7 @@ import { getToken, getUser, setSession } from "./config.js";
 
 export const ENTRY_OK_KEY = "NYOTA_HOME_ENTRY_OK";
 export const LEFT_APP_KEY = "NYOTA_LEFT_APP";
+export const PRIVACY_REQUIRED_KEY = "NYOTA_PRIVACY_REQUIRED";
 
 export function privacyStorageKey(userId) {
   return `NYOTA_PRIVACY_POLICY_${userId || "account"}`;
@@ -21,6 +22,22 @@ export function markPrivacyAgreed(userId) {
   const iso = new Date().toISOString();
   localStorage.setItem(privacyStorageKey(userId), iso);
   return iso;
+}
+
+export function requirePrivacyPrompt() {
+  sessionStorage.setItem(PRIVACY_REQUIRED_KEY, "1");
+}
+
+export function clearPrivacyPrompt() {
+  sessionStorage.removeItem(PRIVACY_REQUIRED_KEY);
+}
+
+export function privacyPromptRequired() {
+  try {
+    return sessionStorage.getItem(PRIVACY_REQUIRED_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 export function markHomeEntryOk() {

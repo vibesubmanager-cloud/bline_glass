@@ -8,21 +8,21 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Nyota Sight" />
     <meta name="theme-color" content="#04070d" />
-    <title>Privacy and policy — Nyota Sight</title>
-    <link rel="stylesheet" href="../css/main.css?v=35" />
+    <title>Privacy — Nyota Sight</title>
+    <link rel="stylesheet" href="../css/main.css?v=36" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
   </head>
   <body class="page-panel">
-    <a class="skip-link" href="#privacy-card">Skip to the privacy and policy</a>
+    <a class="skip-link" href="#privacy-card">Skip to privacy</a>
     <main class="app-shell">
       <header class="brand">
         <p class="brand-kicker">Nyota Sight</p>
-        <h1>Privacy and policy</h1>
-        <p>The play icon is at the top of the notice. Press it to play. Press it again to pause. Then select I agree, and Next.</p>
+        <h1>Privacy</h1>
+        <p>The play icon is at the top. Press it to play. Press it again to pause. Select I agree to continue to the homepage.</p>
       </header>
-      <p id="privacy-status" class="status-bar" role="status" aria-live="polite">Press the play icon to hear the privacy and policy.</p>
-      <article class="card" id="privacy-card" aria-label="Privacy and policy">
+      <p id="privacy-status" class="status-bar" role="status" aria-live="polite">Press the play icon to hear privacy.</p>
+      <article class="card" id="privacy-card" aria-label="Privacy">
         <div class="notice-top">
           <button class="notice-toggle" id="play-toggle" type="button" aria-label="Play">
             <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
@@ -32,8 +32,8 @@
         <div id="privacy-script"></div>
       </article>
       <div id="privacy-actions" class="disclaimer-actions">
-        <button class="btn" id="agree" type="button">I agree</button>
-        <button class="btn primary" id="next" type="button" disabled>Next</button>
+        <button class="btn primary" id="agree" type="button">I agree</button>
+        <button class="btn" id="disagree" type="button">I disagree</button>
       </div>
       <p class="auth-footer">
         <button class="text-link" id="sign-out" type="button">Sign out</button>
@@ -42,66 +42,67 @@
     <audio id="tts-player" playsinline webkit-playsinline hidden></audio>
     <script type="module">
       import { voice } from "../js/voice.js?v=60";
-      import { clearSession, getToken, getUser, pages } from "../js/config.js?v=37";
-      import { PRIVACY_PARAGRAPHS, PRIVACY_NOTICE, bindNoticePlayer } from "../js/disclaimer.js?v=4";
-      import { hasPrivacyAgreement, markPrivacyAgreed, syncPrivacyAgreement } from "../js/entry.js?v=1";
+      import { clearSession, getToken, getUser, pages } from "../js/config.js?v=38";
+      import {
+        agreeNow,
+        syncDisclaimerAgreement,
+        PRIVACY_PAGE_PARAGRAPHS,
+        PRIVACY_PAGE_SCRIPT,
+        DISAGREE_SCRIPT,
+        bindNoticePlayer,
+      } from "../js/disclaimer.js?v=5";
+      import { clearPrivacyPrompt, markPrivacyAgreed, privacyPromptRequired, syncPrivacyAgreement } from "../js/entry.js?v=2";
 
       const user = getUser() || {};
       const nextUrl = user.role === "assistant" ? pages().contacts : pages().home;
       if (!getToken()) {
         location.replace(pages().welcome);
-      } else if (hasPrivacyAgreement(user)) {
+      } else if (!privacyPromptRequired()) {
         location.replace(nextUrl);
       } else {
         const script = document.getElementById("privacy-script");
         const status = document.getElementById("privacy-status");
-        const agreeBtn = document.getElementById("agree");
-        const nextBtn = document.getElementById("next");
-        let agreed = false;
 
         function setStatus(text) {
           status.textContent = text;
         }
 
-        PRIVACY_PARAGRAPHS.forEach((line) => {
+        PRIVACY_PAGE_PARAGRAPHS.forEach((line) => {
           const p = document.createElement("p");
           p.textContent = line;
           script.appendChild(p);
         });
 
         const player = bindNoticePlayer(document.getElementById("play-toggle"), {
-          text: PRIVACY_NOTICE,
+          text: PRIVACY_PAGE_SCRIPT,
           onPlay() {
-            setStatus("Playing the privacy and policy.");
+            setStatus("Playing privacy.");
           },
           onPause() {
             setStatus("Paused.");
           },
           onDone() {
-            setStatus(agreed ? "You agreed. Select Next." : "Select I agree, then Next.");
+            setStatus('Select "I agree" to continue to the homepage.');
           },
         });
 
-        agreeBtn.addEventListener("click", () => {
+        document.getElementById("agree").addEventListener("click", () => {
           voice.unlock({ fromGesture: true });
           player.stop();
+          agreeNow();
           markPrivacyAgreed(user.id);
-          agreed = true;
-          nextBtn.disabled = false;
-          setStatus("You agreed. Select Next.");
+          clearPrivacyPrompt();
+          syncDisclaimerAgreement();
           syncPrivacyAgreement(user.id);
-          voice.speak("You agreed. Select Next.", { interrupt: true, rate: 1.25 });
+          location.assign(nextUrl);
         });
 
-        nextBtn.addEventListener("click", () => {
+        document.getElementById("disagree").addEventListener("click", async () => {
           voice.unlock({ fromGesture: true });
-          if (!agreed) {
-            setStatus("Select I agree before Next.");
-            voice.speak("Select I agree before Next.", { interrupt: true, rate: 1.25 });
-            return;
-          }
           player.stop();
-          location.assign(nextUrl);
+          setStatus("Nyota Sight cannot be used without agreeing to this privacy notice.");
+          await voice.speak(DISAGREE_SCRIPT, { interrupt: true, rate: 1.25 });
+          setStatus("Press the play icon to hear privacy again.");
         });
 
         document.getElementById("sign-out").addEventListener("click", () => {

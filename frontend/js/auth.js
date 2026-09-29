@@ -2,7 +2,7 @@ import { api, ApiError } from "./api.js?v=35";
 import { setSession, getApiBase, setApiBase, pages, getToken, getUser, loginUrl } from "./config.js";
 import { voice } from "./voice.js?v=44";
 import { syncDisclaimerAgreement } from "./disclaimer.js";
-import { hasPrivacyAgreement } from "./entry.js";
+import { privacyPromptRequired, requirePrivacyPrompt } from "./entry.js";
 
 function roleFromPage() {
   const params = new URLSearchParams(location.search);
@@ -12,16 +12,8 @@ function roleFromPage() {
 export async function afterAuth(result) {
   setSession(result.token, result.user, result.settings, result.linked_blind);
   await syncDisclaimerAgreement();
-  const user = result.user || {};
-  if (!hasPrivacyAgreement(user)) {
-    location.assign(pages().privacy);
-    return;
-  }
-  if (user.role === "assistant") {
-    location.assign(pages().contacts);
-    return;
-  }
-  location.assign(pages().home);
+  requirePrivacyPrompt();
+  location.assign(pages().privacy);
 }
 
 export function bindAuthForm(form, mode) {
@@ -119,7 +111,7 @@ export function bindApiField() {
 export function redirectIfAuthed() {
   if (!getToken()) return;
   const user = getUser();
-  if (!hasPrivacyAgreement(user)) {
+  if (privacyPromptRequired()) {
     location.href = pages().privacy;
     return;
   }

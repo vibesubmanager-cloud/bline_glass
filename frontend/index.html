@@ -23,13 +23,13 @@
             navigator.serviceWorker.register("./sw.js").catch(function () {});
           }
         }
-        if (!localStorage.getItem("NYOTA_DISCLAIMER_AGREED_AT")) {
-          location.replace("./pages/disclaimer.html");
-          return;
-        }
         const token = localStorage.getItem("VIBE_EYE_TOKEN") || sessionStorage.getItem("VIBE_EYE_TOKEN");
         if (!token) {
           location.replace("./pages/welcome.html");
+          return;
+        }
+        if (sessionStorage.getItem("NYOTA_PRIVACY_REQUIRED") === "1") {
+          location.replace("./pages/privacy-policy.html");
           return;
         }
         var user = {};
@@ -37,12 +37,6 @@
           user = JSON.parse(localStorage.getItem("VIBE_EYE_USER") || sessionStorage.getItem("VIBE_EYE_USER") || "{}") || {};
         } catch (error) {
           user = {};
-        }
-        var privacyKey = "NYOTA_PRIVACY_POLICY_" + (user.id || "account");
-        var privacyAgreed = Boolean(user.privacy_policy_agreed_at || localStorage.getItem(privacyKey));
-        if (!privacyAgreed) {
-          location.replace("./pages/privacy-policy.html");
-          return;
         }
         if (user.role === "assistant") {
           location.replace("./pages/contacts.html");
