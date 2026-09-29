@@ -12,6 +12,45 @@ const AUDIO_AND_VIDEO = [
   { audio: true, video: true },
   ...VIDEO_ONLY,
 ];
+const CAMERA_BUSY = "The camera will not turn on. Check if another app is using the camera. Then select Refresh page.";
+const MIC_BUSY = "The microphone will not turn on. Check if another app is using the microphone. Then select Refresh page.";
+
+function mediaIsBusy(error) {
+  const name = String(error?.name || "");
+  return name === "NotReadableError" || name === "TrackStartError" || name === "AbortError";
+}
+
+function requestMedia(constraints, ms, busyMessage, busyCode) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(Object.assign(new Error(busyMessage), { code: busyCode }));
+    }, ms);
+    navigator.mediaDevices.getUserMedia(constraints).then(
+      (stream) => {
+        if (settled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        settled = true;
+        clearTimeout(timer);
+        resolve(stream);
+      },
+      (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (mediaIsBusy(error)) {
+          reject(Object.assign(new Error(busyMessage), { code: busyCode, cause: error }));
+          return;
+        }
+        reject(error);
+      }
+    );
+  });
+}
 
 class CameraService {
   constructor() {
@@ -42,21 +81,34 @@ class CameraService {
     let lastError;
     for (const options of attempts) {
       try {
-        this.stream = await navigator.mediaDevices.getUserMedia(options);
+        this.stream = await requestMedia(options, 12000, CAMERA_BUSY, "CAMERA_IN_USE");
         if (options.audio) this._micGranted = true;
         lastError = null;
         break;
       } catch (error) {
         lastError = error;
+        const name = String(error?.name || "");
+        if (
+          error?.code === "CAMERA_IN_USE" ||
+          name === "NotAllowedError" ||
+          name === "PermissionDeniedError" ||
+          name === "SecurityError"
+        ) {
+          break;
+        }
       }
     }
     if (!this.stream) {
+      if (lastError?.code === "CAMERA_IN_USE") throw lastError;
       const denied = /notallowed|permission|denied/i.test(String(lastError?.name || lastError?.message || ""));
       const home = isStandaloneApp();
       const message = denied && home
         ? "This Home Screen app has its own camera switch. Open iPhone Settings, scroll to Nyota Sight, turn Camera on, then open the app again. If it still stays black, delete the Home Screen icon, open Safari, then Add to Home Screen again."
-        : "I can't access the camera.";
-      throw Object.assign(new Error(message), { code: "CAMERA_UNAVAILABLE", cause: lastError });
+        : mediaIsBusy(lastError)
+          ? CAMERA_BUSY
+          : "I can't access the camera.";
+      const code = mediaIsBusy(lastError) ? "CAMERA_IN_USE" : "CAMERA_UNAVAILABLE";
+      throw Object.assign(new Error(message), { code, cause: lastError });
     }
     this.stream.getAudioTracks().forEach((track) => {
       this._micGranted = true;
@@ -70,6 +122,12 @@ class CameraService {
       this.video.playsInline = true;
       this.video.srcObject = this.stream;
       await this.video.play().catch(() => undefined);
+    }
+    const videoTrack = this.stream.getVideoTracks()[0];
+    if (videoTrack && videoTrack.readyState === "ended") {
+      this.stream.getTracks().forEach((track) => track.stop());
+      this.stream = null;
+      throw Object.assign(new Error(CAMERA_BUSY), { code: "CAMERA_IN_USE" });
     }
     return this.stream;
   }
@@ -91,7 +149,7 @@ class CameraService {
     if (!navigator.mediaDevices?.getUserMedia) {
       throw Object.assign(new Error("I can't access the microphone."), { code: "MIC_UNAVAILABLE" });
     }
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const stream = await requestMedia({ audio: true }, 12000, MIC_BUSY, "MIC_IN_USE");
     stream.getTracks().forEach((track) => track.stop());
     this._micGranted = true;
     return true;

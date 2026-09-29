@@ -838,6 +838,8 @@ async function handleFailure(error) {
         ? error.message
         : code === "INSECURE_CONTEXT"
         ? "iPhone blocks camera and microphone on http. Open the https Safari link on this page."
+        : code === "CAMERA_IN_USE" || code === "MIC_IN_USE"
+        ? error.message
         : code === "CAMERA_UNAVAILABLE"
         ? "I can't access the camera."
         : code === "MIC_UNAVAILABLE"
@@ -970,7 +972,7 @@ async function showTurnOnPopup() {
   if (alreadyOpen) return;
   const continueBtn = document.getElementById("turn-on-continue");
   const spoken = continueBtn?.disabled
-    ? "Turn on the camera, voice, and GPS. Tap each button. When all three are on, select Continue."
+    ? "Turn on the camera, voice, and GPS. Tap each button. When all three are on, select Continue. If the camera or voice will not come on, select Refresh page."
     : "Camera, voice, and GPS are on. Select Continue.";
   if (continueBtn?.disabled) setTurnOnStatus("Turn on the camera, voice, and GPS.");
   voice.unlock();
@@ -979,6 +981,7 @@ async function showTurnOnPopup() {
 }
 
 async function enableCameraFromPopup() {
+  setTurnOnStatus("Turning the camera on.");
   await camera.start(document.getElementById("camera-preview"), { includeAudio: false });
   setLive(true);
   turnOnReady.camera = true;
@@ -988,6 +991,7 @@ async function enableCameraFromPopup() {
 
 async function enableVoiceFromPopup() {
   voice.unlock({ fromGesture: true });
+  setTurnOnStatus("Turning voice on.");
   await camera.primeMicrophone();
   turnOnReady.voice = true;
   paintTurnOn();
@@ -1020,6 +1024,10 @@ function bindTurnOnPopup() {
   document.getElementById("enable-camera")?.addEventListener("click", () => runTurnOn(enableCameraFromPopup));
   document.getElementById("enable-voice")?.addEventListener("click", () => runTurnOn(enableVoiceFromPopup));
   document.getElementById("enable-gps")?.addEventListener("click", () => runTurnOn(enableGpsFromPopup));
+  document.getElementById("turn-on-refresh")?.addEventListener("click", () => {
+    voice.unlock({ fromGesture: true });
+    location.reload();
+  });
   document.getElementById("turn-on-continue")?.addEventListener("click", async () => {
     voice.unlock({ fromGesture: true });
     if (!(turnOnReady.camera && turnOnReady.voice && turnOnReady.gps)) {
