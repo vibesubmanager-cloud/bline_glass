@@ -37,7 +37,8 @@ DESCRIBE_PROMPT = """You are the eyes of a visually impaired person. Describe wh
 Speak 2 to 4 short sentences, as if you are standing next to them.
 First say the setting: indoors or outdoors, and the kind of place if it is clear (room, kitchen, street, shop, office).
 Then describe the main things in view: people, furniture, screens, doors, windows, objects in the path, and what is happening.
-Use plain spoken English. Do not list colors unless they help. Do not invent objects. If the photo is too dark or blurry, say that."""
+Use plain spoken English. Do not list colors unless they help. Do not invent objects.
+Describe whatever is visible, even when the picture is dim. Only say the picture is too dark when it is completely black."""
 
 QUESTION_PROMPT = """You are assisting a visually impaired person. Answer the user's question about this image in one or two short spoken sentences.
 If you are not sure, say you are not sure. Do not invent details.
@@ -97,6 +98,19 @@ def _unusable_reply(text: str) -> bool:
     return bool(_UNUSABLE_REPLY.search(cleaned))
 
 
+_REFUSAL = re.compile(
+    r"could(?: not|'t) see that clearly|could(?: not|'t) see the photo clearly|having trouble processing the image",
+    re.I,
+)
+
+
+def _refusal(text: str) -> bool:
+    cleaned = " ".join((text or "").split())
+    if not cleaned or len(cleaned) > 180:
+        return False
+    return bool(_REFUSAL.search(cleaned))
+
+
 class GeminiService:
     def __init__(self, api_key: str, model_name: str):
         self.api_key = api_key
@@ -119,7 +133,22 @@ class GeminiService:
                 break
         return unique
 
-    def _post(self, model_name: str, prompt: str, jpeg: bytes, max_tokens: int, api_key: str, *, thinking: bool):
+    def _post(
+        self,
+        model_name: str,
+        prompt: str,
+        jpeg: bytes,
+        max_tokens: int,
+        api_key: str,
+        *,
+        thinking: bool,
+        camel_case: bool,
+    ):
+        image = base64.b64encode(jpeg).decode("ascii")
+        if camel_case:
+            image_part = {"inlineData": {"mimeType": "image/jpeg", "data": image}}
+        else:
+            image_part = {"inline_data": {"mime_type": "image/jpeg", "data": image}}
         generation = {
             "temperature": 0.4,
             "maxOutputTokens": max_tokens,
@@ -129,15 +158,8 @@ class GeminiService:
         body = {
             "contents": [
                 {
-                    "parts": [
-                        {"text": prompt},
-                        {
-                            "inlineData": {
-                                "mimeType": "image/jpeg",
-                                "data": base64.b64encode(jpeg).decode("ascii"),
-                            }
-                        },
-                    ]
+                    "role": "user",
+                    "parts": [image_part, {"text": prompt}],
                 }
             ],
             "generationConfig": generation,
@@ -174,61 +196,79 @@ class GeminiService:
         key_failed = False
         for row, api_key in keys:
             for model_name in self._models_to_try():
-                thinking_passes = (True, False) if ("2.5" in model_name or model_name.startswith("gemini-3")) else (False,)
+                thinking_passes = (False, True) if ("2.5" in model_name or model_name.startswith("gemini-3")) else (False,)
                 for thinking in thinking_passes:
-                    log_event("GEMINI_REQUEST", model=model_name, max_tokens=max_tokens, thinking=thinking)
-                    try:
-                        response = self._post(
-                            model_name, prompt, jpeg, max_tokens, api_key, thinking=thinking
-                        )
-                    except requests.Timeout as exc:
-                        log_event("GEMINI_TIMEOUT", seconds=VISION_TIMEOUT_SEC, model=model_name)
-                        last_error = exc
-                        break
-                    except requests.RequestException as exc:
-                        log_error("GEMINI_ERROR", exc)
-                        last_error = exc
-                        mark_error(row, type(exc).__name__)
-                        key_failed = True
-                        break
-                    if response.status_code in {401, 403, 429} or (
-                        response.status_code == 400 and "API key" in (response.text or "")
-                    ):
+                    for camel_case in (False, True):
                         log_event(
-                            "GEMINI_HTTP_ERROR",
-                            status=response.status_code,
+                            "GEMINI_REQUEST",
                             model=model_name,
-                            body=(response.text or "")[:240],
+                            max_tokens=max_tokens,
+                            thinking=thinking,
+                            camel_case=camel_case,
                         )
-                        mark_error(row, f"HTTP {response.status_code}")
-                        last_error = GeminiServiceError("I'm having trouble processing the image. Please try again.")
-                        key_failed = True
+                        try:
+                            response = self._post(
+                                model_name,
+                                prompt,
+                                jpeg,
+                                max_tokens,
+                                api_key,
+                                thinking=thinking,
+                                camel_case=camel_case,
+                            )
+                        except requests.Timeout as exc:
+                            log_event("GEMINI_TIMEOUT", seconds=VISION_TIMEOUT_SEC, model=model_name)
+                            last_error = exc
+                            break
+                        except requests.RequestException as exc:
+                            log_error("GEMINI_ERROR", exc)
+                            last_error = exc
+                            mark_error(row, type(exc).__name__)
+                            key_failed = True
+                            break
+                        if response.status_code in {401, 403, 429} or (
+                            response.status_code == 400 and "API key" in (response.text or "")
+                        ):
+                            log_event(
+                                "GEMINI_HTTP_ERROR",
+                                status=response.status_code,
+                                model=model_name,
+                                body=(response.text or "")[:240],
+                            )
+                            mark_error(row, f"HTTP {response.status_code}")
+                            last_error = GeminiServiceError("I'm having trouble processing the image. Please try again.")
+                            key_failed = True
+                            break
+                        if response.status_code >= 400:
+                            log_event(
+                                "GEMINI_HTTP_ERROR",
+                                status=response.status_code,
+                                model=model_name,
+                                body=(response.text or "")[:240],
+                            )
+                            last_error = GeminiServiceError("I'm having trouble processing the image. Please try again.")
+                            body = (response.text or "").lower()
+                            if camel_case is False and ("unknown name" in body or "inlinedata" in body or "inline_data" in body):
+                                continue
+                            break
+                        try:
+                            payload = response.json()
+                        except ValueError as exc:
+                            log_event("GEMINI_BAD_JSON", model=model_name)
+                            last_error = exc
+                            break
+                        text = _parts_text(payload)
+                        if not text or _unusable_reply(text) or _refusal(text):
+                            log_event("GEMINI_EMPTY", model=model_name, chars=len(text or ""))
+                            last_error = GeminiServiceError(
+                                "The camera is on, but that picture did not come through. Hold the phone steady and try again."
+                            )
+                            break
+                        mark_ok(row)
+                        log_event("GEMINI_SUCCESS", model=model_name, chars=len(text))
+                        return text
+                    if key_failed or isinstance(last_error, requests.Timeout):
                         break
-                    if response.status_code >= 400:
-                        log_event(
-                            "GEMINI_HTTP_ERROR",
-                            status=response.status_code,
-                            model=model_name,
-                            body=(response.text or "")[:240],
-                        )
-                        last_error = GeminiServiceError("I could not see that clearly. Please try again.")
-                        if thinking and response.status_code == 400:
-                            continue
-                        break
-                    try:
-                        payload = response.json()
-                    except ValueError as exc:
-                        log_event("GEMINI_BAD_JSON", model=model_name)
-                        last_error = exc
-                        break
-                    text = _parts_text(payload)
-                    if not text or _unusable_reply(text):
-                        log_event("GEMINI_EMPTY", model=model_name, chars=len(text or ""))
-                        last_error = GeminiServiceError("I could not see that clearly. Please try again.")
-                        break
-                    mark_ok(row)
-                    log_event("GEMINI_SUCCESS", model=model_name, chars=len(text))
-                    return text
                 if key_failed:
                     break
             if key_failed:

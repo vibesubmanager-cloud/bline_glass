@@ -201,7 +201,10 @@ class CameraService {
 
   frameLooksBlank(ctx, width, height) {
     try {
-      const sample = ctx.getImageData(0, 0, Math.min(width, 64), Math.min(height, 64));
+      const size = 64;
+      const x = Math.max(0, Math.floor(width / 2 - size / 2));
+      const y = Math.max(0, Math.floor(height / 2 - size / 2));
+      const sample = ctx.getImageData(x, y, Math.min(size, width), Math.min(size, height));
       const data = sample.data;
       let sum = 0;
       let pixels = 0;
@@ -215,20 +218,7 @@ class CameraService {
     }
   }
 
-  async captureBlob(quality = 0.72, maxW = 960) {
-    if (!this.liveVideo() || !this.video || this.video.readyState < 2 || !(this.video.videoWidth > 8)) {
-      throw Object.assign(new Error("The camera is not ready yet."), { code: "CAMERA_UNAVAILABLE" });
-    }
-    const canvas = document.createElement("canvas");
-    const scale = Math.min(1, maxW / this.video.videoWidth);
-    canvas.width = Math.max(2, Math.round(this.video.videoWidth * scale));
-    canvas.height = Math.max(2, Math.round(this.video.videoHeight * scale));
-    this.lastCapture = { width: canvas.width, height: canvas.height };
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    ctx.drawImage(this.video, 0, 0, canvas.width, canvas.height);
-    if (this.frameLooksBlank(ctx, canvas.width, canvas.height)) {
-      throw Object.assign(new Error("The camera picture is still blank."), { code: "CAMERA_BLANK" });
-    }
+  blobFromCanvas(canvas, quality) {
     return new Promise((resolve, reject) => {
       canvas.toBlob(
         (blob) => {
@@ -239,6 +229,61 @@ class CameraService {
         quality
       );
     });
+  }
+
+  async captureFromTrack(maxW, quality) {
+    const track = this.stream?.getVideoTracks?.().find((item) => item.readyState === "live");
+    if (!track || typeof ImageCapture !== "function") return null;
+    try {
+      const shot = new ImageCapture(track);
+      let bitmap = null;
+      if (typeof shot.grabFrame === "function") {
+        bitmap = await shot.grabFrame();
+      }
+      if (bitmap) {
+        const scale = Math.min(1, maxW / (bitmap.width || maxW));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(2, Math.round((bitmap.width || maxW) * scale));
+        canvas.height = Math.max(2, Math.round((bitmap.height || maxW) * scale));
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        bitmap.close?.();
+        if (this.frameLooksBlank(ctx, canvas.width, canvas.height)) return null;
+        this.lastCapture = { width: canvas.width, height: canvas.height };
+        return await this.blobFromCanvas(canvas, quality);
+      }
+      if (typeof shot.takePhoto === "function") {
+        const photo = await shot.takePhoto();
+        if (photo && photo.size > 800) return photo;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  async captureBlob(quality = 0.72, maxW = 960) {
+    if (!this.liveVideo()) {
+      throw Object.assign(new Error("The camera is not ready yet."), { code: "CAMERA_UNAVAILABLE" });
+    }
+    const fromTrack = await this.captureFromTrack(maxW, quality);
+    if (fromTrack) return fromTrack;
+    if (!this.video || this.video.readyState < 2 || !(this.video.videoWidth > 8)) {
+      throw Object.assign(new Error("The camera is not ready yet."), { code: "CAMERA_UNAVAILABLE" });
+    }
+    await this.video.play().catch(() => undefined);
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const canvas = document.createElement("canvas");
+    const scale = Math.min(1, maxW / this.video.videoWidth);
+    canvas.width = Math.max(2, Math.round(this.video.videoWidth * scale));
+    canvas.height = Math.max(2, Math.round(this.video.videoHeight * scale));
+    this.lastCapture = { width: canvas.width, height: canvas.height };
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(this.video, 0, 0, canvas.width, canvas.height);
+    if (this.frameLooksBlank(ctx, canvas.width, canvas.height)) {
+      throw Object.assign(new Error("The camera picture is still blank."), { code: "CAMERA_BLANK" });
+    }
+    return this.blobFromCanvas(canvas, quality);
   }
 
   async waitForLiveFrame(videoEl, ms = 4500) {

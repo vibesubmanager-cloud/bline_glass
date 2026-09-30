@@ -14,7 +14,9 @@ async function sendVision(path, extra = {}, signal) {
       Object.entries(extra).forEach(([key, value]) => form.append(key, value));
       const data = await api(path, { method: "POST", body: form, isForm: true, signal, timeout: 55000 });
       armVisionSpeaker();
-      return data.spoken || data.description || data.answer || data.text || "I could not see that clearly. Please try again.";
+      const spoken = data.spoken || data.description || data.answer || data.text;
+      if (!spoken) throw Object.assign(new Error("The camera is on, but that picture did not come through. Hold the phone steady and try again."), { code: "VISION_SERVICE_ERROR" });
+      return spoken;
     } catch (error) {
       lastError = error;
       const retry = error?.code === "TIMEOUT" || error?.code === "NETWORK_ERROR" || error?.code === "VISION_SERVICE_ERROR";
