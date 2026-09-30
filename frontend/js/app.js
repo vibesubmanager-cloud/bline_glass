@@ -1,4 +1,4 @@
-import { getToken, pages, getSettings, getUser } from "./config.js";
+import { getToken, pages, getSettings, getUser, clearSession } from "./config.js";
 import { ApiError, isOnline, api } from "./api.js";
 import { appState, STATES } from "./state.js";
 import { voice } from "./voice.js";
@@ -8,8 +8,8 @@ import { detectObjects, ensureOnDeviceYolo } from "./detection.js";
 import { speakOut } from "./speak-out.js";
 import { preloadYolo } from "./yolo-preload.js";
 import { isYoloInstalled, onYoloProgress, holdDetectionAwake, releaseDetectionAwake, warmYoloIfInstalled } from "./yolo-on-device.js";
-import { readScene, describeScene, askAboutScene } from "./vision.js?v=5";
-import { armVisionSpeaker, speakVision } from "./vision-speak.js?v=3";
+import { readScene, describeScene, askAboutScene } from "./vision.js?v=6";
+import { armVisionSpeaker, speakVision } from "./vision-speak.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { markHomeEntryOk, privacyPromptRequired } from "./entry.js";
 import { calls, startOnHome, takeQueuedHomeCall } from "./calls.js?v=16";
@@ -462,10 +462,14 @@ async function executeCommand(parsed, text) {
         await speakVision(spoken);
       } catch (error) {
         setAiStatus("");
-        const message = error.message || "I could not read that. Please try again.";
+        const message = error.message || "I could not see that. Please try again.";
         setStatus(message);
         showVoiceReply(text, message);
         await speakVision(message);
+        if (error?.status === 401) {
+          clearSession();
+          location.href = pages().welcome;
+        }
       } finally {
         const popup = document.getElementById("turn-on-popup");
         if (!popup || popup.classList.contains("hidden")) voice.muteBackground(false);
@@ -891,6 +895,8 @@ async function startCameraNow() {
 }
 
 const turnOnReady = { camera: false, voice: false, gps: false };
+const turnOnBusy = { camera: false, voice: false, gps: false };
+let gpsTurnOn = null;
 
 function setTurnOnStatus(text) {
   const status = document.getElementById("turn-on-status");
@@ -985,8 +991,9 @@ async function showTurnOnPopup() {
 }
 
 async function enableCameraFromPopup() {
-  setTurnOnStatus("Turning the camera on.");
-  await camera.start(document.getElementById("camera-preview"), { includeAudio: false });
+  const preview = document.getElementById("camera-preview");
+  if (!camera.liveVideo()) setTurnOnStatus("Turning the camera on.");
+  await camera.ensureStarted(preview);
   setLive(true);
   turnOnReady.camera = true;
   paintTurnOn();
@@ -995,7 +1002,7 @@ async function enableCameraFromPopup() {
 
 async function enableVoiceFromPopup() {
   voice.unlock({ fromGesture: true });
-  setTurnOnStatus("Turning voice on.");
+  if (!camera._micGranted) setTurnOnStatus("Turning voice on.");
   await camera.primeMicrophone();
   turnOnReady.voice = true;
   paintTurnOn();
@@ -1003,14 +1010,22 @@ async function enableVoiceFromPopup() {
 }
 
 async function enableGpsFromPopup() {
-  const pos = await requestLocationAccess();
+  setTurnOnStatus("Turning GPS on.");
+  if (!gpsTurnOn) {
+    gpsTurnOn = requestLocationAccess().finally(() => {
+      gpsTurnOn = null;
+    });
+  }
+  const pos = await gpsTurnOn;
   markGps(true, pos);
   turnOnReady.gps = true;
   paintTurnOn();
   await voice.speak("GPS on.", { interrupt: true, foreground: true });
 }
 
-async function runTurnOn(action) {
+async function runTurnOn(kind, action) {
+  if (turnOnBusy[kind]) return;
+  turnOnBusy[kind] = true;
   voice.unlock({ fromGesture: true });
   try {
     await action();
@@ -1018,6 +1033,8 @@ async function runTurnOn(action) {
     const message = error?.message || "That is still off. Try the button again.";
     setTurnOnStatus(message);
     await voice.speak(message, { interrupt: true, foreground: true });
+  } finally {
+    turnOnBusy[kind] = false;
   }
 }
 
@@ -1025,9 +1042,9 @@ function bindTurnOnPopup() {
   const popup = document.getElementById("turn-on-popup");
   if (!popup || popup.dataset.bound === "1") return;
   popup.dataset.bound = "1";
-  document.getElementById("enable-camera")?.addEventListener("click", () => runTurnOn(enableCameraFromPopup));
-  document.getElementById("enable-voice")?.addEventListener("click", () => runTurnOn(enableVoiceFromPopup));
-  document.getElementById("enable-gps")?.addEventListener("click", () => runTurnOn(enableGpsFromPopup));
+  document.getElementById("enable-camera")?.addEventListener("click", () => runTurnOn("camera", enableCameraFromPopup));
+  document.getElementById("enable-voice")?.addEventListener("click", () => runTurnOn("voice", enableVoiceFromPopup));
+  document.getElementById("enable-gps")?.addEventListener("click", () => runTurnOn("gps", enableGpsFromPopup));
   document.getElementById("turn-on-refresh")?.addEventListener("click", () => {
     voice.unlock({ fromGesture: true });
     location.reload();

@@ -59,7 +59,35 @@ class CameraService {
     this._micGranted = false;
   }
 
-  async start(videoEl, { includeAudio = false } = {}) {
+  liveVideo() {
+    return Boolean(this.stream?.active && this.stream.getVideoTracks().some((track) => track.readyState === "live"));
+  }
+
+  attachPreview(videoEl) {
+    this.video = videoEl || this.video || document.getElementById("camera-preview");
+    if (!this.video || !this.stream) return Promise.resolve();
+    this.video.setAttribute("playsinline", "true");
+    this.video.setAttribute("webkit-playsinline", "true");
+    this.video.muted = true;
+    this.video.autoplay = true;
+    this.video.playsInline = true;
+    if (this.video.srcObject !== this.stream) this.video.srcObject = this.stream;
+    return this.video.play().catch(() => undefined);
+  }
+
+  async start(videoEl, options = {}) {
+    if (this.liveVideo()) {
+      await this.attachPreview(videoEl);
+      return this.stream;
+    }
+    if (this._starting) return this._starting;
+    this._starting = this.openCamera(videoEl, options).finally(() => {
+      this._starting = null;
+    });
+    return this._starting;
+  }
+
+  async openCamera(videoEl, { includeAudio = false } = {}) {
     if (!window.isSecureContext) {
       throw Object.assign(
         new Error("iPhone blocks camera on http. Open this app in Safari using the https address."),
@@ -68,6 +96,10 @@ class CameraService {
     }
     if (!navigator.mediaDevices?.getUserMedia) {
       throw Object.assign(new Error("I can't access the camera."), { code: "CAMERA_UNAVAILABLE" });
+    }
+    if (this.stream) {
+      this.stream.getTracks().forEach((track) => track.stop());
+      this.stream = null;
     }
     this.video = videoEl || document.getElementById("camera-preview");
     if (this.video) {
@@ -133,12 +165,8 @@ class CameraService {
   }
 
   async ensureStarted(videoEl) {
-    if (this.stream && this.stream.active) {
-      this.video = videoEl || this.video || document.getElementById("camera-preview");
-      if (this.video && this.video.srcObject !== this.stream) {
-        this.video.srcObject = this.stream;
-        await this.video.play().catch(() => undefined);
-      }
+    if (this.liveVideo()) {
+      await this.attachPreview(videoEl);
       return this.stream;
     }
     return this.start(videoEl);
@@ -146,6 +174,22 @@ class CameraService {
 
   async primeMicrophone() {
     if (this._micGranted) return true;
+    if (this._micStarting) return this._micStarting;
+    this._micStarting = this.openMicrophone().finally(() => {
+      this._micStarting = null;
+    });
+    return this._micStarting;
+  }
+
+  async openMicrophone() {
+    if (this._micGranted) return true;
+    if (this._starting) {
+      try {
+        await this._starting;
+      } catch {
+        /* The camera can fail on its own. The microphone is a separate tap. */
+      }
+    }
     if (!navigator.mediaDevices?.getUserMedia) {
       throw Object.assign(new Error("I can't access the microphone."), { code: "MIC_UNAVAILABLE" });
     }
@@ -155,17 +199,36 @@ class CameraService {
     return true;
   }
 
+  frameLooksBlank(ctx, width, height) {
+    try {
+      const sample = ctx.getImageData(0, 0, Math.min(width, 64), Math.min(height, 64));
+      const data = sample.data;
+      let sum = 0;
+      let pixels = 0;
+      for (let i = 0; i < data.length; i += 16) {
+        sum += data[i] + data[i + 1] + data[i + 2];
+        pixels += 1;
+      }
+      return pixels > 0 && sum / pixels < 18;
+    } catch {
+      return false;
+    }
+  }
+
   async captureBlob(quality = 0.72, maxW = 960) {
-    if (!this.video || this.video.readyState < 2) {
+    if (!this.liveVideo() || !this.video || this.video.readyState < 2 || !(this.video.videoWidth > 8)) {
       throw Object.assign(new Error("The camera is not ready yet."), { code: "CAMERA_UNAVAILABLE" });
     }
     const canvas = document.createElement("canvas");
-    const scale = Math.min(1, maxW / (this.video.videoWidth || maxW));
-    canvas.width = Math.round((this.video.videoWidth || 960) * scale);
-    canvas.height = Math.round((this.video.videoHeight || 720) * scale);
+    const scale = Math.min(1, maxW / this.video.videoWidth);
+    canvas.width = Math.max(2, Math.round(this.video.videoWidth * scale));
+    canvas.height = Math.max(2, Math.round(this.video.videoHeight * scale));
     this.lastCapture = { width: canvas.width, height: canvas.height };
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
     ctx.drawImage(this.video, 0, 0, canvas.width, canvas.height);
+    if (this.frameLooksBlank(ctx, canvas.width, canvas.height)) {
+      throw Object.assign(new Error("The camera picture is still blank."), { code: "CAMERA_BLANK" });
+    }
     return new Promise((resolve, reject) => {
       canvas.toBlob(
         (blob) => {
@@ -215,9 +278,26 @@ class CameraService {
   }
 
   async captureFile({ quality = 0.72, maxW = 960 } = {}) {
-    await this.waitForLiveFrame(document.getElementById("camera-preview"));
-    const blob = await this.captureBlob(quality, maxW);
-    return new File([blob], "capture.jpg", { type: "image/jpeg" });
+    const preview = document.getElementById("camera-preview");
+    let lastError;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      await this.waitForLiveFrame(preview);
+      try {
+        const blob = await this.captureBlob(quality, maxW);
+        return new File([blob], "capture.jpg", { type: "image/jpeg" });
+      } catch (error) {
+        lastError = error;
+        if (error?.code !== "CAMERA_BLANK" && error?.code !== "CAMERA_UNAVAILABLE") throw error;
+        await new Promise((resolve) => setTimeout(resolve, 350));
+      }
+    }
+    if (lastError?.code === "CAMERA_BLANK") {
+      throw Object.assign(
+        new Error("The camera picture is still blank. Hold the phone steady and try again."),
+        { code: "CAMERA_BLANK" }
+      );
+    }
+    throw lastError || Object.assign(new Error("The camera is not ready yet."), { code: "CAMERA_UNAVAILABLE" });
   }
 
   stop() {

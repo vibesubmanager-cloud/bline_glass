@@ -83,6 +83,20 @@ def _parts_text(payload: dict) -> str:
     return "\n".join(bits).strip()
 
 
+_UNUSABLE_REPLY = re.compile(
+    r"\b(invalid|api key not valid|malformed|request contains an invalid)\b",
+    re.I,
+)
+
+
+def _unusable_reply(text: str) -> bool:
+    """A short API-style failure must not be spoken as the scene."""
+    cleaned = " ".join((text or "").split())
+    if not cleaned or len(cleaned) > 240:
+        return False
+    return bool(_UNUSABLE_REPLY.search(cleaned))
+
+
 class GeminiService:
     def __init__(self, api_key: str, model_name: str):
         self.api_key = api_key
@@ -94,7 +108,7 @@ class GeminiService:
         return bool(self.api_key or active_secrets("gemini"))
 
     def _models_to_try(self) -> list[str]:
-        ordered = [_FAST_VISION_MODEL, self.model_name, *_FALLBACK_VISION_MODELS]
+        ordered = [_FAST_VISION_MODEL, *_FALLBACK_VISION_MODELS, self.model_name]
         unique: list[str] = []
         seen: set[str] = set()
         for name in ordered:
@@ -105,25 +119,28 @@ class GeminiService:
                 break
         return unique
 
-    def _post(self, model_name: str, prompt: str, jpeg: bytes, max_tokens: int, api_key: str):
+    def _post(self, model_name: str, prompt: str, jpeg: bytes, max_tokens: int, api_key: str, *, thinking: bool):
+        generation = {
+            "temperature": 0.4,
+            "maxOutputTokens": max_tokens,
+        }
+        if thinking:
+            generation["thinkingConfig"] = {"thinkingBudget": 0}
         body = {
             "contents": [
                 {
                     "parts": [
                         {"text": prompt},
                         {
-                            "inline_data": {
-                                "mime_type": "image/jpeg",
+                            "inlineData": {
+                                "mimeType": "image/jpeg",
                                 "data": base64.b64encode(jpeg).decode("ascii"),
                             }
                         },
                     ]
                 }
             ],
-            "generationConfig": {
-                "temperature": 0.4,
-                "maxOutputTokens": max_tokens,
-            },
+            "generationConfig": generation,
         }
         return requests.post(
             GEMINI_URL.format(model=model_name),
@@ -157,43 +174,63 @@ class GeminiService:
         key_failed = False
         for row, api_key in keys:
             for model_name in self._models_to_try():
-                log_event("GEMINI_REQUEST", model=model_name, max_tokens=max_tokens)
-                try:
-                    response = self._post(model_name, prompt, jpeg, max_tokens, api_key)
-                except requests.Timeout as exc:
-                    log_event("GEMINI_TIMEOUT", seconds=VISION_TIMEOUT_SEC, model=model_name)
-                    last_error = exc
-                    continue
-                except requests.RequestException as exc:
-                    log_error("GEMINI_ERROR", exc)
-                    last_error = exc
-                    mark_error(row, type(exc).__name__)
-                    key_failed = True
+                thinking_passes = (True, False) if ("2.5" in model_name or model_name.startswith("gemini-3")) else (False,)
+                for thinking in thinking_passes:
+                    log_event("GEMINI_REQUEST", model=model_name, max_tokens=max_tokens, thinking=thinking)
+                    try:
+                        response = self._post(
+                            model_name, prompt, jpeg, max_tokens, api_key, thinking=thinking
+                        )
+                    except requests.Timeout as exc:
+                        log_event("GEMINI_TIMEOUT", seconds=VISION_TIMEOUT_SEC, model=model_name)
+                        last_error = exc
+                        break
+                    except requests.RequestException as exc:
+                        log_error("GEMINI_ERROR", exc)
+                        last_error = exc
+                        mark_error(row, type(exc).__name__)
+                        key_failed = True
+                        break
+                    if response.status_code in {401, 403, 429} or (
+                        response.status_code == 400 and "API key" in (response.text or "")
+                    ):
+                        log_event(
+                            "GEMINI_HTTP_ERROR",
+                            status=response.status_code,
+                            model=model_name,
+                            body=(response.text or "")[:240],
+                        )
+                        mark_error(row, f"HTTP {response.status_code}")
+                        last_error = GeminiServiceError("I'm having trouble processing the image. Please try again.")
+                        key_failed = True
+                        break
+                    if response.status_code >= 400:
+                        log_event(
+                            "GEMINI_HTTP_ERROR",
+                            status=response.status_code,
+                            model=model_name,
+                            body=(response.text or "")[:240],
+                        )
+                        last_error = GeminiServiceError("I could not see that clearly. Please try again.")
+                        if thinking and response.status_code == 400:
+                            continue
+                        break
+                    try:
+                        payload = response.json()
+                    except ValueError as exc:
+                        log_event("GEMINI_BAD_JSON", model=model_name)
+                        last_error = exc
+                        break
+                    text = _parts_text(payload)
+                    if not text or _unusable_reply(text):
+                        log_event("GEMINI_EMPTY", model=model_name, chars=len(text or ""))
+                        last_error = GeminiServiceError("I could not see that clearly. Please try again.")
+                        break
+                    mark_ok(row)
+                    log_event("GEMINI_SUCCESS", model=model_name, chars=len(text))
+                    return text
+                if key_failed:
                     break
-                if response.status_code in {401, 403, 429}:
-                    log_event("GEMINI_HTTP_ERROR", status=response.status_code, model=model_name)
-                    mark_error(row, f"HTTP {response.status_code}")
-                    last_error = GeminiServiceError("I'm having trouble processing the image. Please try again.")
-                    key_failed = True
-                    break
-                if response.status_code >= 400:
-                    log_event("GEMINI_HTTP_ERROR", status=response.status_code, model=model_name)
-                    last_error = GeminiServiceError("I'm having trouble processing the image. Please try again.")
-                    continue
-                try:
-                    payload = response.json()
-                except ValueError as exc:
-                    log_event("GEMINI_BAD_JSON", model=model_name)
-                    last_error = exc
-                    continue
-                text = _parts_text(payload)
-                if not text:
-                    log_event("GEMINI_EMPTY", model=model_name)
-                    last_error = GeminiServiceError("I could not see the photo clearly. Please try again.")
-                    continue
-                mark_ok(row)
-                log_event("GEMINI_SUCCESS", model=model_name, chars=len(text))
-                return text
             if key_failed:
                 key_failed = False
                 continue
@@ -213,7 +250,7 @@ class GeminiService:
 
     def describe(self, image: Image.Image, *, only_key: str | None = None, key_row=None) -> dict:
         text = _first_sentences(
-            self._generate(DESCRIBE_PROMPT, image, max_tokens=640, only_key=only_key, key_row=key_row),
+            self._generate(DESCRIBE_PROMPT, image, max_tokens=1024, only_key=only_key, key_row=key_row),
             4,
         )
         return {"description": text}

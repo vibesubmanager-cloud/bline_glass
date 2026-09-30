@@ -1652,6 +1652,12 @@ textarea {
   margin-top: 12px;
 }
 
+.turn-on-card .btn {
+  touch-action: manipulation;
+  position: relative;
+  z-index: 1;
+}
+
 #disclaimer-script p,
 #privacy-script p {
   margin: 0 0 12px;
