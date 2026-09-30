@@ -188,6 +188,7 @@ function speakWithBrowser(text) {
 }
 
 export async function speakVision(text) {
+  if (document.documentElement.dataset.nyotaSigningOut === "1") return;
   const cleaned = String(text || "").trim();
   if (!cleaned) return;
   armVisionSpeaker();

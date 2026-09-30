@@ -1,4 +1,4 @@
-import { getApiBase, getToken } from "./config.js";
+import { getApiBase, getToken, signOutToLogin } from "./config.js";
 
 const REQUEST_TIMEOUT_MS = 30000;
 
@@ -54,6 +54,11 @@ export async function api(path, { method = "GET", body, signal, timeout = REQUES
       const message =
         err.message ||
         (response.status === 401 ? "Username or password is incorrect." : "Request failed.");
+      const signingIn = /\/api\/auth\/(?:login|register)|\/api\/admin\/login/.test(path);
+      if (token && response.status === 401 && !signingIn) {
+        signOutToLogin();
+        throw new ApiError("You have been signed out.", "SESSION_ENDED", 401);
+      }
       throw new ApiError(message, err.code || (response.status === 401 ? "AUTH_REQUIRED" : "SERVER_ERROR"), response.status);
     }
     return payload.data;

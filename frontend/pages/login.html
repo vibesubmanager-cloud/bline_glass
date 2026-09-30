@@ -35,7 +35,9 @@
       </p>
     </main>
     <script type="module">
-      import { bindAuthForm, redirectIfAuthed, currentRole } from "../js/auth.js?v=13";
+      import { bindAuthForm, redirectIfAuthed, currentRole } from "../js/auth.js?v=14";
+      import { takeJustSignedOut } from "../js/config.js";
+      import { voice } from "../js/voice.js";
       import { preloadYolo } from "../js/yolo-preload.js";
       redirectIfAuthed();
       preloadYolo();
@@ -55,6 +57,13 @@
         register.textContent = "Create a VIP account";
       }
       bindAuthForm(document.getElementById("login-form"), "login");
+      if (takeJustSignedOut()) {
+        const signedOut = "You have been signed out. Enter your username and password, then select Sign in.";
+        const status = document.getElementById("form-status");
+        if (status) status.textContent = signedOut;
+        document.querySelector("[name='username']")?.focus();
+        voice.speak(signedOut, { foreground: true });
+      }
     </script>
   </body>
 </html>

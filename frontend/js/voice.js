@@ -420,6 +420,7 @@ class VoiceService {
   }
 
   speak(text, { interrupt = true, onStart, priority = 1, rate, foreground = false } = {}) {
+    if (document.documentElement.dataset.nyotaSigningOut === "1") return Promise.resolve();
     const cleaned = (text || "").trim();
     if (!cleaned) return Promise.resolve();
     if (this._muteBackground && !foreground) return Promise.resolve();

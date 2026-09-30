@@ -24,6 +24,33 @@
           }
         }
         const token = localStorage.getItem("VIBE_EYE_TOKEN") || sessionStorage.getItem("VIBE_EYE_TOKEN");
+        function tokenExpired(value) {
+          var part = String(value || "").split(".")[1];
+          if (!part) return true;
+          try {
+            var json = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
+            if (!json || !json.exp) return false;
+            return Date.now() >= Number(json.exp) * 1000 - 5000;
+          } catch (error) {
+            return true;
+          }
+        }
+        if (token && tokenExpired(token)) {
+          var endedRole = "blind";
+          try {
+            endedRole = (JSON.parse(localStorage.getItem("VIBE_EYE_USER") || sessionStorage.getItem("VIBE_EYE_USER") || "{}") || {}).role === "assistant" ? "assistant" : "blind";
+          } catch (error) {
+            endedRole = "blind";
+          }
+          ["VIBE_EYE_TOKEN", "VIBE_EYE_USER", "VIBE_EYE_SETTINGS", "VIBE_EYE_LINKED_BLIND", "AISIGHT_DEVICE_READY", "AISIGHT_GPS_OK"].forEach(function (key) {
+            localStorage.removeItem(key);
+            sessionStorage.removeItem(key);
+          });
+          sessionStorage.removeItem("NYOTA_PRIVACY_REQUIRED");
+          sessionStorage.setItem("NYOTA_JUST_SIGNED_OUT", "1");
+          location.replace("./pages/login.html?role=" + endedRole);
+          return;
+        }
         if (!token) {
           location.replace("./pages/welcome.html");
           return;

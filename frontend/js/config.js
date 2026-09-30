@@ -41,6 +41,56 @@ export function getToken() {
   return readStore(TOKEN_KEY);
 }
 
+export function tokenExpired(token = getToken()) {
+  if (!token) return false;
+  const part = String(token).split(".")[1];
+  if (!part) return true;
+  try {
+    const json = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
+    if (!json || !json.exp) return false;
+    return Date.now() >= Number(json.exp) * 1000 - 5000;
+  } catch {
+    return true;
+  }
+}
+
+export function takeJustSignedOut() {
+  try {
+    const ended = sessionStorage.getItem("NYOTA_JUST_SIGNED_OUT") === "1";
+    sessionStorage.removeItem("NYOTA_JUST_SIGNED_OUT");
+    return ended;
+  } catch {
+    return false;
+  }
+}
+
+export function signOutToLogin() {
+  if (document.documentElement.dataset.nyotaSigningOut === "1") return;
+  document.documentElement.dataset.nyotaSigningOut = "1";
+  try {
+    window.speechSynthesis?.cancel();
+  } catch {
+    /* speech may already be stopped */
+  }
+  document.querySelectorAll("audio").forEach((el) => {
+    try {
+      el.pause();
+    } catch {
+      /* ignore a player that is already gone */
+    }
+  });
+  const role = getUser()?.role === "assistant" ? "assistant" : "blind";
+  clearSession();
+  try {
+    sessionStorage.setItem("NYOTA_JUST_SIGNED_OUT", "1");
+  } catch {
+    /* session storage is optional */
+  }
+  const url = new URL(pages().login);
+  url.searchParams.set("role", role);
+  location.replace(url.href);
+}
+
 export function setSession(token, user, settings, linkedBlind) {
   if (token) writeStore(TOKEN_KEY, token);
   if (user) writeStore(USER_KEY, JSON.stringify(user));

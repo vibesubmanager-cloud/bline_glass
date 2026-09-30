@@ -1,4 +1,4 @@
-import { getToken, pages, getSettings, getUser, clearSession } from "./config.js";
+import { getToken, pages, getSettings, getUser, tokenExpired, signOutToLogin } from "./config.js";
 import { ApiError, isOnline, api } from "./api.js";
 import { appState, STATES } from "./state.js";
 import { voice } from "./voice.js";
@@ -55,6 +55,15 @@ appState.onChange((state) => {
 });
 
 function requireAuth() {
+  try {
+    if (sessionStorage.getItem("NYOTA_JUST_SIGNED_OUT") === "1") return false;
+  } catch {
+    /* session storage is optional */
+  }
+  if (tokenExpired()) {
+    signOutToLogin();
+    return false;
+  }
   if (!getToken()) {
     location.href = pages().welcome;
     return false;
@@ -125,6 +134,7 @@ async function handleCommand(text) {
   try {
     parsed = await interpretCommand(text);
   } catch (error) {
+    if (error?.code === "SESSION_ENDED") return;
     const message = error.message || "I could not understand that. Please try again.";
     showVoiceReply(text, message);
     await voice.speak(message);
@@ -461,15 +471,12 @@ async function executeCommand(parsed, text) {
         showVoiceReply(text, spoken);
         await speakVision(spoken);
       } catch (error) {
+        if (error?.code === "SESSION_ENDED") return;
         setAiStatus("");
         const message = error.message || "I could not see that. Please try again.";
         setStatus(message);
         showVoiceReply(text, message);
         await speakVision(message);
-        if (error?.status === 401) {
-          clearSession();
-          location.href = pages().welcome;
-        }
       } finally {
         const popup = document.getElementById("turn-on-popup");
         if (!popup || popup.classList.contains("hidden")) voice.muteBackground(false);

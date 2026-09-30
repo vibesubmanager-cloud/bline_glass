@@ -1,5 +1,5 @@
 import { api, ApiError } from "./api.js?v=35";
-import { setSession, getApiBase, setApiBase, pages, getToken, getUser, loginUrl } from "./config.js";
+import { setSession, getApiBase, setApiBase, pages, getToken, getUser, loginUrl, tokenExpired, signOutToLogin } from "./config.js";
 import { voice } from "./voice.js";
 import { syncDisclaimerAgreement } from "./disclaimer.js";
 import { privacyPromptRequired, requirePrivacyPrompt } from "./entry.js";
@@ -109,6 +109,10 @@ export function bindApiField() {
 }
 
 export function redirectIfAuthed() {
+  if (tokenExpired()) {
+    signOutToLogin();
+    return;
+  }
   if (!getToken()) return;
   const user = getUser();
   if (privacyPromptRequired()) {
