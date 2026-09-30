@@ -30,6 +30,13 @@ jobs:
           if [ -n "$API" ]; then
             printf 'export const DEFAULT_API_BASE = "%s";\n' "$API" > frontend/js/api-config.js
           fi
+      - name: Give the phone the Gemini key
+        env:
+          KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            python3 -c 'import os; from pathlib import Path; key=os.environ["KEY"].strip(); Path("frontend/js/vision-config.js").write_text("export const GEMINI_API_KEY = " + repr(key) + ";\n")'
+          fi
       - uses: actions/configure-pages@v5
         with:
           enablement: true

@@ -110,7 +110,7 @@ async function fetchTts(text) {
   const auth = getToken();
   if (auth) headers.Authorization = `Bearer ${auth}`;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20000);
+  const timer = setTimeout(() => controller.abort(), 4000);
   try {
     const response = await fetch(`${getApiBase()}/api/voice/speak`, {
       method: "POST",

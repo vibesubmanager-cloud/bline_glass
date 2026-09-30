@@ -8,7 +8,7 @@ import { detectObjects, ensureOnDeviceYolo } from "./detection.js";
 import { speakOut } from "./speak-out.js";
 import { preloadYolo } from "./yolo-preload.js";
 import { isYoloInstalled, onYoloProgress, holdDetectionAwake, releaseDetectionAwake, warmYoloIfInstalled } from "./yolo-on-device.js";
-import { readScene, describeScene, askAboutScene } from "./vision.js?v=7";
+import { readScene, describeScene, askAboutScene, warmGeminiKey } from "./vision.js?v=8";
 import { armVisionSpeaker, speakVision } from "./vision-speak.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { markHomeEntryOk, privacyPromptRequired } from "./entry.js";
@@ -436,7 +436,6 @@ async function executeCommand(parsed, text) {
   }
 
   if (parsed.intent === "READ" || parsed.intent === "DESCRIBE" || parsed.intent === "VISUAL_QUESTION") {
-    await refreshBilling();
     if (!canUseDescribe()) {
       appState.set(detectionMode ? STATES.DETECTING : STATES.IDLE);
       setAiStatus("");
@@ -1150,6 +1149,7 @@ async function boot() {
   });
   preloadYolo();
   warmYoloIfInstalled();
+  warmGeminiKey();
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && detectionMode) holdDetectionAwake();
     if (document.visibilityState !== "visible") return;
