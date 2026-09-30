@@ -230,6 +230,7 @@ class VoiceService {
   }
 
   _cancelBrowserTts() {
+    if (document.documentElement.dataset.nyotaVisionSpeech === "1") return;
     try {
       this.synth?.cancel();
     } catch {
@@ -237,6 +238,13 @@ class VoiceService {
     }
     this._utterance = null;
     this._synthDone = Promise.resolve(false);
+  }
+
+  muteBackground(on) {
+    const next = Boolean(on);
+    const was = Boolean(this._muteBackground);
+    this._muteBackground = next;
+    if (next && !was) this.stopSpeaking();
   }
 
   _stopHtmlPlayer() {
@@ -411,9 +419,10 @@ class VoiceService {
     this._usedMic = true;
   }
 
-  speak(text, { interrupt = true, onStart, priority = 1, rate } = {}) {
+  speak(text, { interrupt = true, onStart, priority = 1, rate, foreground = false } = {}) {
     const cleaned = (text || "").trim();
     if (!cleaned) return Promise.resolve();
+    if (this._muteBackground && !foreground) return Promise.resolve();
     const nextRate = Number(rate);
     this._speakRate = nextRate > 0 ? nextRate : 0;
     appState.lastSpoken = cleaned;

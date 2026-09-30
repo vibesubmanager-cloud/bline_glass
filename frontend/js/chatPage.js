@@ -1,5 +1,5 @@
 import { getToken, pages } from "./config.js";
-import { voice } from "./voice.js?v=44";
+import { voice } from "./voice.js";
 import { recorder } from "./recorder.js";
 import { calls, startOnHome } from "./calls.js?v=16";
 import {

@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { voice } from "./voice.js?v=56";
+import { voice } from "./voice.js";
 import { appState, STATES } from "./state.js";
 import { getToken, getUser, getSettings, pages } from "./config.js";
 import { camera } from "./camera.js";

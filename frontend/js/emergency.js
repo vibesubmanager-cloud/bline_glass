@@ -2,7 +2,7 @@ import { api } from "./api.js";
 import { getSettings } from "./config.js";
 import { navigation, getCurrentPosition } from "./navigation.js";
 import { startOnHome } from "./calls.js?v=16";
-import { voice } from "./voice.js?v=56";
+import { voice } from "./voice.js";
 import { camera } from "./camera.js";
 import { sendChatMessage } from "./messages.js";
 

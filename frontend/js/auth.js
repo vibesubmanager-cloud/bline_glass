@@ -1,6 +1,6 @@
 import { api, ApiError } from "./api.js?v=35";
 import { setSession, getApiBase, setApiBase, pages, getToken, getUser, loginUrl } from "./config.js";
-import { voice } from "./voice.js?v=44";
+import { voice } from "./voice.js";
 import { syncDisclaimerAgreement } from "./disclaimer.js";
 import { privacyPromptRequired, requirePrivacyPrompt } from "./entry.js";
 

@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { getToken, pages } from "./config.js";
-import { voice } from "./voice.js?v=56";
+import { voice } from "./voice.js";
 
 if (!getToken()) location.href = pages().welcome;
 

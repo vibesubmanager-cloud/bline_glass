@@ -160,6 +160,33 @@ function playBlob(el, blob) {
   });
 }
 
+function speakWithBrowser(text) {
+  const synth = window.speechSynthesis;
+  if (!synth || !text) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    document.documentElement.dataset.nyotaVisionSpeech = "1";
+    let settled = false;
+    const done = (ok) => {
+      if (settled) return;
+      settled = true;
+      delete document.documentElement.dataset.nyotaVisionSpeech;
+      resolve(ok);
+    };
+    try {
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "en-GB";
+      utter.rate = 1;
+      utter.volume = 1;
+      utter.onend = () => done(true);
+      utter.onerror = () => done(false);
+      synth.speak(utter);
+      setTimeout(() => done(true), Math.min(30000, Math.max(2500, text.length * 70)));
+    } catch {
+      done(false);
+    }
+  });
+}
+
 export async function speakVision(text) {
   const cleaned = String(text || "").trim();
   if (!cleaned) return;
@@ -173,13 +200,19 @@ export async function speakVision(text) {
     if (my !== speakToken) return;
     const blob = await fetchTts(chunk);
     if (my !== speakToken) return;
-    if (!blob) continue;
+    if (!blob) {
+      await speakWithBrowser(chunk);
+      continue;
+    }
     keep?.pause?.();
     const ok = await playBlob(play, blob);
     if (my !== speakToken) return;
     if (!ok) {
-      armVisionSpeaker();
-      await playBlob(play, blob);
+      const heard = await speakWithBrowser(chunk);
+      if (!heard) {
+        armVisionSpeaker();
+        await playBlob(play, blob);
+      }
     }
   }
   if (my === speakToken) armVisionSpeaker();

@@ -1,15 +1,15 @@
 import { getToken, pages, getSettings, getUser } from "./config.js";
 import { ApiError, isOnline, api } from "./api.js";
 import { appState, STATES } from "./state.js";
-import { voice } from "./voice.js?v=57";
+import { voice } from "./voice.js";
 import { camera } from "./camera.js";
 import { interpretCommand, isAffirmative, isNegative, HELP_TEXT, smallTalkReply } from "./intent.js?v=38";
 import { detectObjects, ensureOnDeviceYolo } from "./detection.js";
 import { speakOut } from "./speak-out.js";
 import { preloadYolo } from "./yolo-preload.js";
 import { isYoloInstalled, onYoloProgress, holdDetectionAwake, releaseDetectionAwake, warmYoloIfInstalled } from "./yolo-on-device.js";
-import { readScene, describeScene, askAboutScene } from "./vision.js?v=4";
-import { armVisionSpeaker, speakVision } from "./vision-speak.js";
+import { readScene, describeScene, askAboutScene } from "./vision.js?v=5";
+import { armVisionSpeaker, speakVision } from "./vision-speak.js?v=3";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { markHomeEntryOk, privacyPromptRequired } from "./entry.js";
 import { calls, startOnHome, takeQueuedHomeCall } from "./calls.js?v=16";
@@ -442,13 +442,13 @@ async function executeCommand(parsed, text) {
   const signal = appState.beginRequest();
   try {
     if (parsed.intent === "READ" || parsed.intent === "DESCRIBE" || parsed.intent === "VISUAL_QUESTION") {
-      voice.unlock({ fromGesture: true });
+      voice.muteBackground(true);
       armVisionSpeaker();
       const looking = parsed.intent === "READ" ? "Reading the page..." : parsed.intent === "DESCRIBE" ? "Looking in front of you..." : "AI is looking...";
       const cue = parsed.intent === "READ" ? "Okay. Reading the page in front of the camera." : "Okay. Looking in front of you.";
       setAiStatus(looking);
-      speakVision(cue);
       try {
+        await speakVision(cue);
         const spoken =
           parsed.intent === "READ"
             ? await readScene(signal)
@@ -459,14 +459,16 @@ async function executeCommand(parsed, text) {
         appState.set(detectionMode ? STATES.DETECTING : STATES.IDLE);
         setStatus(spoken);
         showVoiceReply(text, spoken);
-        armVisionSpeaker();
         await speakVision(spoken);
       } catch (error) {
         setAiStatus("");
-        const message = error.message || "I could not complete that request. Please try again.";
+        const message = error.message || "I could not read that. Please try again.";
         setStatus(message);
         showVoiceReply(text, message);
         await speakVision(message);
+      } finally {
+        const popup = document.getElementById("turn-on-popup");
+        if (!popup || popup.classList.contains("hidden")) voice.muteBackground(false);
       }
       return;
     }
@@ -957,6 +959,7 @@ function hideTurnOnPopup() {
   popup.classList.add("hidden");
   popup.setAttribute("aria-hidden", "true");
   document.querySelector(".stage")?.removeAttribute("inert");
+  voice.muteBackground(false);
 }
 
 async function showTurnOnPopup() {
@@ -968,6 +971,7 @@ async function showTurnOnPopup() {
   popup.classList.remove("hidden");
   popup.setAttribute("aria-hidden", "false");
   document.querySelector(".stage")?.setAttribute("inert", "");
+  voice.muteBackground(true);
   await refreshTurnOnState();
   if (alreadyOpen) return;
   const continueBtn = document.getElementById("turn-on-continue");
@@ -976,7 +980,7 @@ async function showTurnOnPopup() {
     : "Camera, voice, and GPS are on. Select Continue.";
   if (continueBtn?.disabled) setTurnOnStatus("Turn on the camera, voice, and GPS.");
   voice.unlock();
-  voice.speak(spoken);
+  voice.speak(spoken, { foreground: true, interrupt: true });
   (continueBtn?.disabled ? document.getElementById("enable-camera") : continueBtn)?.focus();
 }
 
@@ -986,7 +990,7 @@ async function enableCameraFromPopup() {
   setLive(true);
   turnOnReady.camera = true;
   paintTurnOn();
-  await voice.speak("Camera on.", { interrupt: true });
+  await voice.speak("Camera on.", { interrupt: true, foreground: true });
 }
 
 async function enableVoiceFromPopup() {
@@ -995,7 +999,7 @@ async function enableVoiceFromPopup() {
   await camera.primeMicrophone();
   turnOnReady.voice = true;
   paintTurnOn();
-  await voice.speak("Voice on.", { interrupt: true });
+  await voice.speak("Voice on.", { interrupt: true, foreground: true });
 }
 
 async function enableGpsFromPopup() {
@@ -1003,7 +1007,7 @@ async function enableGpsFromPopup() {
   markGps(true, pos);
   turnOnReady.gps = true;
   paintTurnOn();
-  await voice.speak("GPS on.", { interrupt: true });
+  await voice.speak("GPS on.", { interrupt: true, foreground: true });
 }
 
 async function runTurnOn(action) {
@@ -1013,7 +1017,7 @@ async function runTurnOn(action) {
   } catch (error) {
     const message = error?.message || "That is still off. Try the button again.";
     setTurnOnStatus(message);
-    await voice.speak(message, { interrupt: true });
+    await voice.speak(message, { interrupt: true, foreground: true });
   }
 }
 
@@ -1032,7 +1036,7 @@ function bindTurnOnPopup() {
     voice.unlock({ fromGesture: true });
     if (!(turnOnReady.camera && turnOnReady.voice && turnOnReady.gps)) {
       setTurnOnStatus("Turn on the camera, voice, and GPS. Then select Continue.");
-      await voice.speak("Turn on the camera, voice, and GPS. Then select Continue.", { interrupt: true });
+      await voice.speak("Turn on the camera, voice, and GPS. Then select Continue.", { interrupt: true, foreground: true });
       return;
     }
     markDeviceReady();
@@ -1040,6 +1044,7 @@ function bindTurnOnPopup() {
     hideTurnOnPopup();
     const ready = await startDevicesQuietly();
     await afterDevicesReady(ready);
+    if (ready) speakHomeHint();
   });
 }
 
@@ -1088,6 +1093,16 @@ function openDestSheet() {
 
 function closeDestSheet() {
   document.getElementById("dest-sheet")?.classList.add("hidden");
+}
+
+let homeHintSpoken = false;
+
+function speakHomeHint() {
+  const popup = document.getElementById("turn-on-popup");
+  if (popup && !popup.classList.contains("hidden")) return;
+  if (homeHintSpoken) return;
+  homeHintSpoken = true;
+  voice.speak("Hold the screen to speak. Double tap for object detection.");
 }
 
 async function boot() {
@@ -1222,8 +1237,8 @@ async function boot() {
         })
         .catch(handleFailure);
     }
-  } else {
-    voice.speak("Hold the screen to speak. Double tap for object detection.");
+  } else if (!askTurnOn) {
+    speakHomeHint();
   }
 }
 
