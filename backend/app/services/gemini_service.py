@@ -15,9 +15,10 @@ GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:ge
 VISION_TIMEOUT_SEC = 20
 _DESCRIBE_IMAGE_SIDE = 960
 _READ_IMAGE_SIDE = 1280
-_FAST_VISION_MODEL = "gemini-2.5-flash"
+_FAST_VISION_MODEL = "gemini-3.5-flash"
 _FALLBACK_VISION_MODELS = (
-    "gemini-2.0-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.8-flash",
 )
 
 
@@ -116,7 +117,7 @@ class GeminiService:
             if name and name not in seen:
                 seen.add(name)
                 unique.append(name)
-            if len(unique) >= 2:
+            if len(unique) >= 3:
                 break
         return unique
 
@@ -175,7 +176,7 @@ class GeminiService:
         key_failed = False
         for row, api_key in keys:
             for model_name in self._models_to_try():
-                for thinking in (False, True) if ("2.5" in model_name or model_name.startswith("gemini-3")) else (False,):
+                for thinking in (False, True) if "2.5" in model_name else (False,):
                     log_event("GEMINI_REQUEST", model=model_name, max_tokens=max_tokens, thinking=thinking)
                     try:
                         response = self._post(model_name, prompt, jpeg, max_tokens, api_key, thinking=thinking)
@@ -280,6 +281,6 @@ def get_gemini_service() -> GeminiService:
     if _service is None:
         _service = GeminiService(
             api_key=current_app.config.get("GEMINI_API_KEY", ""),
-            model_name=current_app.config.get("GEMINI_MODEL", "gemini-3.6-flash"),
+            model_name=current_app.config.get("GEMINI_MODEL", "gemini-3.5-flash"),
         )
     return _service
