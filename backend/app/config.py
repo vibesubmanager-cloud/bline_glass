@@ -17,6 +17,32 @@ def _split_origins(value: str) -> list[str]:
     return [item.strip().rstrip("/") for item in value.split(",") if item.strip()]
 
 
+# Always allow the live phone site and the staff site, even when Render's
+# FRONTEND_ORIGINS list was saved with only one of them.
+_REQUIRED_ORIGINS = (
+    "https://vibesubmanager-cloud.github.io",
+    "http://app.nyotatechnology.co.uk",
+    "https://app.nyotatechnology.co.uk",
+    "http://nyotatechnology.co.uk",
+    "https://nyotatechnology.co.uk",
+    "http://www.nyotatechnology.co.uk",
+    "https://www.nyotatechnology.co.uk",
+)
+
+
+def _frontend_origins() -> list[str]:
+    found = _split_origins(
+        os.getenv(
+            "FRONTEND_ORIGINS",
+            "http://localhost:5500,http://127.0.0.1:5500,http://localhost:8080",
+        )
+    )
+    for origin in _REQUIRED_ORIGINS:
+        if origin not in found:
+            found.append(origin)
+    return found
+
+
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
     FLASK_ENV = os.getenv("FLASK_ENV", "production")
@@ -44,12 +70,7 @@ class Config:
     if SQLALCHEMY_DATABASE_URI.startswith("postgresql"):
         SQLALCHEMY_ENGINE_OPTIONS["connect_args"] = {"connect_timeout": 15, "sslmode": "require"}
 
-    FRONTEND_ORIGINS = _split_origins(
-        os.getenv(
-            "FRONTEND_ORIGINS",
-            "http://localhost:5500,http://127.0.0.1:5500,http://localhost:8080",
-        )
-    )
+    FRONTEND_ORIGINS = _frontend_origins()
 
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
