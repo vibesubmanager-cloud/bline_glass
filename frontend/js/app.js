@@ -510,7 +510,12 @@ let holdTalking = false;
 let tapListenTimer = null;
 let lastShortTapAt = 0;
 let pointerDownAt = 0;
+let pointerIsDown = false;
+let listenCue = false;
 let tapListening = false;
+let emergencyArmedUntil = 0;
+let heldSpeech = "";
+let lastHomeActionAt = 0;
 let pendingLocationShare = null;
 let pendingMessage = null;
 let pendingDelete = null;
@@ -677,6 +682,7 @@ async function startDetection() {
   } catch (error) {
     detectionMode = false;
     zone?.classList.remove("is-detecting");
+    paintDetectButton();
     releaseDetectionAwake();
     await handleFailure(error);
     return;
@@ -690,6 +696,7 @@ async function startDetection() {
   }
   if (!detectionMode) return;
   setDetectHud("live");
+  paintDetectButton();
   scheduleDetectionLoop();
 }
 
@@ -707,6 +714,12 @@ async function stopDetection(message = "Object detection stopped.") {
   idleStatus();
   setDetectHud("ready");
   if (message) speakOut(message);
+  paintDetectButton();
+}
+
+function paintDetectButton() {
+  const button = document.querySelector('.home-action[data-action="detect"]');
+  if (button) button.textContent = detectionMode ? "Detection on" : "Detection";
 }
 
 async function toggleDetection() {
@@ -715,15 +728,155 @@ async function toggleDetection() {
   else await startDetection();
 }
 
+function popupIsOpen() {
+  const popup = document.getElementById("turn-on-popup");
+  return Boolean(popup && !popup.classList.contains("hidden"));
+}
+
+async function runHomeAction(action) {
+  if (popupIsOpen() || !requireAuth()) return;
+  voice.unlock({ fromGesture: true });
+  if (holdTalking) {
+    holdTalking = false;
+    voice.finishHoldListen();
+    setListeningUI(false);
+  }
+  if (action === "emergency") {
+    const now = Date.now();
+    if (now > emergencyArmedUntil) {
+      emergencyArmedUntil = now + 4000;
+      setStatus("Press Emergency again.");
+      await voice.speak("Press Emergency again.");
+      return;
+    }
+    emergencyArmedUntil = 0;
+    try {
+      const spoken = await activateEmergency();
+      if (spoken) await voice.speak(spoken);
+    } catch (error) {
+      await voice.speak(error.message || "I could not start the emergency.");
+    }
+    return;
+  }
+  const now = Date.now();
+  if (now - lastHomeActionAt < 450) return;
+  lastHomeActionAt = now;
+  try {
+    if (action === "describe") {
+      await voice.speak("Describe.");
+      await executeCommand({ intent: "DESCRIBE", slots: {} }, "describe what is in front of me");
+      return;
+    }
+    if (action === "read") {
+      await voice.speak("Read.");
+      await executeCommand({ intent: "READ", slots: {} }, "read this");
+      return;
+    }
+    if (action === "detect") {
+      if (detectionMode) {
+        await voice.speak("Detection stopped.");
+        await stopDetection("");
+      } else {
+        await voice.speak("Detection.");
+        await startDetection();
+      }
+      return;
+    }
+    if (action === "where") {
+      await voice.speak("Current location.");
+      const spoken = await navigation.whereAmI();
+      setStatus(spoken);
+      await voice.speak(spoken);
+      return;
+    }
+    if (action === "message") {
+      await voice.speak("Send a message.");
+      const body = await listenForNext("Say the message for your family.");
+      if (!body || isNegative(body)) {
+        await voice.speak(body && isNegative(body) ? "Okay. I will not send that message." : "I did not catch a message.");
+        return;
+      }
+      await sendChatAndSpeak({ type: "text", body });
+      return;
+    }
+    if (action === "photo") {
+      await voice.speak("Send a photo.");
+      const file = await camera.captureFile();
+      await sendChatAndSpeak({ type: "image", file });
+      return;
+    }
+    if (action === "location") {
+      await voice.speak("Send location.");
+      await shareAndSpeak({});
+      return;
+    }
+    if (action === "video") {
+      await voice.speak("Video call.");
+      const spoken = await startOnHome("group", { video: true });
+      if (spoken) await voice.speak(spoken);
+      return;
+    }
+    if (action === "pause") {
+      if (heldSpeech) {
+        const line = heldSpeech;
+        heldSpeech = "";
+        const pauseBtn = document.querySelector('.home-action[data-action="pause"]');
+        if (pauseBtn) pauseBtn.textContent = "Pause";
+        setStatus("Playing.");
+        await voice.speak(line);
+        return;
+      }
+      if (voice.isSpeaking()) {
+        const shown = (statusEl?.textContent || "").trim();
+        heldSpeech = shown && shown !== "Paused." ? shown : appState.lastSpoken || "";
+        voice.stopSpeaking();
+        const pauseBtn = document.querySelector('.home-action[data-action="pause"]');
+        if (pauseBtn) pauseBtn.textContent = "Play";
+        setStatus("Paused.");
+        await voice.speak("Paused.");
+        return;
+      }
+      await voice.speak("Nothing is speaking.");
+    }
+  } catch (error) {
+    if (error?.code === "SESSION_ENDED") return;
+    await voice.speak(error.message || "That did not work. Please try again.");
+  }
+}
+
+function bindHomeActions() {
+  const box = document.getElementById("home-actions");
+  if (!box || box.dataset.bound === "1") return;
+  box.dataset.bound = "1";
+  box.querySelectorAll(".home-action").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      runHomeAction(button.dataset.action);
+    });
+  });
+}
+
 async function beginHoldTalk() {
-  if (holdTalking || tapListening) return;
+  if (holdTalking || tapListening || listenCue) return;
   clearTimeout(tapListenTimer);
-  holdTalking = true;
-  voice.stopSpeaking();
+  listenCue = true;
   setListeningUI(true);
-  setStatus("Listening...");
-  showVoiceReply("", "Listening...");
+  setStatus("Listening mode. You can speak.");
+  showVoiceReply("", "Listening mode. You can speak.");
   if (navigator.vibrate) navigator.vibrate(40);
+  try {
+    await voice.speak("Listening mode. You can speak.");
+  } catch {
+    /* still open the microphone */
+  }
+  listenCue = false;
+  if (!pointerIsDown) {
+    setListeningUI(false);
+    await startTapListen();
+    return;
+  }
+  holdTalking = true;
   try {
     if (!voice.listeningSupported()) {
       holdTalking = false;
@@ -786,6 +939,7 @@ function onZonePointerDown(event) {
   } catch {
     /* not all browsers */
   }
+  pointerIsDown = true;
   pointerDownAt = Date.now();
   if (pointerDownAt - lastShortTapAt < DOUBLE_TAP_MS) {
     lastShortTapAt = 0;
@@ -807,7 +961,9 @@ function onZonePointerDown(event) {
 
 function onZonePointerUp(event) {
   event.preventDefault();
+  pointerIsDown = false;
   voice.unlock({ fromGesture: true });
+  if (listenCue) return;
   const held = Date.now() - pointerDownAt;
   if (holdTimer) {
     clearTimeout(holdTimer);
@@ -1128,7 +1284,7 @@ function speakHomeHint() {
   if (popup && !popup.classList.contains("hidden")) return;
   if (homeHintSpoken) return;
   homeHintSpoken = true;
-  voice.speak("Hold the screen to speak. Double tap for object detection.");
+  voice.speak("Hold the screen to speak. The large buttons work with one press. Press Emergency twice.");
 }
 
 async function boot() {
@@ -1139,6 +1295,7 @@ async function boot() {
   }
   const askTurnOn = getUser()?.role !== "assistant";
   bindTurnOnPopup();
+  bindHomeActions();
   syncDisclaimerAgreement();
   if (!askTurnOn) startCameraNow();
   onYoloProgress((info) => {

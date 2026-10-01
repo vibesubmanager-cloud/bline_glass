@@ -13,7 +13,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Nyota Sight" />
     <title>Nyota Sight</title>
-    <link rel="stylesheet" href="../css/main.css?v=37" />
+    <link rel="stylesheet" href="../css/main.css?v=38" />
     <link rel="stylesheet" href="../css/accessibility.css?v=6" />
     <link rel="stylesheet" href="../css/responsive.css?v=8" />
     <link rel="manifest" href="../manifest.json" />
@@ -27,7 +27,7 @@
         id="interaction-zone"
         class="stage-hit"
         type="button"
-        aria-label="Hold to speak. Double tap to start or stop object detection."
+        aria-label="Hold to speak. Large buttons work with one press. Emergency needs two presses."
       ></button>
 
       <header class="hud-top">
@@ -52,6 +52,20 @@
 
       <p id="live-status" class="sr-only" aria-live="assertive"></p>
       <p id="status-text" class="hud-status" role="status"></p>
+
+      <div id="home-actions" class="home-actions" aria-label="Quick actions">
+        <button class="home-action" type="button" data-action="describe">Describe</button>
+        <button class="home-action" type="button" data-action="read">Read</button>
+        <button class="home-action" type="button" data-action="detect">Detection</button>
+        <button class="home-action" type="button" data-action="where">Current location</button>
+        <p class="home-actions-label">Family</p>
+        <button class="home-action" type="button" data-action="message">Send a message</button>
+        <button class="home-action" type="button" data-action="photo">Send a photo</button>
+        <button class="home-action" type="button" data-action="location">Send location</button>
+        <button class="home-action" type="button" data-action="video">Video call</button>
+        <button class="home-action home-action-wide" type="button" data-action="pause">Pause</button>
+        <button class="home-action home-action-wide home-action-emergency" type="button" data-action="emergency">Emergency</button>
+      </div>
 
       <div id="listen-overlay" class="listen-overlay hidden" aria-hidden="true">
         <div class="mic-glow"></div>
@@ -147,6 +161,6 @@
         </div>
       </div>
     </section>
-    <script type="module" src="../js/app.js?v=100"></script>
+    <script type="module" src="../js/app.js?v=101"></script>
   </body>
 </html>
