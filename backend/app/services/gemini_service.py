@@ -15,13 +15,12 @@ from PIL import Image
 from app.utils.logging import log_error, log_event
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-VISION_TIMEOUT_SEC = 20
+VISION_TIMEOUT_SEC = 12
 _DESCRIBE_IMAGE_SIDE = 960
 _READ_IMAGE_SIDE = 1280
-_FAST_VISION_MODEL = "gemini-3.5-flash"
+_FAST_VISION_MODEL = "gemini-3.5-flash-lite"
 _FALLBACK_VISION_MODELS = (
-    "gemini-3.5-flash-lite",
-    "gemini-3.8-flash",
+    "gemini-3.1-flash-lite",
 )
 
 
@@ -120,7 +119,7 @@ class GeminiService:
             if name and name not in seen:
                 seen.add(name)
                 unique.append(name)
-            if len(unique) >= 3:
+            if len(unique) >= 2:
                 break
         return unique
 
@@ -223,8 +222,10 @@ class GeminiService:
                     if not thinking:
                         continue
                     break
-                if key_failed or isinstance(last_error, requests.Timeout):
+                if key_failed:
                     break
+                if isinstance(last_error, requests.Timeout):
+                    continue
             if key_failed:
                 key_failed = False
                 continue
@@ -284,6 +285,6 @@ def get_gemini_service() -> GeminiService:
     if _service is None:
         _service = GeminiService(
             api_key=current_app.config.get("GEMINI_API_KEY", ""),
-            model_name=current_app.config.get("GEMINI_MODEL", "gemini-3.5-flash"),
+            model_name=current_app.config.get("GEMINI_MODEL", "gemini-3.5-flash-lite"),
         )
     return _service
