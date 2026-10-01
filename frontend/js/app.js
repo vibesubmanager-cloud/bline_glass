@@ -8,7 +8,7 @@ import { detectObjects, ensureOnDeviceYolo } from "./detection.js";
 import { speakOut } from "./speak-out.js";
 import { preloadYolo } from "./yolo-preload.js";
 import { isYoloInstalled, onYoloProgress, holdDetectionAwake, releaseDetectionAwake, warmYoloIfInstalled } from "./yolo-on-device.js";
-import { readScene, describeScene, askAboutScene, warmGeminiKey } from "./vision.js?v=8";
+import { readScene, describeScene, askAboutScene, warmGeminiKey } from "./vision.js?v=9";
 import { armVisionSpeaker, speakVision } from "./vision-speak.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { markHomeEntryOk, privacyPromptRequired } from "./entry.js";
