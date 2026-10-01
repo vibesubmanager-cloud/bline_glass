@@ -12,18 +12,6 @@ from app.utils.validation import ValidationError, load_image_from_base64, load_i
 vision_bp = Blueprint("vision", __name__)
 
 
-@vision_bp.get("/browser-key")
-@login_required
-def browser_key():
-    """The phone calls Gemini itself. This only hands it the key once."""
-    from app.services.key_store import active_secrets
-
-    keys = active_secrets("gemini")
-    if not keys:
-        return fail("GEMINI_KEY_MISSING", "Gemini API key is not configured.", 503)
-    return ok({"key": keys[0][1]})
-
-
 def _load_image():
     if "image" in request.files:
         return load_image_from_upload(request.files["image"])
