@@ -1,5 +1,6 @@
 import { getApiBase, getSettings, getToken } from "./config.js";
 import { camera } from "./camera.js";
+import { stopVisionSpeech } from "./vision-speak.js";
 import { smallTalkReply } from "./intent.js?v=38";
 import { appState, STATES } from "./state.js";
 
@@ -190,7 +191,12 @@ class VoiceService {
       this.voices = this.synth.getVoices();
     }
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) this.restoreSpeaker();
+      if (document.hidden) {
+        stopVisionSpeech();
+        this.stopSpeaking();
+        return;
+      }
+      this.restoreSpeaker();
     });
     document.addEventListener(
       "pointerdown",
@@ -242,9 +248,8 @@ class VoiceService {
 
   muteBackground(on) {
     const next = Boolean(on);
-    const was = Boolean(this._muteBackground);
     this._muteBackground = next;
-    if (next && !was) this.stopSpeaking();
+    if (next) this.stopSpeaking();
   }
 
   _stopHtmlPlayer() {
@@ -274,6 +279,7 @@ class VoiceService {
   }
 
   _stopSpeech() {
+    stopVisionSpeech();
     this._stopWebAudio();
     this._stopHtmlPlayer();
     this._cancelBrowserTts();
@@ -423,6 +429,7 @@ class VoiceService {
     if (document.documentElement.dataset.nyotaSigningOut === "1") return Promise.resolve();
     const cleaned = (text || "").trim();
     if (!cleaned) return Promise.resolve();
+    if (document.documentElement.dataset.nyotaTurnOn === "1" && !foreground) return Promise.resolve();
     if (this._muteBackground && !foreground) return Promise.resolve();
     const nextRate = Number(rate);
     this._speakRate = nextRate > 0 ? nextRate : 0;
@@ -531,11 +538,6 @@ class VoiceService {
   }
 
   async _playSpoken(text, finish, token, inGesture) {
-    const canKick = IS_IOS && !this._holding && this._unlocked;
-    if (canKick) {
-      this._kickSynth(text, token);
-      this._notifyStart();
-    }
     try {
       await this._audioContext()?.resume?.();
     } catch {
@@ -552,14 +554,9 @@ class VoiceService {
         if (token !== this._serverToken) return;
         if (played) {
           heard = true;
-          if (canKick) this._cancelBrowserTts();
           continue;
         }
         if (IS_IOS) {
-          if (canKick) {
-            await this._synthDone;
-            break;
-          }
           voiceLog("BROWSER TTS START");
           this._kickSynth(text, token);
           this._notifyStart();

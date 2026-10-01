@@ -450,6 +450,7 @@ async function executeCommand(parsed, text) {
 
   const signal = appState.beginRequest();
   try {
+    /* DO NOT CHANGE describe, read, or photo questions below. This path is working. Leave it alone. */
     if (parsed.intent === "READ" || parsed.intent === "DESCRIBE" || parsed.intent === "VISUAL_QUESTION") {
       voice.muteBackground(true);
       armVisionSpeaker();
@@ -971,21 +972,23 @@ function hideTurnOnPopup() {
   popup.classList.add("hidden");
   popup.setAttribute("aria-hidden", "true");
   document.querySelector(".stage")?.removeAttribute("inert");
+  delete document.documentElement.dataset.nyotaTurnOn;
   voice.muteBackground(false);
 }
 
-async function showTurnOnPopup() {
+async function showTurnOnPopup(again = false) {
   const popup = document.getElementById("turn-on-popup");
   if (!popup || getUser()?.role === "assistant") return;
   const call = document.getElementById("call-overlay");
   if (call && !call.classList.contains("hidden")) return;
   const alreadyOpen = !popup.classList.contains("hidden");
+  document.documentElement.dataset.nyotaTurnOn = "1";
   popup.classList.remove("hidden");
   popup.setAttribute("aria-hidden", "false");
   document.querySelector(".stage")?.setAttribute("inert", "");
   voice.muteBackground(true);
   await refreshTurnOnState();
-  if (alreadyOpen) return;
+  if (alreadyOpen && !again) return;
   const continueBtn = document.getElementById("turn-on-continue");
   const spoken = continueBtn?.disabled
     ? "Turn on the camera, voice, and GPS. Tap each button. When all three are on, select Continue. If the camera or voice will not come on, select Refresh page."
@@ -1155,7 +1158,7 @@ async function boot() {
     if (sessionStorage.getItem("NYOTA_LEFT_APP") !== "1") return;
     const call = document.getElementById("call-overlay");
     if (call && !call.classList.contains("hidden")) return;
-    showTurnOnPopup();
+    showTurnOnPopup(true);
   });
   setDetectHud("ready");
   applyAppearance();

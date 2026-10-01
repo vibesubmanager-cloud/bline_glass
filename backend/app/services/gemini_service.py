@@ -1,4 +1,7 @@
-"""Gemini vision only: describe, read, and answer questions about a photo."""
+"""Gemini vision only: describe, read, and answer questions about a photo.
+
+DO NOT CHANGE describe, read, or photo questions. This path is working. Leave it alone.
+"""
 
 from __future__ import annotations
 

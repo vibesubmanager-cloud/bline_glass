@@ -1,4 +1,4 @@
-/** Loud describe/read playback only. Does not change object-detection voice. */
+/** Describe/read playback. Do not change how a photo is spoken. The turn-on popup may silence this while it is open. */
 
 import { getApiBase, getToken } from "./config.js";
 
@@ -69,6 +69,30 @@ async function routeToMediaSpeaker(el) {
     if (id) await el.setSinkId(id);
   } catch {
     /* iPhone does not support setSinkId; HTML audio still uses the media speaker / Bluetooth. */
+  }
+}
+
+function turnOnOwnsSpeech() {
+  return document.documentElement.dataset.nyotaTurnOn === "1";
+}
+
+export function stopVisionSpeech() {
+  speakToken += 1;
+  try {
+    if (playEl) {
+      playEl.onended = null;
+      playEl.onerror = null;
+      playEl.pause();
+    }
+    keepEl?.pause?.();
+  } catch {
+    /* already quiet */
+  }
+  delete document.documentElement.dataset.nyotaVisionSpeech;
+  try {
+    window.speechSynthesis?.cancel();
+  } catch {
+    /* already quiet */
   }
 }
 
@@ -162,6 +186,7 @@ function playBlob(el, blob) {
 
 function speakWithBrowser(text) {
   const synth = window.speechSynthesis;
+  if (turnOnOwnsSpeech()) return Promise.resolve(false);
   if (!synth || !text) return Promise.resolve(false);
   return new Promise((resolve) => {
     document.documentElement.dataset.nyotaVisionSpeech = "1";
@@ -189,6 +214,7 @@ function speakWithBrowser(text) {
 
 export async function speakVision(text) {
   if (document.documentElement.dataset.nyotaSigningOut === "1") return;
+  if (turnOnOwnsSpeech()) return;
   const cleaned = String(text || "").trim();
   if (!cleaned) return;
   armVisionSpeaker();
@@ -198,16 +224,16 @@ export async function speakVision(text) {
   await routeToMediaSpeaker(play);
   const chunks = splitChunks(cleaned);
   for (const chunk of chunks) {
-    if (my !== speakToken) return;
+    if (my !== speakToken || turnOnOwnsSpeech()) return;
     const blob = await fetchTts(chunk);
-    if (my !== speakToken) return;
+    if (my !== speakToken || turnOnOwnsSpeech()) return;
     if (!blob) {
       await speakWithBrowser(chunk);
       continue;
     }
     keep?.pause?.();
     const ok = await playBlob(play, blob);
-    if (my !== speakToken) return;
+    if (my !== speakToken || turnOnOwnsSpeech()) return;
     if (!ok) {
       const heard = await speakWithBrowser(chunk);
       if (!heard) {
