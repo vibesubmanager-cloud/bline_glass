@@ -515,7 +515,7 @@ let listenCue = false;
 let tapListening = false;
 let emergencyArmedUntil = 0;
 let heldSpeech = "";
-let lastHomeActionAt = 0;
+const homeActionRunning = new Set();
 let pendingLocationShare = null;
 let pendingMessage = null;
 let pendingDelete = null;
@@ -523,6 +523,10 @@ const heardMessageIds = new Set();
 
 async function listenForNext(prompt) {
   await voice.speak(prompt);
+  return listenNow();
+}
+
+async function listenNow() {
   if (!voice.listeningSupported()) return "";
   tapListening = true;
   setListeningUI(true);
@@ -746,74 +750,67 @@ async function runHomeAction(action) {
     if (now > emergencyArmedUntil) {
       emergencyArmedUntil = now + 4000;
       setStatus("Press Emergency again.");
-      await voice.speak("Press Emergency again.");
+      voice.speak("Press Emergency again.");
       return;
     }
     emergencyArmedUntil = 0;
     try {
       const spoken = await activateEmergency();
-      if (spoken) await voice.speak(spoken);
+      if (spoken) voice.speak(spoken);
     } catch (error) {
-      await voice.speak(error.message || "I could not start the emergency.");
+      voice.speak(error.message || "I could not start the emergency.");
     }
     return;
   }
-  const now = Date.now();
-  if (now - lastHomeActionAt < 450) return;
-  lastHomeActionAt = now;
+  if (homeActionRunning.has(action)) return;
+  homeActionRunning.add(action);
+  if (navigator.vibrate) navigator.vibrate(20);
   try {
     if (action === "describe") {
-      await voice.speak("Describe.");
+      setStatus("Describe.");
       await executeCommand({ intent: "DESCRIBE", slots: {} }, "describe what is in front of me");
       return;
     }
     if (action === "read") {
-      await voice.speak("Read.");
+      setStatus("Read.");
       await executeCommand({ intent: "READ", slots: {} }, "read this");
       return;
     }
-    if (action === "detect") {
-      if (detectionMode) {
-        await voice.speak("Detection stopped.");
-        await stopDetection("");
-      } else {
-        await voice.speak("Detection.");
-        await startDetection();
-      }
-      return;
-    }
     if (action === "where") {
-      await voice.speak("Current location.");
+      setStatus("Current location.");
       const spoken = await navigation.whereAmI();
       setStatus(spoken);
-      await voice.speak(spoken);
+      voice.speak(spoken);
       return;
     }
     if (action === "message") {
-      await voice.speak("Send a message.");
-      const body = await listenForNext("Say the message for your family.");
+      setStatus("Say the message for your family.");
+      const body = await listenNow();
       if (!body || isNegative(body)) {
-        await voice.speak(body && isNegative(body) ? "Okay. I will not send that message." : "I did not catch a message.");
+        voice.speak(body && isNegative(body) ? "Okay. I will not send that message." : "I did not catch a message.");
         return;
       }
       await sendChatAndSpeak({ type: "text", body });
       return;
     }
     if (action === "photo") {
-      await voice.speak("Send a photo.");
+      setStatus("Send a photo.");
       const file = await camera.captureFile();
       await sendChatAndSpeak({ type: "image", file });
       return;
     }
     if (action === "location") {
-      await voice.speak("Send location.");
-      await shareAndSpeak({});
+      setStatus("Sending your location.");
+      const data = await sendChatLocation({});
+      const spoken = data.spoken || "Done. I have sent your location.";
+      setStatus(spoken);
+      voice.speak(spoken);
       return;
     }
     if (action === "video") {
-      await voice.speak("Video call.");
+      setStatus("Video call.");
       const spoken = await startOnHome("group", { video: true });
-      if (spoken) await voice.speak(spoken);
+      if (spoken) voice.speak(spoken);
       return;
     }
     if (action === "pause") {
@@ -840,7 +837,9 @@ async function runHomeAction(action) {
     }
   } catch (error) {
     if (error?.code === "SESSION_ENDED") return;
-    await voice.speak(error.message || "That did not work. Please try again.");
+    voice.speak(error.message || "That did not work. Please try again.");
+  } finally {
+    homeActionRunning.delete(action);
   }
 }
 
@@ -849,7 +848,8 @@ function bindHomeActions() {
   if (!box || box.dataset.bound === "1") return;
   box.dataset.bound = "1";
   box.querySelectorAll(".home-action").forEach((button) => {
-    button.addEventListener("click", (event) => {
+    button.addEventListener("pointerdown", (event) => {
+      if (event.button != null && event.button !== 0) return;
       event.preventDefault();
       event.stopPropagation();
       runHomeAction(button.dataset.action);
