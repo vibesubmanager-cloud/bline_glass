@@ -762,6 +762,20 @@ async function runHomeAction(action) {
     }
     return;
   }
+  /* Detection stays. One press starts it now. The next press stops it. Do not remove this. */
+  if (action === "detect") {
+    if (detectionMode) {
+      stopDetection("");
+      setStatus("Detection stopped.");
+      voice.speak("Detection stopped.");
+    } else {
+      setStatus("Detection.");
+      voice.speak("Detection.");
+      startDetection();
+      paintDetectButton();
+    }
+    return;
+  }
   if (homeActionRunning.has(action)) return;
   homeActionRunning.add(action);
   if (navigator.vibrate) navigator.vibrate(20);
