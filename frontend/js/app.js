@@ -23,6 +23,7 @@ import { refreshBilling, canUseDescribe, PREMIUM_SPOKEN } from "./billing.js";
 import { applyAppLogo } from "./branding.js";
 import { markDeviceReady } from "./device-access.js";
 import { syncDisclaimerAgreement } from "./disclaimer.js";
+import { recorder } from "./recorder.js";
 
 const zone = document.getElementById("interaction-zone");
 const statusEl = document.getElementById("status-text");
@@ -737,6 +738,67 @@ function popupIsOpen() {
   return Boolean(popup && !popup.classList.contains("hidden"));
 }
 
+let messageToken = 0;
+
+function paintMessageButton() {
+  const button = document.querySelector('.home-action[data-action="message"]');
+  if (button) button.textContent = messageToken ? "Send it" : "Send a message";
+}
+
+async function toggleVoiceMessage() {
+  if (messageToken) {
+    const recording = recorder.recording;
+    messageToken = 0;
+    paintMessageButton();
+    if (!recording) {
+      setStatus("I did not hear a message.");
+      voice.speak("I did not hear a message.");
+      return;
+    }
+    setStatus("Sending it.");
+    voice.speak("Sending it.");
+    let file = null;
+    try {
+      file = await recorder.stop();
+    } catch {
+      file = null;
+    }
+    if (!file) {
+      voice.speak("I did not hear a message.");
+      return;
+    }
+    try {
+      await sendChatAndSpeak({ type: "voice", file });
+    } catch (error) {
+      voice.speak(error.message || "I could not send that message.");
+    }
+    return;
+  }
+  const token = Date.now() || 1;
+  messageToken = token;
+  paintMessageButton();
+  setStatus("Start speaking.");
+  if (navigator.vibrate) navigator.vibrate(20);
+  await voice.speak("Start speaking.");
+  if (messageToken !== token) return;
+  try {
+    await recorder.start();
+  } catch (error) {
+    if (messageToken === token) messageToken = 0;
+    paintMessageButton();
+    voice.speak(error.message || "I could not start the microphone.");
+    return;
+  }
+  if (messageToken !== token) {
+    try {
+      const file = await recorder.stop();
+      if (file) await sendChatAndSpeak({ type: "voice", file });
+    } catch {
+      /* the second press already reported this */
+    }
+  }
+}
+
 async function runHomeAction(action) {
   if (popupIsOpen() || !requireAuth()) return;
   voice.unlock({ fromGesture: true });
@@ -760,6 +822,10 @@ async function runHomeAction(action) {
     } catch (error) {
       voice.speak(error.message || "I could not start the emergency.");
     }
+    return;
+  }
+  if (action === "message") {
+    toggleVoiceMessage();
     return;
   }
   /* Detection stays. One press starts it now. The next press stops it. Do not remove this. */
@@ -795,16 +861,6 @@ async function runHomeAction(action) {
       const spoken = await navigation.whereAmI();
       setStatus(spoken);
       voice.speak(spoken);
-      return;
-    }
-    if (action === "message") {
-      setStatus("Say the message for your family.");
-      const body = await listenNow();
-      if (!body || isNegative(body)) {
-        voice.speak(body && isNegative(body) ? "Okay. I will not send that message." : "I did not catch a message.");
-        return;
-      }
-      await sendChatAndSpeak({ type: "text", body });
       return;
     }
     if (action === "photo") {
