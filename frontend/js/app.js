@@ -1,5 +1,5 @@
 import { getToken, pages, getSettings, getUser, tokenExpired, signOutToLogin } from "./config.js";
-import { ApiError, isOnline, api } from "./api.js";
+import { ApiError, isOnline, api, wakeServer } from "./api.js?v=36";
 import { appState, STATES } from "./state.js";
 import { voice } from "./voice.js";
 import { camera } from "./camera.js";
@@ -8,7 +8,7 @@ import { detectObjects, ensureOnDeviceYolo } from "./detection.js";
 import { speakOut } from "./speak-out.js";
 import { preloadYolo } from "./yolo-preload.js";
 import { isYoloInstalled, onYoloProgress, holdDetectionAwake, releaseDetectionAwake, warmYoloIfInstalled } from "./yolo-on-device.js";
-import { readScene, describeScene, askAboutScene } from "./vision.js?v=10";
+import { readScene, describeScene, askAboutScene } from "./vision.js?v=11";
 import { armVisionSpeaker, speakVision } from "./vision-speak.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { markHomeEntryOk, privacyPromptRequired } from "./entry.js";
@@ -1384,6 +1384,7 @@ function speakHomeHint() {
 }
 
 async function boot() {
+  wakeServer();
   if (!requireAuth()) return;
   if (privacyPromptRequired()) {
     location.replace(pages().privacy);

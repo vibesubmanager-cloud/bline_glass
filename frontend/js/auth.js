@@ -1,4 +1,4 @@
-import { api, ApiError } from "./api.js?v=35";
+import { api, ApiError, wakeServer } from "./api.js?v=36";
 import { setSession, getApiBase, setApiBase, pages, getToken, getUser, loginUrl, tokenExpired, signOutToLogin } from "./config.js";
 import { voice } from "./voice.js";
 import { syncDisclaimerAgreement } from "./disclaimer.js";
@@ -15,6 +15,8 @@ export async function afterAuth(result) {
   requirePrivacyPrompt();
   location.assign(pages().privacy);
 }
+
+wakeServer();
 
 export function bindAuthForm(form, mode) {
   const status = document.getElementById("form-status");

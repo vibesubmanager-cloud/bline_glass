@@ -1,6 +1,6 @@
 /* DO NOT CHANGE describe, read, or photo questions. This path is working. Leave it alone. */
 
-import { api } from "./api.js";
+import { api } from "./api.js?v=36";
 import { camera } from "./camera.js";
 import { armVisionSpeaker } from "./vision-speak.js";
 

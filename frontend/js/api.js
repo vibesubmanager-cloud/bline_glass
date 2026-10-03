@@ -1,6 +1,7 @@
 import { getApiBase, getToken, signOutToLogin } from "./config.js";
 
-const REQUEST_TIMEOUT_MS = 30000;
+const REQUEST_TIMEOUT_MS = 45000;
+const WAKE_TIMEOUT_MS = 90000;
 
 export class ApiError extends Error {
   constructor(message, code = "NETWORK_ERROR", status = 0) {
@@ -27,7 +28,7 @@ async function parseBody(response) {
   }
 }
 
-export async function api(path, { method = "GET", body, signal, timeout = REQUEST_TIMEOUT_MS, isForm = false } = {}) {
+async function apiOnce(path, { method = "GET", body, signal, timeout = REQUEST_TIMEOUT_MS, isForm = false } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   const onAbort = () => controller.abort();
@@ -64,13 +65,32 @@ export async function api(path, { method = "GET", body, signal, timeout = REQUES
     return payload.data;
   } catch (error) {
     if (error instanceof ApiError) throw error;
+    if (signal?.aborted) {
+      throw new ApiError("That request took too long. Please try again.", "TIMEOUT");
+    }
     if (error.name === "AbortError") {
       throw new ApiError("That request took too long. Please try again.", "TIMEOUT");
     }
     throw new ApiError("The internet connection looks unavailable.", "NETWORK_ERROR");
   } finally {
     clearTimeout(timer);
+    if (signal) signal.removeEventListener("abort", onAbort);
   }
+}
+
+export async function api(path, options = {}) {
+  try {
+    return await apiOnce(path, options);
+  } catch (error) {
+    if (options._retry || options.signal?.aborted) throw error;
+    if (!(error instanceof ApiError)) throw error;
+    if (error.code !== "TIMEOUT" && error.code !== "NETWORK_ERROR") throw error;
+    return apiOnce(path, { ...options, timeout: Math.max(options.timeout || 0, WAKE_TIMEOUT_MS), _retry: true });
+  }
+}
+
+export function wakeServer() {
+  return api("/api/health", { timeout: WAKE_TIMEOUT_MS, _retry: true }).catch(() => undefined);
 }
 
 export function isOnline() {
