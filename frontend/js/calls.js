@@ -172,13 +172,37 @@ class CallController {
       return;
     }
     if (type === "end" || type === "reject") {
-      if (this._jitsi || this._joined || (this.currentCall && !this._incoming)) {
-        voice.speak("The call stays on until you tap the screen.");
-        return;
-      }
-      const wasLive = Boolean(this.currentCall || this._incoming || this._joined);
+      if (signal.call_id && signal.call_id === this._closedCallId) return;
+      const wasLive = Boolean(this.currentCall || this._incoming || this._joined || this._jitsi);
+      if (!wasLive) return;
       await this.end(false);
-      if (wasLive) await voice.speak(type === "reject" ? "The other person declined the call." : "The call has ended.");
+      await voice.speak(type === "reject" ? "The other person declined the call." : "The call has ended.");
+    }
+  }
+
+  async _prepareDevices(video) {
+    await voice.speak(
+      video
+        ? "If your iPhone asks for the microphone and camera, tap Allow. Allow is on the right."
+        : "If your iPhone asks for the microphone, tap Allow. Allow is on the right.",
+      { foreground: true, interrupt: true }
+    );
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: video ? { facingMode: { ideal: "environment" } } : false,
+      });
+      stream.getTracks().forEach((track) => track.stop());
+      camera._micGranted = true;
+    } catch (error) {
+      const denied = /notallowed|denied|permission/i.test(String(error?.name || error?.message || ""));
+      if (!denied) return;
+      throw new Error(
+        video
+          ? "The video call needs the microphone and camera. Tap Allow on the right."
+          : "The call needs the microphone. Tap Allow on the right."
+      );
     }
   }
 
@@ -304,6 +328,8 @@ class CallController {
       const preview = document.getElementById("camera-preview");
       if (preview) preview.srcObject = null;
     }
+    await this._prepareDevices(Boolean(video));
+    if (this._ending) return;
     const Jitsi = await loadJitsi();
     if (this._ending) return;
     await this._leaveJitsi();
@@ -519,6 +545,7 @@ class CallController {
     this._ending = true;
     const peerId = this._peerId();
     const callId = this.currentCall?.id;
+    if (callId) this._closedCallId = callId;
     const wasLive = Boolean(this.currentCall || this._incoming || this._joined);
     await this._leaveJitsi();
     const preview = document.getElementById("camera-preview");
