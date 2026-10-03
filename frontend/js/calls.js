@@ -171,15 +171,14 @@ class CallController {
       );
       return;
     }
-    if (type === "end") {
+    if (type === "end" || type === "reject") {
+      if (this._jitsi || this._joined || (this.currentCall && !this._incoming)) {
+        voice.speak("The call stays on until you tap the screen.");
+        return;
+      }
       const wasLive = Boolean(this.currentCall || this._incoming || this._joined);
       await this.end(false);
-      if (wasLive) await voice.speak("The call has ended.");
-      return;
-    }
-    if (type === "reject") {
-      await this.end(false);
-      await voice.speak("The other person declined the call.");
+      if (wasLive) await voice.speak(type === "reject" ? "The other person declined the call." : "The call has ended.");
     }
   }
 
@@ -276,14 +275,6 @@ class CallController {
     return 1;
   }
 
-  _watchCallRoom(api, joinToken) {
-    clearInterval(this._watchTimer);
-    this._watchTimer = setInterval(() => {
-      if (this._joinToken !== joinToken || this._ending || !this._joined || !this._hadRemote) return;
-      if (this._participantCount(api) <= 1) this.end(true);
-    }, 1200);
-  }
-
   _bindJitsiLifecycle(api, joinToken) {
     api.addListener("participantJoined", () => {
       if (this._joinToken !== joinToken || this._ending) return;
@@ -295,17 +286,8 @@ class CallController {
     });
     api.addListener("videoConferenceLeft", () => {
       if (this._joinToken !== joinToken || this._ending) return;
-      this.end(true);
+      if (document.hidden) this._leftWhileHidden = true;
     });
-    api.addListener("participantLeft", () => {
-      if (this._joinToken !== joinToken || this._ending || !this._joined) return;
-      if (this._hadRemote && this._participantCount(api) <= 1) this.end(true);
-    });
-    api.addListener("readyToClose", () => {
-      if (this._joinToken !== joinToken || this._ending) return;
-      this.end(true);
-    });
-    this._watchCallRoom(api, joinToken);
   }
 
   async _joinJitsi(jitsi, video) {
@@ -352,16 +334,11 @@ class CallController {
     this._bindJitsiLifecycle(api, joinToken);
     try {
       await new Promise((resolve, reject) => {
-        const fail = setTimeout(() => {
-          reject(new Error("Unable to connect the call. Please try again."));
-        }, 35000);
         const ok = () => {
           if (this._joinToken !== joinToken || this._ending) {
-            clearTimeout(fail);
             resolve();
             return;
           }
-          clearTimeout(fail);
           this._joined = true;
           try {
             const others = typeof api.getNumberOfParticipants === "function" ? api.getNumberOfParticipants() : 1;
@@ -373,13 +350,12 @@ class CallController {
         };
         api.addListener("videoConferenceJoined", ok);
         api.addListener("conferenceFailed", () => {
-          clearTimeout(fail);
-          reject(new Error("Unable to connect the call. Please try again."));
+          this.updateBanner(this.videoMode ? "Still calling." : "Still calling.");
+          resolve();
         });
         api.addListener("errorOccurred", (event) => {
           const raw = String(event?.error?.message || event?.error || event?.name || "");
           if (/permission|notallowed|denied/i.test(raw)) {
-            clearTimeout(fail);
             reject(
               new Error(
                 video
@@ -449,6 +425,7 @@ class CallController {
       },
     });
     this.currentCall = { ...data.call, peer_id: data.call?.callee_id };
+    this._room = data.jitsi || null;
     this.videoMode = video || ["video", "gvideo", "evideo"].includes(data.call?.call_type);
     this._emergencyCall = Boolean(emergency) || Boolean(data.emergency);
     if (data.tel_url && !data.emergency) {
@@ -500,6 +477,7 @@ class CallController {
     try {
       const data = await api("/api/calls/accept", { method: "POST", body: { call_id: incoming.call_id } });
       this.currentCall = { id: incoming.call_id, caller_id: incoming.from_user_id, peer_id: incoming.from_user_id };
+      this._room = data.jitsi || null;
       this._incoming = null;
       this.updateBanner(this.videoMode ? "Connecting video…" : "Connecting…");
       await this._joinJitsi(data.jitsi, this.videoMode);
@@ -562,6 +540,8 @@ class CallController {
       api("/api/calls/end", { method: "POST", body: { call_id: callId } }).catch(() => undefined);
     }
     this.currentCall = null;
+    this._room = null;
+    this._leftWhileHidden = false;
     this._incoming = null;
     this.videoMode = false;
     this._lastOfferId = "";
@@ -636,6 +616,12 @@ class CallController {
       if (appState.value === STATES.CALLING) appState.set(STATES.IDLE);
       throw error;
     }
+  }
+
+  async rejoin() {
+    if (!this._room || this._ending || !this.currentCall) return;
+    this._leftWhileHidden = false;
+    await this._joinJitsi(this._room, this.videoMode);
   }
 
   updateBanner(text) {

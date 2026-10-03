@@ -638,10 +638,12 @@ body.nav-active.map-closed .stage-canvas {
   z-index: 1;
 }
 
+.call-overlay.is-video .jitsi-container,
 .call-overlay.is-video .jitsi-container iframe {
   width: 100% !important;
   height: 100% !important;
   border: 0;
+  pointer-events: none;
 }
 
 .call-debug {

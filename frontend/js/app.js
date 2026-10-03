@@ -12,8 +12,8 @@ import { readScene, describeScene, askAboutScene } from "./vision.js?v=10";
 import { armVisionSpeaker, speakVision } from "./vision-speak.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { markHomeEntryOk, privacyPromptRequired } from "./entry.js";
-import { calls, startOnHome, takeQueuedHomeCall } from "./calls.js?v=16";
-import { activateEmergency } from "./emergency.js?v=2";
+import { calls, startOnHome, takeQueuedHomeCall } from "./calls.js?v=17";
+import { activateEmergency } from "./emergency.js?v=3";
 import { startMessageNotices } from "./notify.js";
 import { setListeningUI, setAiStatus, setLive, setGps, setOnline, setDetectHud, drawDetections, clearDetections, drawRoute, setNavPanel, setMapVisible } from "./overlay.js";
 import { walkingDirectionsOn } from "./shareLocation.js";
@@ -1151,6 +1151,7 @@ function paintTurnOn() {
   const allOn = turnOnReady.camera && turnOnReady.voice && turnOnReady.gps;
   continueBtn.disabled = !allOn;
   if (allOn) setTurnOnStatus("Camera, voice, and GPS are on. Select Continue.");
+  if (allOn) finishTurnOnIfReady();
 }
 
 async function permissionGranted(name) {
@@ -1167,7 +1168,9 @@ async function refreshTurnOnState() {
   const cameraGranted = Boolean(camera.stream?.active) || (await permissionGranted("camera"));
   const voiceGranted = Boolean(camera._micGranted) || (await permissionGranted("microphone"));
   const gpsGranted =
-    sessionStorage.getItem("AISIGHT_GPS_OK") === "1" || (await permissionGranted("geolocation"));
+    localStorage.getItem("AISIGHT_GPS_OK") === "1" ||
+    sessionStorage.getItem("AISIGHT_GPS_OK") === "1" ||
+    (await permissionGranted("geolocation"));
   turnOnReady.camera = cameraGranted;
   turnOnReady.voice = voiceGranted;
   turnOnReady.gps = gpsGranted;
@@ -1192,6 +1195,25 @@ async function refreshTurnOnState() {
   paintTurnOn();
 }
 
+function callIsLive() {
+  const call = document.getElementById("call-overlay");
+  if (call && !call.classList.contains("hidden")) return true;
+  return Boolean(calls.currentCall || calls._jitsi || calls._incoming);
+}
+
+function finishTurnOnIfReady() {
+  if (!(turnOnReady.camera && turnOnReady.voice && turnOnReady.gps)) return;
+  const popup = document.getElementById("turn-on-popup");
+  if (!popup || popup.classList.contains("hidden")) return;
+  markDeviceReady();
+  markHomeEntryOk();
+  hideTurnOnPopup();
+  startDevicesQuietly().then(async (ready) => {
+    await afterDevicesReady(ready);
+    if (ready) speakHomeHint();
+  });
+}
+
 function hideTurnOnPopup() {
   const popup = document.getElementById("turn-on-popup");
   if (!popup) return;
@@ -1204,25 +1226,29 @@ function hideTurnOnPopup() {
 
 async function showTurnOnPopup(again = false) {
   const popup = document.getElementById("turn-on-popup");
-  if (!popup || getUser()?.role === "assistant") return;
-  const call = document.getElementById("call-overlay");
-  if (call && !call.classList.contains("hidden")) return;
+  if (!popup || getUser()?.role === "assistant") return false;
+  if (callIsLive()) return false;
+  await refreshTurnOnState();
+  if (turnOnReady.camera && turnOnReady.voice && turnOnReady.gps) {
+    hideTurnOnPopup();
+    return false;
+  }
   const alreadyOpen = !popup.classList.contains("hidden");
   document.documentElement.dataset.nyotaTurnOn = "1";
   popup.classList.remove("hidden");
   popup.setAttribute("aria-hidden", "false");
   document.querySelector(".stage")?.setAttribute("inert", "");
   voice.muteBackground(true);
-  await refreshTurnOnState();
-  if (alreadyOpen && !again) return;
+  if (alreadyOpen && !again) return true;
   const continueBtn = document.getElementById("turn-on-continue");
-  const spoken = continueBtn?.disabled
-    ? "Turn on the camera, voice, and GPS. Tap each button. When all three are on, select Continue. If the camera or voice will not come on, select Refresh page."
-    : "Camera, voice, and GPS are on. Select Continue.";
-  if (continueBtn?.disabled) setTurnOnStatus("Turn on the camera, voice, and GPS.");
+  setTurnOnStatus("Turn on the camera, voice, and GPS.");
   voice.unlock();
-  voice.speak(spoken, { foreground: true, interrupt: true });
-  (continueBtn?.disabled ? document.getElementById("enable-camera") : continueBtn)?.focus();
+  voice.speak(
+    "Turn on the camera, voice, and GPS. Tap each button. When all three are on, select Continue. If the camera or voice will not come on, select Refresh page.",
+    { foreground: true, interrupt: true }
+  );
+  document.getElementById("enable-camera")?.focus();
+  return true;
 }
 
 async function enableCameraFromPopup() {
@@ -1382,9 +1408,12 @@ async function boot() {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && detectionMode) holdDetectionAwake();
     if (document.visibilityState !== "visible") return;
+    if (callIsLive()) {
+      if (calls._leftWhileHidden && calls._room) calls.rejoin().catch(() => undefined);
+      return;
+    }
     if (sessionStorage.getItem("NYOTA_LEFT_APP") !== "1") return;
-    const call = document.getElementById("call-overlay");
-    if (call && !call.classList.contains("hidden")) return;
+    sessionStorage.removeItem("NYOTA_LEFT_APP");
     showTurnOnPopup(true);
   });
   setDetectHud("ready");
@@ -1393,8 +1422,14 @@ async function boot() {
   idleStatus();
   setOnline(navigator.onLine);
   voice.unlock();
-  if (askTurnOn) showTurnOnPopup();
-  else startDevicesQuietly().then(afterDevicesReady);
+  if (askTurnOn) {
+    showTurnOnPopup().then(async (shown) => {
+      if (shown) return;
+      const ready = await startDevicesQuietly();
+      await afterDevicesReady(ready);
+      if (ready) speakHomeHint();
+    });
+  } else startDevicesQuietly().then(afterDevicesReady);
   let networkJobsStarted = false;
   const startNetworkJobs = () => {
     if (networkJobsStarted) return;
@@ -1433,9 +1468,14 @@ async function boot() {
   };
   document.getElementById("call-answer")?.addEventListener("click", () => calls.acceptIncoming());
   document.getElementById("call-decline")?.addEventListener("click", () => calls.rejectIncoming());
-  document.getElementById("call-end")?.addEventListener("click", async () => {
+  document.getElementById("call-overlay")?.addEventListener("click", (event) => {
+    if (event.target.closest("#call-mute, #call-camera, #call-answer, #call-decline")) return;
+    if (!calls.currentCall && !calls._jitsi) return;
+    calls.end(true);
+  });
+  document.getElementById("call-end")?.addEventListener("click", async (event) => {
+    event.stopPropagation();
     await calls.end(true);
-    if (sessionStorage.getItem("NYOTA_LEFT_APP") === "1") showTurnOnPopup();
   });
   document.getElementById("call-mute")?.addEventListener("click", () => {
     const muted = calls.toggleMute();
