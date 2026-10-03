@@ -1,7 +1,7 @@
 import { getToken, pages } from "./config.js";
 import { voice } from "./voice.js";
 import { recorder } from "./recorder.js";
-import { calls, startOnHome } from "./calls.js?v=17";
+import { calls, startOnHome } from "./calls.js?v=18";
 import {
   loadEmergencyMessages,
   loadGroupMessages,

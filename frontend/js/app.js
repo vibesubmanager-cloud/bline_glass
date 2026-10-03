@@ -12,8 +12,8 @@ import { readScene, describeScene, askAboutScene } from "./vision.js?v=11";
 import { armVisionSpeaker, speakVision } from "./vision-speak.js";
 import { navigation, getCurrentPosition, locationPermissionState, requestLocationAccess } from "./navigation.js";
 import { markHomeEntryOk, privacyPromptRequired } from "./entry.js";
-import { calls, startOnHome, takeQueuedHomeCall } from "./calls.js?v=17";
-import { activateEmergency } from "./emergency.js?v=3";
+import { calls, startOnHome, takeQueuedHomeCall } from "./calls.js?v=18";
+import { activateEmergency } from "./emergency.js?v=4";
 import { startMessageNotices } from "./notify.js";
 import { setListeningUI, setAiStatus, setLive, setGps, setOnline, setDetectHud, drawDetections, clearDetections, drawRoute, setNavPanel, setMapVisible } from "./overlay.js";
 import { walkingDirectionsOn } from "./shareLocation.js";
@@ -1470,7 +1470,8 @@ async function boot() {
   document.getElementById("call-answer")?.addEventListener("click", () => calls.acceptIncoming());
   document.getElementById("call-decline")?.addEventListener("click", () => calls.rejectIncoming());
   document.getElementById("call-overlay")?.addEventListener("click", (event) => {
-    if (event.target.closest("#call-mute, #call-camera, #call-answer, #call-decline")) return;
+    if (event.target.closest("#call-mute, #call-camera, #call-answer, #call-decline, #jitsi-container")) return;
+    if (!calls._joined) return;
     if (!calls.currentCall && !calls._jitsi) return;
     calls.end(true);
   });

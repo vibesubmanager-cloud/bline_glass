@@ -196,9 +196,8 @@ class CallController {
   }
 
   _jitsiOptions(room, parentNode, video) {
-    const { displayName, email } = callingIdentity();
+    const { displayName } = callingIdentity();
     const userInfo = { displayName };
-    if (email) userInfo.email = email;
     return {
       roomName: room,
       parentNode,
@@ -278,7 +277,7 @@ class CallController {
   _bindJitsiLifecycle(api, joinToken) {
     api.addListener("participantJoined", () => {
       if (this._joinToken !== joinToken || this._ending) return;
-      this._joined = true;
+      this._setJoined(true);
       if (this._participantCount(api) > 1) {
         this._hadRemote = true;
         this._announceConnected();
@@ -315,18 +314,11 @@ class CallController {
     const joinToken = ++this._joinToken;
     this._jitsi = new Jitsi(domain, this._jitsiOptions(room, parentNode, video));
     const api = this._jitsi;
-    const { displayName, email } = callingIdentity();
+    const { displayName } = callingIdentity();
     try {
       api.executeCommand("displayName", displayName);
     } catch {
       /* ignore */
-    }
-    if (email) {
-      try {
-        api.executeCommand("email", email);
-      } catch {
-        /* ignore */
-      }
     }
     armIframe(parentNode);
     const watcher = new MutationObserver(() => armIframe(parentNode));
@@ -339,7 +331,7 @@ class CallController {
             resolve();
             return;
           }
-          this._joined = true;
+          this._setJoined(true);
           try {
             const others = typeof api.getNumberOfParticipants === "function" ? api.getNumberOfParticipants() : 1;
             if (others > 1) this._announceConnected();
@@ -385,7 +377,7 @@ class CallController {
     const api = this._jitsi;
     this._jitsi = null;
     const wasJoined = this._joined;
-    this._joined = false;
+    this._setJoined(false);
     if (!api) return wasJoined;
     try {
       api.executeCommand("hangup");
@@ -622,6 +614,11 @@ class CallController {
     if (!this._room || this._ending || !this.currentCall) return;
     this._leftWhileHidden = false;
     await this._joinJitsi(this._room, this.videoMode);
+  }
+
+  _setJoined(on) {
+    this._joined = Boolean(on);
+    document.getElementById("call-overlay")?.classList.toggle("is-joined", this._joined);
   }
 
   updateBanner(text) {

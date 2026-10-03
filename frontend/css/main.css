@@ -617,6 +617,7 @@ body.nav-active.map-closed .stage-canvas {
   border-radius: 0;
   background: #05070c;
   border: 0;
+  backdrop-filter: none;
 }
 
 .call-overlay.is-video #call-status-text {
@@ -643,6 +644,11 @@ body.nav-active.map-closed .stage-canvas {
   width: 100% !important;
   height: 100% !important;
   border: 0;
+  pointer-events: auto;
+}
+
+.call-overlay.is-video.is-joined .jitsi-container,
+.call-overlay.is-video.is-joined .jitsi-container iframe {
   pointer-events: none;
 }
 
